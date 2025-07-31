@@ -133,6 +133,7 @@ for (cycle in cycles) {
 
 ```{r}
 df <- bind_cols(df_cat, df_con[, !(names(df_con) %in% names(df_cat))])
+write.csv(df, paste0("Data/DemPoRT/mock_all_cycles.csv"), row.names = F)
 ```
 
 ### save for each cycle
