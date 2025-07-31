@@ -1,7 +1,7 @@
 ---
-title: "Excample of generating mock data using PHIAT-YLL files based on variable and variable-details sheets"
+title: "Create mock data for DemPoRT"
 author: "Juan Li"
-date: 2025-07-02
+date: 2025-07-30
 format: 
   html:
     toc: true
@@ -32,42 +32,58 @@ source("R/util.R")
 ## Read in variable and variable_details sheet
 
 ```{r}
-# PHIAT-YLL variables
-variables <- read.csv("Worksheets/phiatyll_variables.csv", header = T, check.names=FALSE, na.strings=c("","NA","N/A"))
-# CCHS variable details
-variable_details_c <- read.csv("Worksheets/cchsflow-variable-details.csv", header = T, check.names=FALSE, na.strings=c("","NA","N/A"))  
-# additional PHIAT-YLL variable details
-variable_details_p <- read.csv("Worksheets/phiatyll_variables_details.csv", header = T, check.names=FALSE, na.strings=c("","NA","N/A")) 
-
-variable_details <- bind_rows(variable_details_c, variable_details_p) %>% 
-  filter(variable %in% variables$variable)
+# DemPoRT variables
+variables <- read.csv("Worksheets/variables_DemPoRT.csv", header = T, check.names=FALSE, na.strings=c("","NA","N/A")) 
+# DemPoRT variable details
+variable_details <- read.csv("Worksheets/variable_details_DemPoRT.csv", header = T, check.names=FALSE, na.strings=c("","NA","N/A"))  
 ```
 
 ## Get required cycles
 
 ```{r}
-cycles <- sort(unique(unlist(str_split(paste(variables$databaseStart, collapse = ","), ","))))
-(cycles <- str_trim(cycles[str_detect(cycles, "cchs")]))
+cycles <- unlist(str_split(paste(variables$databaseStart, collapse = ","), ","))
+cycles <- unlist(str_split(cycles, " ")) 
+cycles <- str_trim(cycles[str_detect(cycles, "cchs")]) # trim whitespaces
+(cycles <- sort(unique(cycles)))
+
+# NOTE: clean cycles
+cycles <- sort(unique(str_replace_all(cycles, "cchs_", "cchs")))
+cycles
 ```
 
 ## Get variable names of each type
 
 ```{r}
+# check if variables and variable_details sheets match
+var1 <- variables$variable
+var2 <- unique(variable_details$variable)
+
+print("In variables, not in variable_details:")
+var1[!(var1 %in% var2)]
+print("In variable_details, not in variables:")
+var2[!(var2 %in% var1)]
+```
+
+```{r}
 # --- derived variables ---
-var_derived <- unique(variable_details[str_detect(variable_details$variableStart, "DerivedVar::") |
-  str_detect(variable_details$variable, "_der"), "variable"])
+var_derived <- unique(c(variables[str_detect(variables$variableStart, "DerivedVar::") |
+                          str_detect(variables$variable, "_der"), "variable"],
+                        variable_details[str_detect(variable_details$variableStart, "DerivedVar::") |
+                          str_detect(variable_details$variable, "_der"), "variable"]))
 print("--- Derived variables: ---")
 print(var_derived)
 
 # --- original variables ---
 # categorical variables
-var_cat <- unique(variables[variables$variableType == "Categorical", "variable"])
+var_cat <- unique(c(variables[variables$variableType == "Categorical", "variable"],
+                    variable_details[variable_details$variableType == "Categorical", "variable"]))
 var_cat <- var_cat[!(var_cat %in% var_derived)] # remove derived variable
 print("--- Categorical variables: ---")
 print(var_cat)
 
 # continuous variables
-var_con <- unique(variables[variables$variableType == "Continuous", "variable"])
+var_con <- unique(c(variables[variables$variableType == "Continuous", "variable"],
+                    variable_details[variable_details$variableType == "Continuous", "variable"]))
 var_con <- var_con[!(var_con %in% var_derived)] # remove derived variable
 print("--- Continuous variables: ---")
 print(var_con)
@@ -101,6 +117,11 @@ df_con <- data.frame()
 for (cycle in cycles) {
   df_i <- data.frame(cycle = rep(cycle, length))
   for (var in var_con) {
+    # catch the warning message
+    tryCatch({col <- create_con_var(var, cycle, variable_details, length, df_i, type = "uniform")},
+            warning = function(w) print(paste0(var, " in ", cycle)))
+    
+    # but need to run it again, otherwise, col will be the same value as in the last iteration
     col <- create_con_var(var, cycle, variable_details, length, df_i, type = "uniform")
     df_i <- bind_cols(df_i, col)
   }
@@ -114,11 +135,16 @@ for (cycle in cycles) {
 df <- bind_cols(df_cat, df_con[, !(names(df_con) %in% names(df_cat))])
 ```
 
+### save for each cycle
+
 ```{r}
-# check
-df_2003 <- df %>% filter(cycle == cycles[1])
-nNA <- colSums(is.na(df_2003))
-df_2003[, nNA == 0]
+for (cycle in cycles) {
+  dfi <- df %>% filter(cycle == cycle)
+  nNA <- colSums(is.na(dfi))
+  dfi[, nNA == 0]
+
+  write.csv(dfi, paste0("Data/DemPoRT/mock_", cycle, ".csv"), row.names = F)
+}
 ```
 
 ## 2. Generate mock data of derived variables

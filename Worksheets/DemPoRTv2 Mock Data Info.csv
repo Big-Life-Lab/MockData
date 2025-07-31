@@ -1,0 +1,15 @@
+﻿Variable,Sex,Proportion (or mean (IQR)),Date Range,Description
+CCC_181,all,0.034,NA,Prevalent dementia
+event,males,0.093,NA,10-year dementia incidence (event=1)
+event,females,0.126,NA,10-year dementia incidence (event=1)
+diagdate,all,NA,01JAN2001 - 31MAR2024,Diagnosis date
+outcome,males,0.285,NA,10-year death proportion (event = 2)
+outcome,females,0.246,NA,10-year death proportion (event = 2)
+dthdate,all,NA,01JAN2001 - 31MAR2024,Death date
+surveyadmdate,all,NA,01JAN2001 - 31DEC2017,Survey administration date
+losshce,all,0.01,NA,Loss of health care eligibility
+losshcedate,all,NA,01JAN2001 - 31MAR2024,Loss of health care eligibility date
+DHH_AGE,males,"66 (60, 74)",NA,Age at survey administration (range 55-105)
+DHH_AGE,females,"68 (61, 76)",NA,Age at survey administration (range 55-105)
+,,,,"Total observations male = 5,000"
+,,,,"Total observations female = 5,000"
