@@ -14,8 +14,6 @@ Some resources:
 
 <https://kgoldfeld.github.io/simstudy/>
 
-Test changes after transfer.
-
 ```{r}
 #| warning: false
 #| message: false
