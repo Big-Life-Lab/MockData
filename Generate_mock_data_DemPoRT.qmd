@@ -148,33 +148,7 @@ for (cycle in cycles) {
 }
 ```
 
-## 2. Generate mock data of derived variables
-
-```{r}
-
-```
-
-## 3. Optional: further manipulate data
-
-### Add missing data
-
-```{r}
-
-```
-
-### Add spoiled data
-
-```{r}
-
-```
-
-## 4. Add info from Table 1
-
-```{r}
-
-```
-
-## 5. Add info from correlation matrix
+# 2. Genarate outcome data
 
 ```{r}
 
