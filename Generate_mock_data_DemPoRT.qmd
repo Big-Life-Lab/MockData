@@ -150,6 +150,8 @@ for (cycle in cycles) {
 
 # 2. Genarate outcome data
 
+one male data one female data
+
 ```{r}
 
 ```
