@@ -1,0 +1,11 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.DS_Store$
+^\.git$
+^\.github$
+^Generate_mock_data\.qmd$
+^Generate_mock_data\.html$
+^Generate_mock_data_DemPoRT\.qmd$
+^Generate_mock_data_files$
+^Worksheets$
+^Data$
