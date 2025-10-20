@@ -23,10 +23,10 @@ library(dplyr)       # Data manipulation
 library(stringr)     # Working with strings
 #library(simstudy)    # Generate simulated data sets: https://cran.r-project.org/web/packages/simstudy/vignettes/simstudy.html
 
-# source helper functions
-source("R/create_cat_var.R")
-source("R/create_con_var.R")
-source("R/util.R")
+# Load MockData package functions
+source("R/mockdata-parsers.R")
+source("R/mockdata-helpers.R")
+source("R/mockdata-generators.R")
 ```
 
 ## Read in variable and variable_details sheet
