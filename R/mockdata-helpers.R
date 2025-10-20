@@ -42,6 +42,7 @@
 #' variable_raw since they require custom derivation logic.
 #'
 #' @examples
+#' \dontrun{
 #' # Load metadata
 #' variables <- read.csv("inst/extdata/variables.csv")
 #' variable_details <- read.csv("inst/extdata/variable-details.csv")
@@ -55,6 +56,7 @@
 #' # Exclude derived variables
 #' cycle1_original <- get_cycle_variables("cycle1", variables, variable_details,
 #'                                         include_derived = FALSE)
+#' }
 #'
 #' @seealso \code{\link{parse_variable_start}}
 #'
@@ -160,6 +162,7 @@ get_cycle_variables <- function(cycle, variables, variable_details,
 #' }
 #'
 #' @examples
+#' \dontrun{
 #' # Load metadata
 #' variables <- read.csv("inst/extdata/variables.csv")
 #' variable_details <- read.csv("inst/extdata/variable-details.csv")
@@ -175,6 +178,7 @@ get_cycle_variables <- function(cycle, variables, variable_details,
 #'   var_raw <- raw_vars$variable_raw[i]
 #'   var_type <- raw_vars$variableType[i]
 #'   # Generate the raw variable...
+#' }
 #' }
 #'
 #' @seealso \code{\link{get_cycle_variables}}, \code{\link{parse_variable_start}}
@@ -258,6 +262,7 @@ get_raw_variables <- function(cycle, variables, variable_details,
 #' - Plain format: "clc_age"
 #'
 #' @examples
+#' \dontrun{
 #' # CHMS: Get all harmonized variables derived from raw variable "clc_age" in cycle1
 #' details <- get_variable_details_for_raw("clc_age", "cycle1", variable_details)
 #'
@@ -265,6 +270,7 @@ get_raw_variables <- function(cycle, variables, variable_details,
 #' details_cchs <- get_variable_details_for_raw("HGT_CM", "cchs2001", variable_details)
 #'
 #' # This might return multiple rows for different harmonized variables
+#' }
 #'
 #' @keywords internal
 get_variable_details_for_raw <- function(var_raw, cycle, variable_details, variables = NULL) {
@@ -332,11 +338,13 @@ get_variable_details_for_raw <- function(var_raw, cycle, variable_details, varia
 #' Uses parse_range_notation() for robust range handling.
 #'
 #' @examples
+#' \dontrun{
 #' # Get regular categories (non-NA)
 #' categories <- get_variable_categories(var_details, include_na = FALSE)
 #'
 #' # Get NA codes
 #' na_codes <- get_variable_categories(var_details, include_na = TRUE)
+#' }
 #'
 #' @keywords internal
 get_variable_categories <- function(var_details, include_na = FALSE) {
