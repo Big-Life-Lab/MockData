@@ -5,9 +5,9 @@
 # Source MockData parser functions
 source("R/mockdata-parsers.R")
 
-# Load metadata
-variables <- read.csv("inst/extdata/variables.csv", stringsAsFactors = FALSE)
-variable_details <- read.csv("inst/extdata/variable-details.csv", stringsAsFactors = FALSE)
+# Load CHMS metadata
+variables <- read.csv("inst/testdata/chms/chms-variables.csv", stringsAsFactors = FALSE)
+variable_details <- read.csv("inst/testdata/chms/chms-variable-details.csv", stringsAsFactors = FALSE)
 
 cat("=== METADATA VALIDATION REPORT ===\n\n")
 

@@ -37,6 +37,7 @@
 #' - Special codes: "copy", "else", "NA::a"
 #'
 #' @examples
+#' \dontrun{
 #' # Create a categorical variable
 #' mock_gender <- create_cat_var(
 #'   var_raw = "DHH_SEX",
@@ -54,6 +55,7 @@
 #'   df_mock = existing_mock_data,
 #'   prop_NA = 0.05
 #' )
+#' }
 #'
 #' @export
 create_cat_var <- function(var_raw, cycle, variable_details, variables = NULL,
@@ -170,6 +172,7 @@ create_cat_var <- function(var_raw, cycle, variable_details, variables = NULL,
 #' For variables with multiple ranges (e.g., age categories), uses the overall min/max.
 #'
 #' @examples
+#' \dontrun{
 #' # Create a continuous variable with uniform distribution
 #' mock_bmi <- create_con_var(
 #'   var_raw = "HWTGBMI",
@@ -189,6 +192,7 @@ create_cat_var <- function(var_raw, cycle, variable_details, variables = NULL,
 #'   prop_NA = 0.02,
 #'   distribution = "normal"
 #' )
+#' }
 #'
 #' @export
 create_con_var <- function(var_raw, cycle, variable_details, variables = NULL,

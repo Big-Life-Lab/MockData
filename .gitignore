@@ -1,0 +1,17 @@
+# R build artifacts
+*.tar.gz
+*.Rcheck/
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+# macOS
+.DS_Store
+
+# Generated documentation
+man/*.Rd
+
+# Quarto/HTML output
+Generate_mock_data.html
+Generate_mock_data_files/

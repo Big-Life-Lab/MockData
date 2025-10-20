@@ -13,9 +13,9 @@ source("R/mockdata-parsers.R")     # parse_variable_start, parse_range_notation
 source("R/mockdata-helpers.R")      # get_cycle_variables, get_raw_variables, get-variable-categories, get-variable-details-for-raw
 source("R/mockdata-generators.R")  # create_cat_var, create_con_var
 
-# Load metadata
-variables <- read_csv("inst/extdata/variables.csv", show_col_types = FALSE)
-variable_details <- read_csv("inst/extdata/variable-details.csv", show_col_types = FALSE)
+# Load CHMS metadata
+variables <- read_csv("inst/testdata/chms/chms-variables.csv", show_col_types = FALSE)
+variable_details <- read_csv("inst/testdata/chms/chms-variable-details.csv", show_col_types = FALSE)
 
 cat("\n=== Testing Modular MockData Across All Cycles ===\n\n")
 
