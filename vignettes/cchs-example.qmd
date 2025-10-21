@@ -1,0 +1,224 @@
+---
+title: "Example of generating mock data using CCHS files based on variable and variable-details sheets"
+author: "Juan Li"
+date: 2025-07-02
+format: 
+  html:
+    toc: true
+    html-math-method: katex
+    css: styles.css
+editor: visual
+---
+
+Some resources:
+
+<https://kgoldfeld.github.io/simstudy/>
+
+```{r}
+#| warning: false
+#| message: false
+#| output: false
+
+library(dplyr)       # Data manipulation
+library(stringr)     # Working with strings
+#library(simstudy)    # Generate simulated data sets: https://cran.r-project.org/web/packages/simstudy/vignettes/simstudy.html
+
+# Load MockData package functions
+# Note: When running as vignette, use library(MockData)
+# For development, source directly:
+source("../R/mockdata-parsers.R")
+source("../R/mockdata-helpers.R")
+source("../R/create_cat_var.R")
+source("../R/create_con_var.R")
+
+```
+
+## Read in variable and variable_details sheet
+
+```{r}
+# CCHS sample variables
+variables <- read.csv(system.file("extdata/cchs/cchsflow_sample_variables.csv", package = "MockData"),
+                     header = T, check.names=FALSE, na.strings=c("","NA","N/A"))
+# CCHS sample variable details from cchsflow
+variable_details <- read.csv(system.file("extdata/cchs/cchsflow_sample_variable_details.csv", package = "MockData"),
+                              header = T, check.names=FALSE, na.strings=c("","NA","N/A"))
+```
+
+## Get required cycles
+
+```{r}
+# Extract unique cycle names from databaseStart column
+cycles <- sort(unique(unlist(str_split(paste(variables$databaseStart, collapse = ","), ","))))
+cycles <- str_trim(cycles[str_detect(cycles, "cchs")])
+print("Available CCHS cycles:")
+print(cycles)
+```
+
+## Understanding the metadata
+
+The sample metadata includes 20 harmonized variables. Let's examine how they're structured for one cycle:
+
+```{r}
+# Pick the first cycle to explore
+example_cycle <- cycles[1]
+cat("Examining cycle:", example_cycle, "\n\n")
+
+# Get all harmonized variables available in this cycle
+cycle_vars <- get_cycle_variables(example_cycle, variables, variable_details)
+
+cat("Total harmonized variables in", example_cycle, ":", nrow(cycle_vars), "\n")
+cat("Sample of variables:\n")
+print(head(cycle_vars[, c("variable", "variable_raw", "variableType", "label")], 10))
+```
+
+## Get raw variables to generate
+
+For mock data generation, we need to create the **raw source variables** (before harmonization), not the harmonized variables:
+
+```{r}
+# Get unique raw variables needed for this cycle (excludes derived variables)
+raw_vars <- get_raw_variables(example_cycle, variables, variable_details,
+                               include_derived = FALSE)
+
+cat("\nUnique raw variables to generate:", nrow(raw_vars), "\n")
+print(raw_vars)
+
+# Separate by type for easier processing
+raw_cat <- raw_vars[raw_vars$variableType == "Categorical", ]
+raw_con <- raw_vars[raw_vars$variableType == "Continuous", ]
+
+cat("\n- Categorical:", nrow(raw_cat), "variables")
+cat("\n- Continuous:", nrow(raw_con), "variables\n")
+```
+
+## Generate mock data for one cycle
+
+Now let's generate mock data for a single cycle using the modern helper-driven approach:
+
+```{r}
+# Configuration
+n_records <- 100
+target_cycle <- example_cycle
+seed <- 12345
+
+# Initialize data frame
+df_mock <- data.frame(id = 1:n_records)
+
+cat("Generating", n_records, "mock records for", target_cycle, "\n\n")
+```
+
+### Generate categorical variables
+
+```{r}
+# Get raw categorical variables for this cycle
+raw_cat_vars <- get_raw_variables(target_cycle, variables, variable_details,
+                                   include_derived = FALSE)
+raw_cat_vars <- raw_cat_vars[raw_cat_vars$variableType == "Categorical", ]
+
+cat("Generating", nrow(raw_cat_vars), "categorical variables:\n")
+for (i in 1:nrow(raw_cat_vars)) {
+  var_raw <- raw_cat_vars$variable_raw[i]
+  cat("  -", var_raw, "\n")
+
+  result <- create_cat_var(
+    var_raw = var_raw,
+    cycle = target_cycle,
+    variable_details = variable_details,
+    variables = variables,
+    length = n_records,
+    df_mock = df_mock,
+    seed = seed + i
+  )
+
+  if (!is.null(result)) {
+    df_mock <- cbind(df_mock, result)
+  }
+}
+
+cat("\nCategorical variables generated. Data frame now has", ncol(df_mock), "columns\n")
+```
+
+### Generate continuous variables
+
+```{r}
+# Get raw continuous variables for this cycle
+raw_con_vars <- get_raw_variables(target_cycle, variables, variable_details,
+                                   include_derived = FALSE)
+raw_con_vars <- raw_con_vars[raw_con_vars$variableType == "Continuous", ]
+
+cat("Generating", nrow(raw_con_vars), "continuous variables:\n")
+for (i in 1:nrow(raw_con_vars)) {
+  var_raw <- raw_con_vars$variable_raw[i]
+  cat("  -", var_raw, "\n")
+
+  result <- create_con_var(
+    var_raw = var_raw,
+    cycle = target_cycle,
+    variable_details = variable_details,
+    variables = variables,
+    length = n_records,
+    df_mock = df_mock,
+    distribution = "uniform",
+    seed = seed + 100 + i
+  )
+
+  if (!is.null(result)) {
+    df_mock <- cbind(df_mock, result)
+  }
+}
+
+cat("\nContinuous variables generated. Data frame now has", ncol(df_mock), "columns\n")
+```
+
+### Examine the result
+
+```{r}
+# Show structure
+cat("\nMock data structure:\n")
+str(df_mock)
+
+# Show first few rows
+cat("\nFirst 10 rows:\n")
+print(head(df_mock, 10))
+
+# Check for missing values
+cat("\nMissing value summary:\n")
+na_counts <- colSums(is.na(df_mock))
+print(na_counts[na_counts > 0])
+```
+
+## 2. Generate mock data of derived variables
+
+```{r}
+
+```
+
+## 3. Optional: further manipulate data
+
+### Add missing data
+
+```{r}
+
+```
+
+### Add spoiled data
+
+```{r}
+
+```
+
+## 4. Add info from Table 1
+
+```{r}
+
+```
+
+## 5. Add info from correlation matrix
+
+```{r}
+
+```
+
+```{r}
+
+```
