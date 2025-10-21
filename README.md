@@ -6,13 +6,13 @@ Generate mock testing data from recodeflow metadata (variables.csv and variable-
 
 MockData creates realistic mock data for testing harmonisation workflows across recodeflow projects (CHMS, CCHS, etc.). It reads variable specifications from metadata files and generates appropriate categorical and continuous variables with correct value ranges, tagged NAs, and reproducible seeds.
 
-## Key Features
+## Features
 
 - **Metadata-driven**: Uses existing `variables.csv` and `variable-details.csv` - no duplicate specifications needed
 - **Recodeflow-standard**: Supports all recodeflow notation formats (database-prefixed, bracket, mixed)
-- **Comprehensive validation**: Built-in tools to check metadata quality
+- **Metadata validation**: Tools to check metadata quality
 - **Universal**: Works across CHMS, CCHS, and future recodeflow projects
-- **Well-tested**: 224 tests covering parsers, helpers, and generators
+- **Test availability**: 224 tests covering parsers, helpers, and generators
 
 ## Installation
 
@@ -26,7 +26,7 @@ devtools::install_local("~/github/mock-data")
 
 **Note**: Package vignettes are in Quarto format (.qmd). To build vignettes locally, you need [Quarto](https://quarto.org/) installed. For team use, this is our standard going forward.
 
-## Quick Start
+## Quick start
 
 ```r
 library(MockData)
@@ -65,7 +65,7 @@ if (!is.null(result)) {
 }
 ```
 
-## Validation Tools
+## Validation tools
 
 Located in `mockdata-tools/`:
 
@@ -84,7 +84,7 @@ See `mockdata-tools/README.md` for detailed documentation.
 
 ## Architecture
 
-### Core Modules
+### Core modules
 
 1. **Parsers** (`R/mockdata-parsers.R`):
    - `parse_variable_start()`: Extracts raw variable names from variableStart
@@ -100,26 +100,6 @@ See `mockdata-tools/README.md` for detailed documentation.
    - `create_cat_var()` (`R/create_cat_var.R`): Generates categorical variables with tagged NA support
    - `create_con_var()` (`R/create_con_var.R`): Generates continuous variables with realistic distributions
 
-### Metadata Format Support
-
-**Database-prefixed format:**
-```
-variable: gen_015
-variableStart: cycle1::gen_15, cycle2::gen_15, cycle3::gen_15
-```
-
-**Bracket format (database-agnostic):**
-```
-variable: clc_age
-variableStart: [clc_age]
-```
-
-**Mixed format (DEFAULT/override pattern):**
-```
-variable: alc_015
-variableStart: cycle1::alcdmva1, [alcdmva2]
-```
-Where `[alcdmva2]` is the DEFAULT for all cycles not explicitly listed.
 
 ## Testing
 
@@ -131,31 +111,15 @@ devtools::test()
 testthat::test_file("tests/testthat/test-mockdata.R")
 ```
 
-## Roadmap
-
-### Current (v0.1.0)
-- ✅ Categorical variables
-- ✅ Continuous variables
-- ✅ Tagged NA support
-- ✅ Metadata validation tools
-
-### Planned
-- 📅 Date variables (for linkage testing)
-- 📅 Data quality injection (out-of-bounds, invalid codes, etc.)
-- 📅 Performance optimization
-- 📅 Additional vignettes
-
 ## Contributing
 
-This package is part of the recodeflow ecosystem. For questions or contributions:
-- Juan Li: juan.li@oahpp.ca
-- Doug Manuel: dmanuel@ohri.ca
+This package is part of the recodeflow ecosystem. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Related Projects
 
-- **chmsflow**: CHMS harmonisation workflows
-- **cchsflow**: CCHS harmonisation workflows
+- [**chmsflow**](https://github.com/Big-Life-Lab/chmsflow): CHMS harmonisation workflows
+- [**cchsflow**](https://github.com/Big-Life-Lab/cchsflow): CCHS harmonisation workflows

@@ -32,8 +32,8 @@
 #' @examples
 #' \dontrun{
 #' # Create a continuous variable with uniform distribution
-#' mock_bmi <- create_con_var(
-#'   var_raw = "HWTGBMI",
+#' mock_drinks_week <- create_con_var(
+#'   var_raw = "alcdwky",
 #'   cycle = "cycle1",
 #'   variable_details = variable_details,
 #'   length = 1000,
@@ -41,8 +41,8 @@
 #' )
 #'
 #' # Create with normal distribution and NA values
-#' mock_age <- create_con_var(
-#'   var_raw = "DHHAGAGE",
+#' mock_drinks_norm <- create_con_var(
+#'   var_raw = "alcdwky",
 #'   cycle = "cycle1",
 #'   variable_details = variable_details,
 #'   length = 1000,
