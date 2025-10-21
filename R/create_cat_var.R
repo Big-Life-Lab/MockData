@@ -30,16 +30,16 @@
 #' @examples
 #' \dontrun{
 #' # Create a categorical variable
-#' mock_gender <- create_cat_var(
-#'   var_raw = "DHH_SEX",
+#' mock_alcohol_past_year <- create_cat_var(
+#'   var_raw = "alc_11",
 #'   cycle = "cycle1",
 #'   variable_details = variable_details,
 #'   length = 1000
 #' )
 #'
 #' # Create with NA values
-#' mock_age_cat <- create_cat_var(
-#'   var_raw = "clc_age",
+#' mock_alcohol <- create_cat_var(
+#'   var_raw = "alc_11",
 #'   cycle = "cycle1",
 #'   variable_details = variable_details,
 #'   length = 1000,
