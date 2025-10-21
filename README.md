@@ -24,14 +24,22 @@ devtools::install_local("~/github/mock-data")
 # devtools::install_github("your-org/MockData")
 ```
 
+**Note**: Package vignettes are in Quarto format (.qmd). To build vignettes locally, you need [Quarto](https://quarto.org/) installed. For team use, this is our standard going forward.
+
 ## Quick Start
 
 ```r
 library(MockData)
 
-# Load metadata
-variables <- read.csv("inst/extdata/variables.csv", stringsAsFactors = FALSE)
-variable_details <- read.csv("inst/extdata/variable-details.csv", stringsAsFactors = FALSE)
+# Load metadata (CHMS example with sample data)
+variables <- read.csv(
+  system.file("extdata/chms/chmsflow_sample_variables.csv", package = "MockData"),
+  stringsAsFactors = FALSE
+)
+variable_details <- read.csv(
+  system.file("extdata/chms/chmsflow_sample_variable_details.csv", package = "MockData"),
+  stringsAsFactors = FALSE
+)
 
 # Get variables for a specific cycle
 cycle1_vars <- get_cycle_variables("cycle1", variables, variable_details)
@@ -43,14 +51,14 @@ raw_vars <- get_raw_variables("cycle1", variables, variable_details)
 df_mock <- data.frame(id = 1:1000)
 
 # Generate a categorical variable
-result <- create_cat_var("clc_sex", "cycle1", variable_details, variables,
+result <- create_cat_var("DHH_SEX", "cycle1", variable_details, variables,
                         length = 1000, df_mock = df_mock, seed = 123)
 if (!is.null(result)) {
   df_mock <- cbind(df_mock, result)
 }
 
 # Generate a continuous variable
-result <- create_con_var("clc_age", "cycle1", variable_details, variables,
+result <- create_con_var("HWTGBMI", "cycle1", variable_details, variables,
                         length = 1000, df_mock = df_mock, seed = 123)
 if (!is.null(result)) {
   df_mock <- cbind(df_mock, result)
@@ -59,20 +67,20 @@ if (!is.null(result)) {
 
 ## Validation Tools
 
-Located in `inst/validation/mockdata-tools/`:
+Located in `mockdata-tools/`:
 
 ```bash
 # Validate metadata quality
-Rscript inst/validation/mockdata-tools/validate-metadata.R
+Rscript mockdata-tools/validate-metadata.R
 
 # Test all cycles
-Rscript inst/validation/mockdata-tools/test-all-cycles.R
+Rscript mockdata-tools/test-all-cycles.R
 
 # Compare different approaches
-Rscript inst/validation/mockdata-tools/create-comparison.R
+Rscript mockdata-tools/create-comparison.R
 ```
 
-See `inst/validation/mockdata-tools/README.md` for detailed documentation.
+See `mockdata-tools/README.md` for detailed documentation.
 
 ## Architecture
 
@@ -88,9 +96,9 @@ See `inst/validation/mockdata-tools/README.md` for detailed documentation.
    - `get_variable_details_for_raw()`: Retrieves category specifications
    - `get_variable_categories()`: Extracts valid category codes
 
-3. **Generators** (`R/mockdata-generators.R`):
-   - `create_cat_var()`: Generates categorical variables with tagged NA support
-   - `create_con_var()`: Generates continuous variables with realistic distributions
+3. **Generators**:
+   - `create_cat_var()` (`R/create_cat_var.R`): Generates categorical variables with tagged NA support
+   - `create_con_var()` (`R/create_con_var.R`): Generates continuous variables with realistic distributions
 
 ### Metadata Format Support
 

@@ -4,10 +4,13 @@
 
 # Source MockData parser functions
 source("R/mockdata-parsers.R")
+source("R/mockdata-helpers.R")
+source("R/create_cat_var.R")
+source("R/create_con_var.R")
 
-# Load CHMS metadata
-variables <- read.csv("inst/testdata/chms/chms-variables.csv", stringsAsFactors = FALSE)
-variable_details <- read.csv("inst/testdata/chms/chms-variable-details.csv", stringsAsFactors = FALSE)
+# Load metadata (CHMS example)
+variables <- read.csv("inst/extdata/chms/chms-variables.csv", stringsAsFactors = FALSE)
+variable_details <- read.csv("inst/extdata/chms/chms-variable-details.csv", stringsAsFactors = FALSE)
 
 cat("=== METADATA VALIDATION REPORT ===\n\n")
 
