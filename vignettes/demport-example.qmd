@@ -24,18 +24,24 @@ library(stringr)     # Working with strings
 #library(simstudy)    # Generate simulated data sets: https://cran.r-project.org/web/packages/simstudy/vignettes/simstudy.html
 
 # Load MockData package functions
-source("R/mockdata-parsers.R")
-source("R/mockdata-helpers.R")
-source("R/mockdata-generators.R")
+# Note: When running as vignette, use library(MockData)
+# For development, source directly:
+source("../R/mockdata-parsers.R")
+source("../R/mockdata-helpers.R")
+source("../R/create_cat_var.R")
+source("../R/create_con_var.R")
+
 ```
 
 ## Read in variable and variable_details sheet
 
 ```{r}
 # DemPoRT variables
-variables <- read.csv("Worksheets/variables_DemPoRT.csv", header = T, check.names=FALSE, na.strings=c("","NA","N/A")) 
+variables <- read.csv(system.file("extdata/demport/variables_DemPoRT.csv", package = "MockData"),
+                     header = T, check.names=FALSE, na.strings=c("","NA","N/A"))
 # DemPoRT variable details
-variable_details <- read.csv("Worksheets/variable_details_DemPoRT.csv", header = T, check.names=FALSE, na.strings=c("","NA","N/A"))  
+variable_details <- read.csv(system.file("extdata/demport/variable_details_DemPoRT.csv", package = "MockData"),
+                            header = T, check.names=FALSE, na.strings=c("","NA","N/A"))  
 ```
 
 ## Get required cycles
@@ -103,8 +109,18 @@ df_cat <- data.frame()
 for (cycle in cycles) {
   df_i <- data.frame(cycle = rep(cycle, length))
   for (var in var_cat) {
-    col <- create_cat_var(var, cycle, variable_details, length, df_i)
-    df_i <- bind_cols(df_i, col)
+    # Note: Using new function signature from mockdata-generators.R
+    col <- create_cat_var(
+      var_raw = var,
+      cycle = cycle,
+      variable_details = variable_details,
+      variables = variables,
+      length = length,
+      df_mock = df_i
+    )
+    if (!is.null(col)) {
+      df_i <- bind_cols(df_i, col)
+    }
   }
   df_cat <- bind_rows(df_cat, df_i)
 }
@@ -117,13 +133,33 @@ df_con <- data.frame()
 for (cycle in cycles) {
   df_i <- data.frame(cycle = rep(cycle, length))
   for (var in var_con) {
-    # catch the warning message
-    tryCatch({col <- create_con_var(var, cycle, variable_details, length, df_i, type = "uniform")},
-            warning = function(w) print(paste0(var, " in ", cycle)))
-    
-    # but need to run it again, otherwise, col will be the same value as in the last iteration
-    col <- create_con_var(var, cycle, variable_details, length, df_i, type = "uniform")
-    df_i <- bind_cols(df_i, col)
+    # Note: Using new function signature from mockdata-generators.R
+    # Catch warnings
+    tryCatch({
+      col <- create_con_var(
+        var_raw = var,
+        cycle = cycle,
+        variable_details = variable_details,
+        variables = variables,
+        length = length,
+        df_mock = df_i,
+        distribution = "uniform"
+      )
+    }, warning = function(w) print(paste0(var, " in ", cycle)))
+
+    # Run again to actually get the result (workaround for tryCatch behavior)
+    col <- create_con_var(
+      var_raw = var,
+      cycle = cycle,
+      variable_details = variable_details,
+      variables = variables,
+      length = length,
+      df_mock = df_i,
+      distribution = "uniform"
+    )
+    if (!is.null(col)) {
+      df_i <- bind_cols(df_i, col)
+    }
   }
   df_con <- bind_rows(df_con, df_i)
 }
@@ -133,7 +169,7 @@ for (cycle in cycles) {
 
 ```{r}
 df <- bind_cols(df_cat, df_con[, !(names(df_con) %in% names(df_cat))])
-write.csv(df, paste0("Data/DemPoRT/mock_all_cycles.csv"), row.names = F)
+write.csv(df, paste0("output/mock_all_cycles.csv"), row.names = F)
 ```
 
 ### save for each cycle
@@ -144,7 +180,7 @@ for (cycle in cycles) {
   nNA <- colSums(is.na(dfi))
   dfi[, nNA == 0]
 
-  write.csv(dfi, paste0("Data/DemPoRT/mock_", cycle, ".csv"), row.names = F)
+  write.csv(dfi, paste0("output/mock_", cycle, ".csv"), row.names = F)
 }
 ```
 
