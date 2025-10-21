@@ -51,14 +51,14 @@ raw_vars <- get_raw_variables("cycle1", variables, variable_details)
 df_mock <- data.frame(id = 1:1000)
 
 # Generate a categorical variable
-result <- create_cat_var("DHH_SEX", "cycle1", variable_details, variables,
+result <- create_cat_var("alc_11", "cycle1", variable_details, variables,
                         length = 1000, df_mock = df_mock, seed = 123)
 if (!is.null(result)) {
   df_mock <- cbind(df_mock, result)
 }
 
 # Generate a continuous variable
-result <- create_con_var("HWTGBMI", "cycle1", variable_details, variables,
+result <- create_con_var("alcdwky", "cycle1", variable_details, variables,
                         length = 1000, df_mock = df_mock, seed = 123)
 if (!is.null(result)) {
   df_mock <- cbind(df_mock, result)
