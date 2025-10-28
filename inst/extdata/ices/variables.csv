@@ -1,0 +1,3 @@
+variable,label,labelLong,section,variableType,databaseStart,units,variableStart,notes,description
+death_date,Death date,Death date,date,cont,ices,,[death_date],,
+birth_date,Birth date,Birth date,date,cont,ices,,[birth_date],,
