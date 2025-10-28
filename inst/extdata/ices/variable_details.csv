@@ -1,0 +1,5 @@
+variable,dummyVariable,typeEnd,databaseStart,variableStart,typeStart,recEnd,numValidCat,catLabel,catLabelLong,units,recStart,catStartLabel,variableStartShortLabel,variableStartLabel,notes
+death_date,N/A,cont,ices,[death_date],cont,"[2001-01-01, 2017-03-31]",,Death date,Death date,,"[01JAN2001, 31MAR2017]",,,,
+death_date,N/A,cont,ices,[death_date],cont,NA::b,,Missing,Missing,,else,,,,
+birth_date,N/A,cont,ices,[birth_date],cont,"[1959-10-31, 2000-01-31]",,Birth date,Birth date,,"[31OCT1959, 31JAN2000]",,,,
+birth_date,N/A,cont,ices,[birth_date],cont,NA::b,,Missing,Missing,,else,,,,
