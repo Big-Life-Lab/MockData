@@ -1,75 +1,189 @@
-#' @description This function creates continuous variables based on specifications from `variable` and `variable-details` sheets.
+#' Create continuous variable for MockData
 #'
-#' @param var A string representing the variable name.
-#' @param cycle A string indicating the cycle (e.g., "CCHS2001").
-#' @param variable_details A data frame containing details about variables, including ranges and NA specifications.
-#' @param length An integer specifying the desired length of the generated variable.
-#' @param df_mock data frame, the current generated mock data, to check if the raw variable has already been created.
-#' @param type A string indicating the distribution type for the continuous variable. Can be "normal" or "uniform". Default is "normal".
-#' @param prop_NA A numeric value between 0 and 1, representing the proportion of NAs to introduce. If NULL, no NAs are introduced. Default is NULL.
-#' @param seed An integer for setting the random seed to ensure reproducibility. Default is 100.
+#' Creates a continuous mock variable based on specifications from variable_details.
 #'
-#' @return A data frame with one column, representing the newly created continuous variable. The column name will be the raw variable name extracted from `variable_details`.
+#' @param var_raw character. The RAW variable name (as it appears in source data)
+#' @param cycle character. The cycle identifier (e.g., "cycle1", "HC1")
+#' @param variable_details data.frame. Variable details metadata
+#' @param variables data.frame. Variables metadata (optional, for validation)
+#' @param length integer. The desired length of the mock data vector
+#' @param df_mock data.frame. The current mock data (to check if variable already exists)
+#' @param prop_NA numeric. Optional. Proportion of NA values (0 to 1). If NULL, no NAs introduced.
+#' @param seed integer. Random seed for reproducibility. Default is 100.
+#' @param distribution character. Distribution type: "uniform" (default) or "normal"
+#'
+#' @return data.frame with one column (the new continuous variable), or NULL if:
+#'   - Variable details not found
+#'   - Variable already exists in df_mock
+#'   - No valid range found
+#'
+#' @details
+#' This function uses:
+#' - `get_variable_details_for_raw()` to find variable specifications
+#'
+#' The function handles continuous ranges:
+#' - Closed intervals: "[18.5,25]" → 18.5 ≤ x ≤ 25
+#' - Half-open intervals: "[18.5,25)" → 18.5 ≤ x < 25
+#' - Open intervals: "(18.5,25)" → 18.5 < x < 25
+#' - Infinity ranges: "[30,inf)" → x ≥ 30
+#'
+#' For variables with multiple ranges (e.g., age categories), uses the overall min/max.
+#'
 #' @examples
-#' # Assuming 'variable_details' is a pre-loaded data frame with variable specifications
-#' # create_con_var("age", "cycle1", variable_details, 1000, type = "normal")
-#' # create_con_var("income", "cycle2", variable_details, 500, type = "uniform", prop_NA = 0.1)
+#' \dontrun{
+#' # Create a continuous variable with uniform distribution
+#' mock_drinks_week <- create_con_var(
+#'   var_raw = "alcdwky",
+#'   cycle = "cycle1",
+#'   variable_details = variable_details,
+#'   length = 1000,
+#'   df_mock = data.frame()
+#' )
 #'
+#' # Create with normal distribution and NA values
+#' mock_drinks_norm <- create_con_var(
+#'   var_raw = "alcdwky",
+#'   cycle = "cycle1",
+#'   variable_details = variable_details,
+#'   length = 1000,
+#'   df_mock = existing_data,
+#'   prop_NA = 0.02,
+#'   distribution = "normal"
+#' )
+#' }
+#'
+#' @export
+create_con_var <- function(var_raw, cycle, variable_details, variables = NULL,
+                            length, df_mock, prop_NA = NULL, seed = 100,
+                            distribution = "uniform") {
 
-create_con_var <- function(var, cycle, variable_details, length, df_mock, 
-  type = "normal", prop_NA = NULL, seed = 100) {
-  # related rows in variable_details
-  var_details <- variable_details[variable_details$variable == var & str_detect(variable_details$variableStart, cycle),]
+  # Level 1: Get variable details for this raw variable + cycle
+  var_details <- get_variable_details_for_raw(var_raw, cycle, variable_details, variables)
 
-  if (nrow(var_details) > 0) {
-      # extract the row variable name in the corresponding cycle
-      temp <- unlist(str_split(var_details$variableStart[1],","))
-      var_raw <- unlist(str_split(temp[str_detect(temp, cycle)],"::"))[2]
+  if (nrow(var_details) == 0) {
+    # No variable details found for this raw variable in this cycle
+    return(NULL)
+  }
 
-    if (!(var_raw %in% names(df_mock))) {
-      # extract values from `recStart` column
-      # real levels
-      rng <- var_details$recStart[!(str_detect(var_details$recEnd, "NA"))]
-      rng <- as.numeric(unlist(str_extract_all(rng, "\\d+\\.?\\d*"))) # extract integers or float
-        
-      # NA levels
-      NA_labels <- var_details$recStart[str_detect(var_details$recEnd, "NA")]
-      if (any(str_detect(NA_labels, ","))) { # unpack the ranges
-          temp <- NA_labels[!str_detect(NA_labels, ",")]
-          ranges <- NA_labels[str_detect(NA_labels, ",")]
-          for (range in ranges) {
-              temp <- c(temp, unpack_range(range))
-          }
-          NA_labels <- sort(temp)
-      }
+  # Check if variable already exists in mock data
+  if (var_raw %in% names(df_mock)) {
+    # Variable already created, skip
+    return(NULL)
+  }
 
-      # create mock variable
-      if (is.null(prop_NA)) {
-        col <- data.frame(new = create_vec(length, rng, type, seed)) 
-      } else { # optional: add NA levels
-        vec <- create_vec(length * (1-prop_NA), rng, type, seed)
-        set.seed(seed)
-        vec.na <- sample(NA_labels, length * prop_NA, replace = T)
+  # Level 2: Extract continuous ranges from recStart
+  # For continuous variables, we need to find the overall min/max from all ranges
+  rec_start_values <- var_details$recStart[!grepl("NA", var_details$recEnd, fixed = TRUE)]
 
-        vec <- sample(c(vec, vec.na)) # combine and randomly sorted
-        col <- data.frame(new = c(vec, vec.na))[1:length] 
-      }
-      names(col)[1] <- var_raw
-      
-      return(col)
+  if (length(rec_start_values) == 0) {
+    # No valid ranges found
+    return(NULL)
+  }
+
+  # Parse all ranges to find overall min/max
+  all_mins <- c()
+  all_maxs <- c()
+  has_else <- FALSE
+
+  for (value in rec_start_values) {
+    if (is.na(value) || value == "") next
+
+    parsed <- parse_range_notation(value)
+
+    if (is.null(parsed)) next
+
+    if (parsed$type %in% c("integer", "continuous", "single_value")) {
+      all_mins <- c(all_mins, parsed$min)
+      all_maxs <- c(all_maxs, parsed$max)
+    } else if (parsed$type == "special" && parsed$value == "else") {
+      # "else" means pass-through - we need to generate default values
+      has_else <- TRUE
     }
   }
-}
 
-# ---------------------
-create_vec <- function(length, range, type, seed) {
-  set.seed(seed)
-  if (type == "normal") {
-    vec <- rnorm(length, mean = mean(range), sd = diff(range)/10) # DISCUSSION: sd
-    vec[vec < range[1]] <- range[1]
-    vec[vec > range[2]] <- range[2]
-  } else if (type == "uniform") {
-    vec <- runif(length, min = range[1], max = range[2])
+  if (length(all_mins) == 0 || length(all_maxs) == 0) {
+    if (has_else) {
+      # For "else" (pass-through) variables with no explicit range,
+      # use reasonable defaults based on common continuous variable ranges
+      warning(paste0(
+        "Variable '", var_raw, "' has recStart='else' with no explicit range. ",
+        "Using default range [0, 100]."
+      ))
+      all_mins <- c(0)
+      all_maxs <- c(100)
+    } else {
+      # No valid numeric ranges found and no "else"
+      return(NULL)
+    }
   }
-  return(vec)
+
+  # Get overall range
+  overall_min <- min(all_mins, na.rm = TRUE)
+  overall_max <- max(all_maxs, na.rm = TRUE)
+
+  # Handle infinity
+  if (is.infinite(overall_min)) overall_min <- 0
+  if (is.infinite(overall_max)) overall_max <- overall_min + 100  # Arbitrary upper bound
+
+  # Level 2: Extract NA codes (if prop_NA specified)
+  na_labels <- NULL
+  if (!is.null(prop_NA) && prop_NA > 0) {
+    na_labels <- get_variable_categories(var_details, include_na = TRUE)
+
+    if (length(na_labels) == 0) {
+      # No NA codes found, use actual NA
+      na_labels <- NA
+    }
+  }
+
+  # Generate mock data
+  set.seed(seed)
+
+  # Calculate counts
+  n_regular <- if (!is.null(prop_NA)) floor(length * (1 - prop_NA)) else length
+  n_na <- if (!is.null(prop_NA)) (length - n_regular) else 0
+
+  # Generate continuous values
+  if (distribution == "normal") {
+    # Normal distribution centered at midpoint
+    midpoint <- (overall_min + overall_max) / 2
+    spread <- (overall_max - overall_min) / 4  # Use 1/4 of range as SD
+
+    values <- rnorm(n_regular, mean = midpoint, sd = spread)
+
+    # Clip to range
+    values <- pmax(overall_min, pmin(overall_max, values))
+
+  } else {
+    # Uniform distribution (default)
+    values <- runif(n_regular, min = overall_min, max = overall_max)
+  }
+
+  # Add NA values if requested
+  if (n_na > 0) {
+    if (length(na_labels) > 0 && !is.na(na_labels[1])) {
+      # Use NA codes from variable_details
+      na_values <- sample(na_labels, n_na, replace = TRUE)
+    } else {
+      # Use actual NA
+      na_values <- rep(NA, n_na)
+    }
+
+    # Combine and shuffle
+    all_values <- c(values, na_values)
+    all_values <- sample(all_values)
+  } else {
+    all_values <- values
+  }
+
+  # Ensure exact length
+  col <- data.frame(
+    new = all_values[1:length],
+    stringsAsFactors = FALSE
+  )
+
+  # Set column name to raw variable name
+  names(col)[1] <- var_raw
+
+  return(col)
 }
