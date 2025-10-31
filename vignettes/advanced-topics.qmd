@@ -1,0 +1,511 @@
+---
+title: "Advanced topics"
+author: "MockData Team"
+date: 2025-10-30
+format:
+  html:
+    toc: true
+    code-fold: false
+    html-math-method: katex
+    css: styles.css
+editor: visual
+---
+
+```{r}
+#| label: setup
+#| include: false
+devtools::load_all("../", quiet = TRUE)
+```
+
+## Overview
+
+This guide covers advanced technical topics for MockData power users, including NA handling internals, derived variables, and custom metadata patterns.
+
+**Prerequisites:** Read the [User guide](user-guide.html) before this document.
+
+## NA handling: Technical details
+
+### Design rationale
+
+In recodeflow metadata, the `else` rule appears in `recStart` to catch "unexpected values" during harmonization:
+
+```         
+recStart    recEnd      Meaning
+[0, 84]     copy        Valid values 0-84 pass through
+996         NA::a       996 becomes "not applicable"
+[997,999]   NA::b       997-999 become "missing"
+else        NA::b       Everything else becomes "missing"
+```
+
+**The question:** When generating mock **raw** data (before harmonization), what value should `else` produce?
+
+**The answer:** `else` represents unpredictable garbage values in real data (typos, invalid codes, data entry errors). We can't predict what specific garbage values might appear, so MockData **filters out `else`** and represents unexpected values as explicit NA codes or actual NA.
+
+**Why this design:**
+
+1\. `else` is a harmonization rule, not a data value
+
+2\. Literal string "else" would never appear in real raw data
+
+3\. We can't predict what garbage values `else` might catch (could be "99999", "X", "", etc.)
+
+4\. Using NA codes or actual NA is the most faithful representation
+
+### Implementation details
+
+The internal function `get_variable_categories()` processes metadata to extract valid values for sampling.
+
+**Special code handling:**
+
+``` r
+# Pseudo-code for get_variable_categories()
+for (each row in variable_details) {
+  if (recStart is range) {
+    expand range → add to values
+  } else if (recStart is special code) {
+    if (special code == "else") {
+      skip  # Filter out "else"
+    } else if (special code == "copy") {
+      skip  # "copy" is not a value
+    } else {
+      add to values  # Keep NA::a, NA::b codes
+    }
+  } else {
+    add to values  # Keep regular values
+  }
+}
+```
+
+**Result:** `else` never appears in generated mock data.
+
+### Edge cases
+
+#### Case 1: Explicit NA codes with `else` (most common)
+
+**Metadata:**
+
+``` r
+variable_details <- data.frame(
+  variable = "alcdwky",
+  recStart = c("[0, 84]", "996", "[997, 999]", "else"),
+  recEnd = c("copy", "NA::a", "NA::b", "NA::b"),
+  catLabel = c("Drinks per week", "not applicable", "missing", "missing")
+)
+```
+
+**Extracted values:**
+
+-   Valid range: 0-84
+-   NA codes: 996, 997, 998, 999
+-   `else`: **filtered out**
+
+**When `prop_NA = 0.1`:**
+
+-   90% of values: sampled from \[0, 84\]
+-   10% of values: sampled from {996, 997, 998, 999}
+
+#### Case 2: Only `else` rule for missing
+
+**Metadata:**
+
+``` r
+variable_details <- data.frame(
+  variable = "smoking",
+  recStart = c("1", "2", "3", "else"),
+  recEnd = c("1", "2", "3", "NA::b"),
+  catLabel = c("Daily", "Occasional", "Never", "Unexpected")
+)
+```
+
+**Extracted values:**
+
+-   Valid categories: 1, 2, 3
+-   `else`: **filtered out**
+-   No explicit NA codes available
+
+**When `prop_NA = 0.1`:**
+
+-   90% of values: sampled from {1, 2, 3}
+-   10% of values: actual `NA` (since no NA codes available)
+
+#### Case 3: Multiple special codes
+
+**Metadata:**
+
+``` r
+variable_details <- data.frame(
+  variable = "height",
+  recStart = c("[100, 200]", "copy", "996", "else"),
+  recEnd = c("copy", "copy", "NA::a", "NA::b"),
+  catLabel = c("Height (cm)", "Passthrough", "Not applicable", "Unexpected")
+)
+```
+
+**Extracted values:**
+
+-   Valid range: 100-200
+-   `copy`: filtered out (not a value)
+-   NA codes: 996
+-   `else`: filtered out
+
+**Result:** Missing values use code 996 only.
+
+### Complete technical example
+
+```{r}
+#| warning: false
+#| message: false
+library(dplyr)
+
+# Metadata with else rule
+var_details <- data.frame(
+  variable = c("alcdwky", "alcdwky", "alcdwky", "alcdwky"),
+  variableStart = c("alcdwky", "alcdwky", "alcdwky", "alcdwky"),
+  databaseStart = c("cycle1", "cycle1", "cycle1", "cycle1"),
+  variableType = c("continuous", "continuous", "continuous", "continuous"),
+  recStart = c("[0, 84]", "996", "[997, 999]", "else"),
+  recEnd = c("copy", "NA::a", "NA::b", "NA::b"),
+  catLabel = c("Drinks per week", "not applicable", "missing", "missing"),
+  stringsAsFactors = FALSE
+)
+
+print("Metadata:")
+print(var_details[, c("recStart", "recEnd", "catLabel")])
+
+# Extract NA codes (internal function)
+na_codes <- MockData:::get_variable_categories(var_details, include_na = TRUE)
+cat("\nNA codes extracted for sampling:\n")
+print(na_codes)
+cat("\nKey observation: 'else' is NOT in the list\n")
+
+# Generate mock data
+set.seed(123)
+mock_data <- create_con_var(
+  var_raw = "alcdwky",
+  cycle = "cycle1",
+  variable_details = var_details,
+  variables = NULL,
+  length = 1000,
+  df_mock = data.frame(id = 1:1000),
+  distribution = "uniform",
+  prop_NA = 0.10
+)
+
+# Verify no "else" strings
+cat("\nVerification:\n")
+cat("Contains 'else' string:", any(mock_data$alcdwky == "else", na.rm = TRUE), "\n")
+cat("Contains NA codes 996-999:", any(mock_data$alcdwky %in% c(996, 997, 998, 999), na.rm = TRUE), "\n")
+
+# Show distribution of values
+table_result <- table(mock_data$alcdwky, useNA = "always")
+cat("\nValue distribution (first 10 values):\n")
+print(head(table_result, 10))
+
+# Show NA code distribution
+na_values <- mock_data$alcdwky[mock_data$alcdwky >= 996 & !is.na(mock_data$alcdwky)]
+cat("\nNA code distribution:\n")
+print(table(na_values))
+```
+
+**Key observations:** 1. No literal "else" strings in output 2. Missing values use codes 996-999 3. Valid values in range \[0, 84\] 4. Proportion missing ≈ 10% as requested
+
+### Why this matters
+
+**Incorrect approach (hypothetical):**
+
+``` r
+# What we DON'T do:
+mock_data$variable[missing_indices] <- "else"  # ❌ Wrong!
+```
+
+**Correct approach:**
+
+``` r
+# What we DO:
+# 1. Filter out "else" from available values
+# 2. Use explicit NA codes if available
+# 3. Fall back to actual NA if no codes
+mock_data$variable[missing_indices] <- sample(na_codes)  # ✓ Correct
+```
+
+This ensures mock data accurately represents what raw data looks like before harmonization.
+
+## Derived variables
+
+MockData focuses on generating **raw variables** (direct survey measurements). Derived variables should be calculated from the generated raw data using standard harmonization workflows.
+
+**Typical workflow:**
+
+1.  Generate raw variables with MockData (e.g., height, weight)
+2.  Apply harmonization to calculate derived variables using `rec_with_table()` (e.g., BMI from height/weight)
+
+This approach mirrors real data processing where derived variables are computed during harmonization, not present in raw survey data.
+
+## Custom metadata
+
+You can create custom metadata for testing or non-standard use cases.
+
+### Minimal metadata structure
+
+**Variables table:**
+
+``` r
+variables <- data.frame(
+  variable = "my_var",
+  variableStart = "MY_VAR_01",
+  databaseStart = "my_study",
+  databaseEnd = "my_study",
+  variableType = "continuous"  # or "categorical"
+)
+```
+
+**Variable details table:**
+
+``` r
+variable_details <- data.frame(
+  variable = "my_var",
+  recStart = c("[0, 100]", "999"),
+  recEnd = c("copy", "NA::b"),
+  catLabel = c("Valid values", "Missing"),
+  variableStart = "MY_VAR_01",
+  databaseStart = "my_study"
+)
+```
+
+### Validation checklist
+
+Before generating with custom metadata:
+
+-   [ ] `variables` has required columns: variable, variableStart, databaseStart, databaseEnd, variableType
+-   [ ] `variable_details` has required columns: variable, recStart, recEnd, catLabel, variableStart, databaseStart
+-   [ ] Variable names match between tables
+-   [ ] Cycle/database names match between tables
+-   [ ] Ranges are well-formed: `"[min, max]"` format
+-   [ ] Special codes use correct syntax: `"NA::a"`, `"NA::b"`, `"copy"`
+-   [ ] No overlapping ranges for same variable
+
+### Testing custom metadata
+
+Start small and verify:
+
+``` r
+# Test with minimal data
+test_variables <- data.frame(
+  variable = "test",
+  variableStart = "TEST_01",
+  databaseStart = "cycle1",
+  databaseEnd = "cycle1",
+  variableType = "continuous"
+)
+
+test_details <- data.frame(
+  variable = "test",
+  recStart = "[1, 10]",
+  recEnd = "copy",
+  catLabel = "Test range",
+  variableStart = "TEST_01",
+  databaseStart = "cycle1"
+)
+
+# Generate small sample
+result <- create_con_var(
+  var_raw = "TEST_01",
+  cycle = "cycle1",
+  variable_details = test_details,
+  variables = test_variables,
+  length = 10,
+  df_mock = data.frame(id = 1:10),
+  distribution = "uniform"
+)
+
+# Verify
+summary(result$test)
+```
+
+## Duplicate prevention: How `df_mock` works
+
+### Implementation
+
+All generator functions check if a variable already exists before creating it:
+
+``` r
+# From create_cat_var.R (lines 64-68)
+if (var_raw %in% names(df_mock)) {
+  # Variable already created, skip
+  return(NULL)
+}
+```
+
+### Why this matters
+
+**Without duplicate checking:**
+
+``` r
+# Dangerous - creates duplicate columns
+for (i in 1:3) {
+  df <- cbind(df, create_cat_var("SMK_01", ...))
+}
+# Result: df has SMK_01, SMK_01.1, SMK_01.2
+```
+
+**With duplicate checking:**
+
+``` r
+# Safe - only creates variable once
+for (i in 1:3) {
+  col <- create_cat_var("SMK_01", ..., df_mock = df)
+  if (!is.null(col)) df <- cbind(df, col)
+}
+# Result: df has SMK_01 (created once, subsequent calls return NULL)
+```
+
+### Design tradeoff
+
+**Current API (explicit cbind):**
+
+-   **Pro:** Explicit control, clear data flow, no surprises
+-   **Pro:** NULL return signals "variable exists" (useful for debugging)
+-   **Con:** Requires `col <- create_*(); df <- cbind(df, col)` pattern
+
+**Alternative API (auto-append):**
+
+-   Function returns `df_mock` with new column appended
+-   Cleaner syntax: `df <- create_cat_var(..., df_mock = df)`
+-   Planned for v0.3.0 (breaking change)
+
+## Integration with harmonization workflows
+
+MockData is designed to work with the CCHS/CHMS harmonization ecosystem.
+
+### Typical workflow
+
+1.  **Metadata preparation:** Use recodeflow metadata format
+2.  **Mock data generation:** Use MockData to create test datasets
+3.  **Harmonization development:** Test harmonization code with mock data
+4.  **Validation:** Verify harmonization logic before applying to real data
+5.  **Production:** Apply harmonization to real CCHS/CHMS data
+
+### Example: Testing harmonization code
+
+``` r
+# 1. Generate mock raw data
+mock_cchs <- generate_mock_cchs_cycle(
+  cycle = "CCHS_2001",
+  n = 1000,
+  variables = c("smoking", "age", "bmi"),
+  prop_NA = 0.05
+)
+
+# 2. Apply harmonization
+harmonized <- harmonize_variables(
+  data = mock_cchs,
+  metadata = variable_details,
+  variables = c("smoking", "age", "bmi")
+)
+
+# 3. Validate
+test_that("harmonization handles NA codes correctly", {
+  expect_true(all(harmonized$smoking %in% c(1, 2, 3, NA)))
+  expect_false(any(harmonized$smoking %in% c(996, 997, 998, 999)))
+})
+```
+
+### Benefits of mock data for harmonization
+
+-   **Faster development:** No need to access restricted data
+-   **Reproducible testing:** Same mock data every time
+-   **Edge case testing:** Easy to create extreme scenarios
+-   **Documentation:** Mock data examples clarify harmonization logic
+
+## Performance considerations
+
+For large-scale mock data generation:
+
+### Optimization strategies
+
+**1. Generate in batches:**
+
+``` r
+# Instead of one large generation
+result <- create_con_var(..., length = 1000000)
+
+# Generate in batches
+batch_size <- 100000
+batches <- ceiling(1000000 / batch_size)
+
+result_list <- lapply(1:batches, function(i) {
+  create_con_var(
+    ...,
+    length = batch_size,
+    df_mock = data.frame(id = ((i-1)*batch_size + 1):(i*batch_size))
+  )
+})
+
+result <- bind_rows(result_list)
+```
+
+**2. Simplify distributions:**
+
+``` r
+# Uniform is faster than normal (for continuous variables)
+distribution = "uniform"  # Faster
+distribution = "normal"    # Slower (normal distribution centered at range midpoint)
+```
+
+**3. Minimize metadata:**
+
+``` r
+# Only include variables you need
+variable_details_subset <- variable_details %>%
+  filter(variable %in% needed_vars)
+```
+
+### Current limitations
+
+-   Large datasets (\>1M rows) may be slow
+-   Complex metadata with many variables requires more processing
+-   Normal distributions slower than uniform for continuous variables
+
+## Troubleshooting
+
+### Common issues
+
+**Issue: "Variable not found in metadata"**
+
+``` r
+# Check variable names match
+unique(variable_details$variable)
+unique(variables$variable)
+```
+
+**Issue: "No valid categories found"**
+
+``` r
+# Check recStart values
+var_details %>% filter(variable == "problem_var") %>% select(recStart, recEnd)
+
+# Ensure not all rules are filtered (copy, else)
+```
+
+**Issue: "prop_NA doesn't work"**
+
+``` r
+# Verify NA codes exist in metadata
+na_codes <- get_variable_categories(variable_details, include_na = TRUE)
+print(na_codes)
+
+# If empty, no NA codes available
+```
+
+### Getting help
+
+-   Check function documentation: `?create_cat_var`, `?create_con_var`
+-   Review [User guide](user-guide.html) for basic concepts
+-   See database examples: [CCHS](cchs-example.html), [CHMS](chms-example.html)
+-   Open an issue on GitHub with reproducible example
+
+## Next steps
+
+-   Apply these concepts to your harmonization projects
+-   Experiment with custom metadata for your use cases
+-   Contribute improvements to MockData on GitHub

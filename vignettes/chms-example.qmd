@@ -1,199 +1,390 @@
 ---
-title: "Example of generating mock data using CHMS files based on variable and variable-details sheets"
-author: "Juan Li"
-date: 2025-10-21
+title: "How to: Generate CHMS mock data"
+author: "MockData Team"
+date: 2025-10-30
 format:
   html:
     toc: true
     html-math-method: katex
+    css: styles.css
 editor: visual
 ---
+```{r}
+#| label: setup
+#| include: false
+devtools::load_all("../", quiet = TRUE)
+```
 
-## Overview
+## Prerequisites
 
-The Canadian Health Measures Survey (CHMS) data exists only in secure data environments. This example demonstrates how to generate mock CHMS data for testing chmsflow workflows.
+- Complete the [Getting started](getting-started.html) tutorial
+- Familiar with CHMS (Canadian Health Measures Survey) structure
 
-## Setup
+See the [User guide](user-guide.html) for detailed feature documentation.
+
+## CHMS-specific considerations
+
+The Canadian Health Measures Survey has unique characteristics:
+
+- **Restricted access:** CHMS data only exists in secure environments (StatsCan RDCs)
+- **Physical measures:** Unlike CCHS, CHMS includes biomarker and physical measurement data
+- **Multiple cycles:** CHMS Cycle 1, Cycle 2, Cycle 3, etc.
+- **Smaller sample sizes:** CHMS has ~5,000-6,000 participants per cycle (vs CCHS ~65,000+)
+
+MockData helps develop and test chmsflow workflows without RDC access.
+
+## Load CHMS metadata
 
 ```{r}
 #| warning: false
 #| message: false
 #| output: false
 
-library(dplyr)       # Data manipulation
-library(stringr)     # Working with strings
-
-# Load MockData package functions
-# Note: When running as vignette, use library(MockData)
-# For development, source directly:
-source("../R/mockdata-parsers.R")
-source("../R/mockdata-helpers.R")
-source("../R/create_cat_var.R")
-source("../R/create_con_var.R")
-
+library(dplyr)
+library(stringr)
 ```
 
-## Read in variable and variable_details sheets
-
 ```{r}
-# CHMS sample variables
-variables <- read.csv(system.file("extdata/chms/chmsflow_sample_variables.csv", package = "MockData"),
-                     header = T, check.names=FALSE, na.strings=c("","NA","N/A"))
-# CHMS sample variable details
-variable_details <- read.csv(system.file("extdata/chms/chmsflow_sample_variable_details.csv", package = "MockData"),
-                            header = T, check.names=FALSE, na.strings=c("","NA","N/A"))
+# Load sample CHMS metadata from package
+variables <- read.csv(
+  "../inst/extdata/chms/chmsflow_sample_variables.csv",
+  header = TRUE,
+  check.names = FALSE,
+  na.strings = c("", "NA", "N/A"),
+  stringsAsFactors = FALSE
+)
+
+variable_details <- read.csv(
+  "../inst/extdata/chms/chmsflow_sample_variable_details.csv",
+  header = TRUE,
+  check.names = FALSE,
+  na.strings = c("", "NA", "N/A"),
+  stringsAsFactors = FALSE
+)
+
+cat("Loaded CHMS metadata:\n")
+cat("- Variables:", nrow(variables), "rows\n")
+cat("- Variable details:", nrow(variable_details), "rows\n")
 ```
 
-## Get required cycles
+## Explore available cycles
 
 ```{r}
-# Extract unique cycle names from databaseStart column
+# Extract unique CHMS cycles from metadata
 cycles <- sort(unique(unlist(str_split(paste(variables$databaseStart, collapse = ","), ","))))
 cycles <- str_trim(cycles[str_detect(cycles, "cycle")])
-print("Available CHMS cycles:")
+
+cat("Available CHMS cycles in sample metadata:\n")
 print(cycles)
+
+# Choose first cycle for this example
+target_cycle <- cycles[1]
+cat("\nGenerating mock data for:", target_cycle, "\n")
 ```
 
-## Understanding the metadata
-
-The sample metadata includes 20 harmonized variables. Let's examine how they're structured for one cycle:
+## Identify raw variables to generate
 
 ```{r}
-# Pick the first cycle to explore
-example_cycle <- cycles[1]
-cat("Examining cycle:", example_cycle, "\n\n")
+# Get raw variables for target cycle (exclude derived variables)
+raw_vars <- get_raw_variables(
+  target_cycle,
+  variables,
+  variable_details,
+  include_derived = FALSE
+)
 
-# Get all harmonized variables available in this cycle
-cycle_vars <- get_cycle_variables(example_cycle, variables, variable_details)
+cat("Raw variables to generate:", nrow(raw_vars), "\n\n")
 
-cat("Total harmonized variables in", example_cycle, ":", nrow(cycle_vars), "\n")
-cat("Sample of variables:\n")
-print(head(cycle_vars[, c("variable", "variable_raw", "variableType", "label")], 10))
-```
-
-## Get raw variables to generate
-
-For mock data generation, we need to create the **raw source variables** (before harmonization), not the harmonized variables:
-
-```{r}
-# Get unique raw variables needed for this cycle (excludes derived variables)
-raw_vars <- get_raw_variables(example_cycle, variables, variable_details,
-                               include_derived = FALSE)
-
-cat("\nUnique raw variables to generate:", nrow(raw_vars), "\n")
-print(raw_vars)
-
-# Separate by type for easier processing
+# Separate by type
 raw_cat <- raw_vars[raw_vars$variableType == "Categorical", ]
 raw_con <- raw_vars[raw_vars$variableType == "Continuous", ]
 
-cat("\n- Categorical:", nrow(raw_cat), "variables")
-cat("\n- Continuous:", nrow(raw_con), "variables\n")
+cat("Breakdown:\n")
+cat("- Categorical:", nrow(raw_cat), "variables\n")
+cat("- Continuous:", nrow(raw_con), "variables\n\n")
+
+cat("Sample variables:\n")
+print(head(raw_vars[, c("variable_raw", "variableType")], 10))
 ```
 
-## Generate mock data for one cycle
-
-Now let's generate mock data for a single cycle using the modern helper-driven approach:
+## Generate categorical variables
 
 ```{r}
-# Configuration
-n_records <- 100
-target_cycle <- example_cycle
-seed <- 12345
+# Configuration (realistic CHMS sample size)
+n_records <- 100  # Use 5000-6000 for realistic CHMS cycle size
+set.seed(12345)
 
 # Initialize data frame
 df_mock <- data.frame(id = 1:n_records)
 
-cat("Generating", n_records, "mock records for", target_cycle, "\n\n")
-```
+# Generate each categorical variable
+cat("Generating", nrow(raw_cat), "categorical variables:\n\n")
 
-### Generate categorical variables
+for (i in 1:nrow(raw_cat)) {
+  var_raw <- raw_cat$variable_raw[i]
+  cat("Generating:", var_raw, "\n")
 
-```{r}
-# Get raw categorical variables for this cycle
-raw_cat_vars <- get_raw_variables(target_cycle, variables, variable_details,
-                                   include_derived = FALSE)
-raw_cat_vars <- raw_cat_vars[raw_cat_vars$variableType == "Categorical", ]
-
-cat("Generating", nrow(raw_cat_vars), "categorical variables:\n")
-for (i in 1:nrow(raw_cat_vars)) {
-  var_raw <- raw_cat_vars$variable_raw[i]
-  cat("  -", var_raw, "\n")
-
-  result <- create_cat_var(
+  col <- create_cat_var(
     var_raw = var_raw,
     cycle = target_cycle,
     variable_details = variable_details,
     variables = variables,
-    length = n_records,
+    length = nrow(df_mock),
     df_mock = df_mock,
-    seed = seed + i
+    prop_NA = 0.05  # Realistic 5% missingness
   )
 
-  if (!is.null(result)) {
-    df_mock <- cbind(df_mock, result)
+  if (!is.null(col)) {
+    df_mock <- cbind(df_mock, col)
   }
 }
 
-cat("\nCategorical variables generated. Data frame now has", ncol(df_mock), "columns\n")
+cat("\nCategorical generation complete. Columns:", ncol(df_mock), "\n")
 ```
 
-### Generate continuous variables
+## Generate continuous variables
 
 ```{r}
-# Get raw continuous variables for this cycle
-raw_con_vars <- get_raw_variables(target_cycle, variables, variable_details,
-                                   include_derived = FALSE)
-raw_con_vars <- raw_con_vars[raw_con_vars$variableType == "Continuous", ]
+# Generate each continuous variable
+cat("\nGenerating", nrow(raw_con), "continuous variables:\n\n")
 
-cat("Generating", nrow(raw_con_vars), "continuous variables:\n")
-for (i in 1:nrow(raw_con_vars)) {
-  var_raw <- raw_con_vars$variable_raw[i]
-  cat("  -", var_raw, "\n")
+for (i in 1:nrow(raw_con)) {
+  var_raw <- raw_con$variable_raw[i]
+  cat("Generating:", var_raw, "\n")
 
-  result <- create_con_var(
+  col <- create_con_var(
     var_raw = var_raw,
     cycle = target_cycle,
     variable_details = variable_details,
     variables = variables,
-    length = n_records,
+    length = nrow(df_mock),
     df_mock = df_mock,
     distribution = "uniform",
-    seed = seed + 100 + i
+    prop_NA = 0.03  # Lower missingness for physical measures
   )
 
-  if (!is.null(result)) {
-    df_mock <- cbind(df_mock, result)
+  if (!is.null(col)) {
+    df_mock <- cbind(df_mock, col)
   }
 }
 
-cat("\nContinuous variables generated. Data frame now has", ncol(df_mock), "columns\n")
+cat("\nContinuous generation complete. Columns:", ncol(df_mock), "\n")
 ```
 
-### Examine the result
+## Verify results
 
 ```{r}
 # Show structure
-cat("\nMock data structure:\n")
-str(df_mock)
+cat("\nMock CHMS data structure:\n")
+cat("- Records:", nrow(df_mock), "\n")
+cat("- Variables:", ncol(df_mock), "\n\n")
 
-# Show first few rows
-cat("\nFirst 10 rows:\n")
+# Display first rows
+cat("First 10 rows:\n")
 print(head(df_mock, 10))
 
-# Check for missing values
-cat("\nMissing value summary:\n")
+# Check missing data
+cat("\nMissing value counts:\n")
 na_counts <- colSums(is.na(df_mock))
-print(na_counts[na_counts > 0])
+if (any(na_counts > 0)) {
+  print(na_counts[na_counts > 0])
+  cat("\nMissingness rates:\n")
+  print(round(na_counts[na_counts > 0] / nrow(df_mock) * 100, 1))
+} else {
+  cat("No missing values\n")
+}
 ```
 
-## Summary
+## CHMS-specific tips
 
-This example demonstrates generating mock CHMS data for testing chmsflow workflows. The generated data:
+### Realistic sample sizes
 
-- Respects category ranges from variable_details
-- Includes tagged NA values
-- Uses reproducible seeds
-- Can be used for testing harmonisation functions
+CHMS cycles are smaller than CCHS. Use realistic sizes for testing:
 
-For production use, generate all variables across all cycles using the approach shown in `mockdata-tools/test-all-cycles.R`.
+```{r}
+# Typical CHMS cycle sizes
+chms_cycle_sizes <- data.frame(
+  cycle = c("Cycle 1", "Cycle 2", "Cycle 3", "Cycle 4", "Cycle 5"),
+  approx_n = c(5600, 6400, 5800, 5800, 5700)
+)
+
+cat("Realistic CHMS sample sizes:\n")
+print(chms_cycle_sizes)
+
+cat("\nFor testing, generate with realistic size:\n")
+cat("df_mock <- data.frame(id = 1:5800)  # Typical CHMS cycle\n")
+```
+
+### Physical measurement distributions
+
+CHMS includes biomarker and physical measurements. For continuous variables, you can use realistic distributions:
+
+```{r}
+# Example: Generate blood pressure with realistic distribution
+# (if available in your metadata)
+
+# Systolic BP: mean ~120, SD ~15 (realistic Canadian adult population)
+# Check if blood pressure variable exists in metadata
+bp_vars <- raw_con$variable_raw[grepl("bp|blood", raw_con$variable_raw, ignore.case = TRUE)]
+
+if (length(bp_vars) > 0) {
+  cat("Blood pressure variables found:\n")
+  print(bp_vars)
+
+  cat("\nExample with normal distribution for realistic BP:\n")
+  cat('col <- create_con_var(
+    var_raw = "SYSTOLIC_BP",
+    cycle = target_cycle,
+    variable_details = variable_details,
+    variables = variables,
+    length = 5800,
+    df_mock = df_mock,
+    distribution = list(type = "normal", mean = 120, sd = 15),
+    prop_NA = 0.02  # Low missingness for physical measures
+  )
+  if (!is.null(col)) df_mock <- cbind(df_mock, col)\n')
+} else {
+  cat("No blood pressure variables in sample metadata\n")
+}
+```
+
+### Working with multiple cycles
+
+Test harmonization across CHMS cycles:
+
+```{r}
+# Generate for multiple cycles
+cycle_list <- cycles[1:min(2, length(cycles))]
+
+all_cycles_data <- lapply(cycle_list, function(cyc) {
+  cat("\nGenerating for:", cyc, "\n")
+
+  raw_vars <- get_raw_variables(cyc, variables, variable_details,
+                                 include_derived = FALSE)
+
+  df <- data.frame(id = 1:50, cycle = cyc)
+
+  # Generate variables (simplified loop)
+  for (i in 1:nrow(raw_vars)) {
+    var_raw <- raw_vars$variable_raw[i]
+    var_type <- raw_vars$variableType[i]
+
+    if (var_type == "Categorical") {
+      col <- create_cat_var(var_raw, cyc, variable_details, variables,
+                           length = nrow(df), df_mock = df, prop_NA = 0.05)
+    } else {
+      col <- create_con_var(var_raw, cyc, variable_details, variables,
+                           length = nrow(df), df_mock = df,
+                           distribution = "uniform", prop_NA = 0.03)
+    }
+
+    if (!is.null(col)) {
+      df <- cbind(df, col)
+    }
+  }
+
+  return(df)
+})
+
+# Combine all cycles
+combined_data <- bind_rows(all_cycles_data)
+
+cat("\nCombined multi-cycle dataset:\n")
+cat("- Total records:", nrow(combined_data), "\n")
+cat("- Cycles:", paste(unique(combined_data$cycle), collapse = ", "), "\n")
+```
+
+### Testing in RDC environment
+
+MockData can run in StatsCan RDCs with restrictions:
+
+```{r}
+# Example: Check if running in restricted environment
+is_rdc <- Sys.getenv("STATSCAN_RDC") != ""  # Set this env var in RDC
+
+if (is_rdc) {
+  cat("Running in RDC environment\n")
+  cat("- Use actual CHMS data for production\n")
+  cat("- Use MockData for development/testing only\n")
+} else {
+  cat("Running outside RDC\n")
+  cat("- Use MockData for all development\n")
+  cat("- Test harmonization workflows before RDC access\n")
+}
+```
+
+## Use cases for CHMS mock data
+
+**Development:**
+- Build chmsflow harmonization code without RDC access
+- Test variable transformations and derivations
+- Develop analysis pipelines
+
+**Testing:**
+- Unit tests for harmonization functions
+- Integration tests for complete workflows
+- Edge case testing (extreme values, missing data patterns)
+
+**Training:**
+- Onboard new team members
+- Practice CHMS data workflows
+- Demonstrate harmonization concepts
+
+**Example test:**
+```{r}
+# Example: Test that harmonized smoking variable has expected categories
+harmonize_smoking <- function(raw_smoking) {
+  # Simplified harmonization function
+  case_when(
+    raw_smoking == 1 ~ 1,  # Daily
+    raw_smoking == 2 ~ 2,  # Occasional
+    raw_smoking == 3 ~ 3,  # Never
+    TRUE ~ NA_real_
+  )
+}
+
+# Generate mock data
+df_test <- data.frame(id = 1:100)
+col <- create_cat_var(
+  var_raw = "smoking_raw",
+  cycle = target_cycle,
+  variable_details = variable_details,
+  variables = variables,
+  length = nrow(df_test),
+  df_mock = df_test,
+  prop_NA = 0
+)
+
+if (!is.null(col)) {
+  df_test <- cbind(df_test, col)
+}
+
+# Apply harmonization (if variable exists)
+if ("smoking_raw" %in% names(df_test)) {
+  df_test$smoking_harmonized <- harmonize_smoking(df_test$smoking_raw)
+
+  cat("Harmonization test:\n")
+  cat("- Input categories:", paste(unique(df_test$smoking_raw), collapse = ", "), "\n")
+  cat("- Output categories:", paste(unique(df_test$smoking_harmonized), collapse = ", "), "\n")
+}
+```
+
+## Troubleshooting
+
+**Issue: Variable not found**
+- CHMS variable names may differ from CCHS
+- Check metadata for actual variable names in each cycle
+
+**Issue: Unrealistic values**
+- Physical measures need realistic distributions (use `distribution = list(type = "normal", ...)`)
+- Check ranges in variable_details match real CHMS data
+
+**Issue: Sample size too large**
+- CHMS cycles are smaller (~5,000-6,000) than CCHS
+- Use realistic sample sizes for memory efficiency
+
+## Next steps
+
+- **Other databases:** Try [CCHS example](cchs-example.html) or [DemPoRT example](demport-example.html)
+- **Feature details:** Read [User guide](user-guide.html) for missing data, distributions, etc.
+- **Technical depth:** See [Advanced topics](advanced-topics.html) for NA handling internals

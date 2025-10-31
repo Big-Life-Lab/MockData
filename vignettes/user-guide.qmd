@@ -1,0 +1,566 @@
+---
+title: "MockData user guide"
+author: "MockData Team"
+date: 2025-10-30
+format:
+  html:
+    toc: true
+    html-math-method: katex
+    css: styles.css
+editor: visual
+---
+
+```{r}
+#| label: setup
+#| include: false
+devtools::load_all("../", quiet = TRUE)
+```
+
+## Overview
+
+This guide provides comprehensive documentation of MockData features for generating realistic mock datasets from harmonization metadata.
+
+**Prerequisites:** Complete the [Getting started](getting-started.html) tutorial before reading this guide.
+
+## Understanding metadata
+
+MockData uses recodeflow metadata format with two core tables:
+
+### Variables table
+
+Defines which raw variables exist in each database cycle.
+
+**Required columns:**
+
+\- `variable`: Harmonized variable name
+
+\- `variableStart`: Raw variable name in database
+
+\- `databaseStart`: Database cycle name
+
+\- `databaseEnd`: End cycle (for multi-cycle variables)
+
+\- `variableType`: "categorical" or "continuous"
+
+**Example:**
+
+``` r
+variables <- data.frame(
+  variable = c("bmi", "bmi"),
+  variableStart = c("HWTGBMI", "HWTGBMI_der"),
+  databaseStart = c("CCHS_2001", "CCHS_2003"),
+  databaseEnd = c("CCHS_2001", "CCHS_2003"),
+  variableType = c("continuous", "continuous")
+)
+```
+
+### Variable details table
+
+Defines categories, ranges, and recode rules.
+
+**Required columns:**
+
+\- `variable`: Harmonized variable name
+
+\- `recStart`: Input value or range (e.g., "1", "\[18, 65\]")
+
+\- `recEnd`: Output value or transformation (e.g., "copy", "NA::b")
+
+\- `catLabel`: Description of the category/range
+
+\- `variableStart`: Raw variable name
+
+\- `databaseStart`: Database cycle name
+
+**Example:**
+
+``` r
+variable_details <- data.frame(
+  variable = "bmi",
+  recStart = c("[10, 60]", "996", "[997, 999]"),
+  recEnd = c("copy", "NA::a", "NA::b"),
+  catLabel = c("BMI value", "Not applicable", "Missing"),
+  variableStart = "HWTGBMI",
+  databaseStart = "CCHS_2001"
+)
+```
+
+## Variable types
+
+### Categorical variables
+
+Use `create_cat_var()` for variables with discrete categories.
+
+**Basic usage:**
+
+``` r
+col <- create_cat_var(
+  var_raw = "SMK_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 1000,
+  df_mock = df_mock
+)
+df_mock <- cbind(df_mock, col)
+```
+
+**How categories are extracted:**
+
+MockData extracts valid categories from `recStart` in variable_details:
+
+\- Individual values: `"1"`, `"2"`, `"3"`
+
+\- Ranges: `"[1, 5]"` → expands to 1, 2, 3, 4, 5
+
+\- Special codes: `"copy"`, `"NA::a"`, `"NA::b"` (handled separately)
+
+\- **Note:** `"else"` is filtered out (see [Advanced topics](advanced-topics.html))
+
+**Distribution:**
+
+Currently, all categories are uniformly distributed (equal probability). Weighted distributions for categorical variables are planned for v0.3.0.
+
+### Continuous variables
+
+Use `create_con_var()` for variables with numeric ranges.
+
+**Basic usage:**
+
+``` r
+col <- create_con_var(
+  var_raw = "AGE_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 1000,
+  df_mock = df_mock,
+  distribution = "uniform"
+)
+df_mock <- cbind(df_mock, col)
+```
+
+**How ranges are determined:**
+
+MockData extracts numeric ranges from `recStart`:
+
+\- Single range: `"[18, 100]"` → samples between 18 and 100
+
+\- Multiple ranges: Combines into single min-max range
+
+\- Special codes filtered out automatically
+
+**Distribution options:**
+
+``` r
+# Uniform distribution within range
+distribution = "uniform"
+
+# Normal distribution (automatically centers on range midpoint)
+distribution = "normal"
+```
+
+**Example with normal distribution:**
+
+``` r
+# Create age variable with realistic distribution
+df_mock <- data.frame(id = 1:1000)
+
+col <- create_con_var(
+  var_raw = "AGE_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 1000,
+  df_mock = df_mock,
+  distribution = "normal"
+)
+df_mock <- cbind(df_mock, col)
+
+summary(df_mock$AGE_01)
+hist(df_mock$AGE_01, main = "Age distribution", xlab = "Age")
+```
+
+### The `df_mock` parameter
+
+All generator functions require a `df_mock` parameter for duplicate prevention.
+
+**Purpose:**
+
+The `df_mock` parameter serves as a safety check to prevent accidentally creating the same variable twice, which is especially important when generating variables in loops.
+
+**How it works:**
+
+```r
+# First generation works
+col1 <- create_cat_var(..., df_mock = data.frame(id = 1:100))
+df_mock <- cbind(df_mock, col1)
+
+# Second generation with same variable returns NULL (already exists)
+col2 <- create_cat_var(..., df_mock = df_mock)  # Returns NULL if variable exists
+```
+
+**When to use:**
+
+-   **Always pass your current data frame** - even if it's just `data.frame(id = 1:n)`
+-   **Essential in loops** - prevents duplicate columns if loop runs multiple times
+-   **Safe by design** - if variable already exists, function returns NULL instead of duplicating
+
+**Example:**
+
+```r
+# Safe pattern for generating multiple variables
+df_mock <- data.frame(id = 1:1000)
+
+for (var_name in c("SMK_01", "ALC_01", "AGE_01")) {
+  col <- create_cat_var(var_name, cycle, variable_details, variables,
+                        length = 1000, df_mock = df_mock)
+  if (!is.null(col)) {
+    df_mock <- cbind(df_mock, col)
+  }
+}
+```
+
+## Missing data
+
+Real datasets contain missing values. MockData provides the `prop_NA` parameter to add realistic missingness.
+
+### The prop_NA parameter
+
+**Usage:**
+
+``` r
+col <- create_cat_var(
+  var_raw = "SMK_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 1000,
+  df_mock = df_mock,
+  prop_NA = 0.10  # 10% of values will be missing
+)
+df_mock <- cbind(df_mock, col)
+```
+
+**How it works:**
+
+1\. MockData generates the full dataset
+
+2\. Randomly selects `prop_NA` proportion of records
+
+3\. Replaces selected values with NA codes from metadata
+
+### How NA codes work
+
+MockData uses explicit NA codes from your metadata when available:
+
+**Case 1: Metadata has explicit NA codes**
+
+``` r
+variable_details <- data.frame(
+  variable = "smoking",
+  recStart = c("1", "2", "3", "996", "[997, 999]"),
+  recEnd = c("1", "2", "3", "NA::a", "NA::b"),
+  catLabel = c("Daily", "Occasional", "Never", "Not applicable", "Missing")
+)
+
+# MockData will use 996, 997, 998, 999 for missing values
+col <- create_cat_var(..., length = 1000, prop_NA = 0.1)
+table(col$smoking, useNA = "always")
+```
+
+**Case 2: Metadata only has "else"**
+
+``` r
+variable_details <- data.frame(
+  variable = "smoking",
+  recStart = c("1", "2", "3", "else"),
+  recEnd = c("1", "2", "3", "NA::b"),
+  catLabel = c("Daily", "Occasional", "Never", "Unexpected")
+)
+
+# "else" is filtered out, MockData uses actual NA values
+col <- create_cat_var(..., length = 1000, prop_NA = 0.1)
+sum(is.na(col$smoking)) / 1000  # ~0.10
+```
+
+**Why filter "else"?** In harmonization metadata, "else" means "unexpected values that don't match other rules". In raw data, these are unpredictable garbage values. MockData represents them as NA rather than generating the literal string "else".
+
+See [Advanced topics](advanced-topics.html) for technical details.
+
+### Common patterns
+
+**Realistic missingness levels:**
+
+``` r
+# Low missingness (well-measured variables)
+prop_NA = 0.02  # 2%
+
+# Moderate missingness (typical health survey)
+prop_NA = 0.05  # 5%
+
+# High missingness (sensitive questions)
+prop_NA = 0.15  # 15%
+```
+
+**Different missingness by variable:**
+
+``` r
+# Age: low missingness
+col <- create_con_var(..., var_raw = "AGE_01", length = 1000, prop_NA = 0.02)
+df_mock <- cbind(df_mock, col)
+
+# Income: moderate missingness
+col <- create_cat_var(..., var_raw = "INC_01", length = 1000, prop_NA = 0.10)
+df_mock <- cbind(df_mock, col)
+
+# Smoking: higher missingness (sensitive)
+col <- create_cat_var(..., var_raw = "SMK_01", length = 1000, prop_NA = 0.15)
+df_mock <- cbind(df_mock, col)
+```
+
+### Verification
+
+Always verify missingness after generation:
+
+``` r
+# Check proportion missing
+sum(is.na(result$variable)) / nrow(result)
+
+# Check NA code distribution
+table(result$variable, useNA = "always")
+
+# Summary statistics
+summary(result$variable)
+```
+
+## Controlling distributions
+
+MockData supports different probability distributions for realistic data generation.
+
+### Categorical distributions
+
+Weighted distributions for categorical variables are coming in v0.3.0. Currently, all categories are uniformly distributed (equal probability for all categories).
+
+### Continuous distributions
+
+**Uniform (flat distribution):**
+
+``` r
+col <- create_con_var(..., distribution = "uniform")
+df_mock <- cbind(df_mock, col)
+# All values equally likely within range
+```
+
+**Normal (bell curve):**
+
+``` r
+col <- create_con_var(..., distribution = "normal")
+df_mock <- cbind(df_mock, col)
+# Values cluster around range midpoint, taper at extremes
+```
+
+**Example: BMI with normal distribution**
+
+``` r
+df_mock <- data.frame(id = 1:1000)
+
+col <- create_con_var(
+  var_raw = "HWTGBMI",
+  cycle = "CCHS_2001",
+  variable_details = bmi_details,
+  variables = variables,
+  length = 1000,
+  df_mock = df_mock,
+  distribution = "normal"
+)
+df_mock <- cbind(df_mock, col)
+
+summary(df_mock$HWTGBMI)
+```
+
+## Reproducibility
+
+Use seeds to generate identical mock data across runs.
+
+### Setting seeds
+
+``` r
+# Set seed before generation
+set.seed(12345)
+
+col1 <- create_cat_var(..., length = 1000)
+
+# Reset seed to reproduce
+set.seed(12345)
+
+col2 <- create_cat_var(..., length = 1000)
+
+identical(col1, col2)  # TRUE
+```
+
+### When seeds matter
+
+**Testing:** Use seeds for reproducible test data
+
+``` r
+test_that("analysis works with mock data", {
+  set.seed(999)
+  mock_data <- create_con_var(...)
+  result <- my_analysis(mock_data)
+  expect_equal(result, expected_value)
+})
+```
+
+**Development:** Use seeds during pipeline development
+
+``` r
+# analysis_script.R
+set.seed(20251030)  # Date-based seed
+mock_data <- generate_mock_cchs()
+results <- run_analysis(mock_data)
+```
+
+**Production:** Remove seeds for varied testing
+
+``` r
+# test_suite.R
+# No seed - test with different data each run
+replicate(100, {
+  mock_data <- create_con_var(...)
+  expect_true(validate_output(mock_data))
+})
+```
+
+## Complete workflow example
+
+Here's a realistic end-to-end example generating a small health survey dataset.
+
+```{r}
+#| warning: false
+#| message: false
+library(dplyr)
+
+# 1. Define metadata
+variables <- data.frame(
+  variable = c("smoking", "smoking", "age", "age", "bmi", "bmi"),
+  variableStart = c("SMK_01", "SMK_01", "AGE_01", "AGE_01", "BMI_01", "BMI_01"),
+  databaseStart = c("cycle1", "cycle2", "cycle1", "cycle2", "cycle1", "cycle2"),
+  databaseEnd = c("cycle1", "cycle2", "cycle1", "cycle2", "cycle1", "cycle2"),
+  variableType = c("categorical", "categorical", "continuous", "continuous",
+                   "continuous", "continuous")
+)
+
+variable_details <- data.frame(
+  variable = c("smoking", "smoking", "smoking", "smoking",
+               "age", "age", "age",
+               "bmi", "bmi", "bmi"),
+  recStart = c("1", "2", "3", "[996, 999]",
+               "[18, 100]", "996", "[997, 999]",
+               "[15, 50]", "996", "[997, 999]"),
+  recEnd = c("1", "2", "3", "NA::b",
+             "copy", "NA::a", "NA::b",
+             "copy", "NA::a", "NA::b"),
+  catLabel = c("Daily smoker", "Occasional", "Never", "Missing",
+               "Age in years", "Not applicable", "Missing",
+               "BMI", "Not applicable", "Missing"),
+  variableStart = c("SMK_01", "SMK_01", "SMK_01", "SMK_01",
+                    "AGE_01", "AGE_01", "AGE_01",
+                    "BMI_01", "BMI_01", "BMI_01"),
+  databaseStart = c("cycle1", "cycle1", "cycle1", "cycle1",
+                    "cycle1", "cycle1", "cycle1",
+                    "cycle1", "cycle1", "cycle1")
+)
+
+# 2. Set seed for reproducibility
+set.seed(20251030)
+
+# 3. Initialize dataset
+df_mock <- data.frame(id = 1:500)
+
+# 4. Generate smoking (categorical, uniform distribution)
+col <- create_cat_var(
+  var_raw = "SMK_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = nrow(df_mock),
+  df_mock = df_mock,
+  prop_NA = 0.08  # 8% missing
+)
+df_mock <- cbind(df_mock, col)
+
+# 5. Generate age (continuous, normal distribution)
+col <- create_con_var(
+  var_raw = "AGE_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = nrow(df_mock),
+  df_mock = df_mock,
+  distribution = "normal",
+  prop_NA = 0.02  # 2% missing
+)
+df_mock <- cbind(df_mock, col)
+
+# 6. Generate BMI (continuous, normal distribution)
+col <- create_con_var(
+  var_raw = "BMI_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = nrow(df_mock),
+  df_mock = df_mock,
+  distribution = "normal",
+  prop_NA = 0.05  # 5% missing
+)
+df_mock <- cbind(df_mock, col)
+
+
+# 7. Verify results
+print("Dataset summary:")
+summary(df_mock)
+
+print("\nSmoking distribution:")
+table(df_mock$SMK_01, useNA = "always")
+
+print("\nMissingness rates:")
+cat("Smoking:", round(sum(is.na(df_mock$SMK_01)) / nrow(df_mock) * 100, 1), "%\n")
+cat("Age:", round(sum(is.na(df_mock$AGE_01)) / nrow(df_mock) * 100, 1), "%\n")
+cat("BMI:", round(sum(is.na(df_mock$BMI_01)) / nrow(df_mock) * 100, 1), "%\n")
+
+# 8. View sample
+head(df_mock, 10)
+```
+
+## Tips and best practices
+
+### Metadata preparation
+
+-   **Validate metadata first:** Check for required columns before generation
+-   **Test with small samples:** Use `length = 100` during development
+-   **Document assumptions:** Note why you chose specific distributions
+
+### Distribution selection
+
+-   **Start with uniform:** Simple and interpretable for testing
+-   **Use realistic distributions for validation:** Match known population statistics
+-   **Document sources:** Note where distribution parameters came from
+
+### Missing data
+
+-   **Match real patterns:** Check actual missingness rates in source data
+-   **Vary by variable type:** Demographics usually have lower missingness
+-   **Test edge cases:** Try prop_NA = 0.0, 0.5, 1.0 to ensure robustness
+
+### Reproducibility
+
+-   **Use seeds for tests:** Ensure consistent test results
+-   **Document seeds:** Comment why specific seed values were chosen
+-   **Version your metadata:** Track changes to variable definitions
+
+## Next steps
+
+-   **Database-specific examples:** See [CCHS](cchs-example.html), [CHMS](chms-example.html), [DemPoRT](demport-example.html)
+-   **Advanced topics:** Read about [NA handling internals](advanced-topics.html), derived variables, and custom metadata
+-   **Function reference:** See help pages `?create_cat_var` and `?create_con_var`
