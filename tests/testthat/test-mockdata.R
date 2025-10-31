@@ -596,6 +596,186 @@ test_that("create_date_var generates out-of-period dates", {
   expect_true(n_invalid > 10 && n_invalid < 50)  # 3% of 1000 ± tolerance
 })
 
+# GENERATORS: create_survival_dates()
+# =============================================================================
+
+test_that("create_survival_dates generates paired dates", {
+  result <- create_survival_dates(
+    entry_var = "entry_date",
+    event_var = "death_date",
+    entry_start = as.Date("2000-01-01"),
+    entry_end = as.Date("2005-12-31"),
+    followup_min = 365,
+    followup_max = 3650,
+    length = 100,
+    df_mock = data.frame(),
+    seed = 100
+  )
+
+  # Should return a data frame with two columns
+  expect_s3_class(result, "data.frame")
+  expect_equal(ncol(result), 2)
+  expect_equal(nrow(result), 100)
+  expect_true("entry_date" %in% names(result))
+  expect_true("death_date" %in% names(result))
+
+  # All entry dates should be in valid range
+  expect_true(all(result$entry_date >= as.Date("2000-01-01")))
+  expect_true(all(result$entry_date <= as.Date("2005-12-31")))
+
+  # All event dates should be after entry dates
+  expect_true(all(result$death_date > result$entry_date))
+
+  # Follow-up should be within specified range
+  followup <- as.numeric(result$death_date - result$entry_date)
+  expect_true(all(followup >= 365))
+  expect_true(all(followup <= 3650))
+})
+
+test_that("create_survival_dates supports different distributions", {
+  # Uniform
+  result_uniform <- create_survival_dates(
+    entry_var = "entry", event_var = "event",
+    entry_start = as.Date("2010-01-01"),
+    entry_end = as.Date("2010-12-31"),
+    followup_min = 100, followup_max = 1000,
+    length = 100, df_mock = data.frame(),
+    event_distribution = "uniform", seed = 101
+  )
+
+  # Gompertz
+  result_gompertz <- create_survival_dates(
+    entry_var = "entry", event_var = "event",
+    entry_start = as.Date("2010-01-01"),
+    entry_end = as.Date("2010-12-31"),
+    followup_min = 100, followup_max = 1000,
+    length = 100, df_mock = data.frame(),
+    event_distribution = "gompertz", seed = 102
+  )
+
+  # Exponential
+  result_exp <- create_survival_dates(
+    entry_var = "entry", event_var = "event",
+    entry_start = as.Date("2010-01-01"),
+    entry_end = as.Date("2010-12-31"),
+    followup_min = 100, followup_max = 1000,
+    length = 100, df_mock = data.frame(),
+    event_distribution = "exponential", seed = 103
+  )
+
+  # All should maintain temporal ordering
+  expect_true(all(result_uniform$event > result_uniform$entry))
+  expect_true(all(result_gompertz$event > result_gompertz$entry))
+  expect_true(all(result_exp$event > result_exp$entry))
+
+  # Distributions should produce different median follow-up times
+  followup_uniform <- median(as.numeric(result_uniform$event - result_uniform$entry))
+  followup_gompertz <- median(as.numeric(result_gompertz$event - result_gompertz$entry))
+  followup_exp <- median(as.numeric(result_exp$event - result_exp$entry))
+
+  # Gompertz should have longer median (events cluster toward end)
+  expect_true(followup_gompertz > followup_uniform)
+  # Exponential should have shorter median (early events)
+  expect_true(followup_exp < followup_uniform)
+})
+
+test_that("create_survival_dates handles censoring", {
+  result <- create_survival_dates(
+    entry_var = "entry", event_var = "event",
+    entry_start = as.Date("2015-01-01"),
+    entry_end = as.Date("2016-12-31"),
+    followup_min = 30, followup_max = 365,
+    length = 1000, df_mock = data.frame(),
+    prop_censored = 0.3, seed = 200
+  )
+
+  # Should have event_status column
+  expect_true("event_status" %in% names(result))
+  expect_equal(ncol(result), 3)
+
+  # Approximately 30% should be censored
+  n_censored <- sum(result$event_status == 0)
+  expect_true(n_censored > 250 && n_censored < 350)  # 30% ± tolerance
+
+  # Censored records should still have valid dates
+  censored_rows <- result[result$event_status == 0, ]
+  expect_true(all(censored_rows$event > censored_rows$entry))
+})
+
+test_that("create_survival_dates handles missing values", {
+  result <- create_survival_dates(
+    entry_var = "entry", event_var = "event",
+    entry_start = as.Date("2010-01-01"),
+    entry_end = as.Date("2011-12-31"),
+    followup_min = 100, followup_max = 500,
+    length = 1000, df_mock = data.frame(),
+    prop_NA = 0.1, seed = 300
+  )
+
+  # Approximately 10% should be NA
+  n_na_entry <- sum(is.na(result$entry))
+  n_na_event <- sum(is.na(result$event))
+
+  expect_true(n_na_entry > 50 && n_na_entry < 150)
+  expect_equal(n_na_entry, n_na_event)  # Both should be NA together
+})
+
+test_that("create_survival_dates returns NULL for duplicate variables", {
+  df_mock <- data.frame(entry_date = as.Date("2020-01-01"))
+
+  result <- create_survival_dates(
+    entry_var = "entry_date",
+    event_var = "death_date",
+    entry_start = as.Date("2000-01-01"),
+    entry_end = as.Date("2005-12-31"),
+    followup_min = 365,
+    followup_max = 3650,
+    length = 100,
+    df_mock = df_mock
+  )
+
+  expect_null(result)
+})
+
+test_that("create_survival_dates validates inputs", {
+  # Invalid date ordering
+  expect_error(
+    create_survival_dates(
+      entry_var = "entry", event_var = "event",
+      entry_start = as.Date("2020-01-01"),
+      entry_end = as.Date("2015-01-01"),  # Before start
+      followup_min = 100, followup_max = 500,
+      length = 100, df_mock = data.frame()
+    ),
+    "entry_start must be before entry_end"
+  )
+
+  # Invalid follow-up range
+  expect_error(
+    create_survival_dates(
+      entry_var = "entry", event_var = "event",
+      entry_start = as.Date("2015-01-01"),
+      entry_end = as.Date("2020-01-01"),
+      followup_min = 500, followup_max = 100,  # Min > Max
+      length = 100, df_mock = data.frame()
+    ),
+    "followup_min must be less than followup_max"
+  )
+
+  # Invalid prop_censored
+  expect_error(
+    create_survival_dates(
+      entry_var = "entry", event_var = "event",
+      entry_start = as.Date("2015-01-01"),
+      entry_end = as.Date("2020-01-01"),
+      followup_min = 100, followup_max = 500,
+      length = 100, df_mock = data.frame(),
+      prop_censored = 1.5
+    ),
+    "prop_censored must be between 0 and 1"
+  )
+})
+
 test_that("prop_NA and prop_invalid work together", {
   # Load test metadata
   variables <- read.csv(

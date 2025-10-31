@@ -296,47 +296,141 @@ dates_complex <- create_date_var(
 stopifnot(prop_NA + prop_invalid <= 1.0)  # Must sum to ≤ 1
 ```
 
-## Use cases
+## Survival analysis workflows
 
-### Survival analysis
+### Basic cohort study
 
-Generate paired dates for time-to-event analysis:
+Use `create_survival_dates()` to generate paired entry and event dates with guaranteed temporal ordering:
 
 ```{r}
-#| eval: false
-# Entry dates (uniform)
-entry_dates <- create_date_var(
-  var_raw = "study_entry",
-  cycle = "ices",
-  variable_details = variable_details,
+#| message: false
+#| warning: false
+# Mortality study with 5-year recruitment, up to 10-year follow-up
+surv_data <- create_survival_dates(
+  entry_var = "cohort_entry",
+  event_var = "death_date",
+  entry_start = as.Date("2000-01-01"),
+  entry_end = as.Date("2004-12-31"),
+  followup_min = 365,       # Min 1 year follow-up
+  followup_max = 3650,      # Max 10 years
   length = 1000,
   df_mock = data.frame(),
-  distribution = "uniform",
+  event_distribution = "gompertz",  # Realistic mortality pattern
   seed = 100
 )
 
-# Death dates (Gompertz - realistic mortality)
-death_dates <- create_date_var(
-  var_raw = "death_date",
-  cycle = "ices",
-  variable_details = variable_details,
-  length = 1000,
-  df_mock = entry_dates,  # Pass existing data
-  distribution = "gompertz",
-  seed = 101
-)
-
-# Combine
-survival_data <- cbind(entry_dates, death_dates)
-
-# Calculate time-to-event (manual for now)
-# Note: Future versions will have create_survival_vars() helper
-survival_data$time_days <- as.numeric(
-  difftime(survival_data$death_date, survival_data$study_entry, units = "days")
-)
+# View sample
+head(surv_data, 5)
 ```
 
-**Note**: This example shows manual date calculation. See [parking-lot.md](../parking-lot.md) for planned `create_survival_vars()` helper function.
+**Key features:**
+
+- Entry dates uniformly distributed across recruitment period
+- Event dates follow Gompertz distribution (mortality increases with time)
+- Guaranteed: `death_date > cohort_entry` for all records
+
+```{r}
+#| echo: false
+# Calculate follow-up statistics
+followup_days <- as.numeric(surv_data$death_date - surv_data$cohort_entry)
+cat("Follow-up time summary (days):\n")
+cat("  Median:", median(followup_days), "\n")
+cat("  Range: ", range(followup_days)[1], "-", range(followup_days)[2], "\n")
+cat("  Mean:  ", round(mean(followup_days)), "\n")
+```
+
+### Censoring
+
+Add censoring to simulate incomplete follow-up:
+
+```{r}
+#| message: false
+#| warning: false
+surv_censored <- create_survival_dates(
+  entry_var = "entry",
+  event_var = "event",
+  entry_start = as.Date("2010-01-01"),
+  entry_end = as.Date("2015-12-31"),
+  followup_min = 30,
+  followup_max = 1825,  # 5 years
+  length = 1000,
+  df_mock = data.frame(),
+  event_distribution = "exponential",
+  prop_censored = 0.3,  # 30% censored
+  seed = 200
+)
+
+# View structure
+head(surv_censored, 5)
+```
+
+The `event_status` column indicates:
+
+- **1** = event observed (death occurred)
+- **0** = censored (lost to follow-up, end of study)
+
+```{r}
+#| echo: false
+cat("Censoring summary:\n")
+cat("  Events:  ", sum(surv_censored$event_status == 1),
+    sprintf("(%.1f%%)", 100 * mean(surv_censored$event_status == 1)), "\n")
+cat("  Censored:", sum(surv_censored$event_status == 0),
+    sprintf("(%.1f%%)", 100 * mean(surv_censored$event_status == 0)), "\n")
+```
+
+### Distribution comparison for survival data
+
+Different distributions create different event patterns:
+
+```{r}
+#| message: false
+#| warning: false
+# Uniform: constant hazard
+surv_uniform <- create_survival_dates(
+  entry_var = "entry", event_var = "event",
+  entry_start = as.Date("2015-01-01"),
+  entry_end = as.Date("2015-12-31"),
+  followup_min = 100, followup_max = 1000,
+  length = 1000, df_mock = data.frame(),
+  event_distribution = "uniform", seed = 301
+)
+
+# Gompertz: increasing hazard (aging population)
+surv_gompertz <- create_survival_dates(
+  entry_var = "entry", event_var = "event",
+  entry_start = as.Date("2015-01-01"),
+  entry_end = as.Date("2015-12-31"),
+  followup_min = 100, followup_max = 1000,
+  length = 1000, df_mock = data.frame(),
+  event_distribution = "gompertz", seed = 302
+)
+
+# Exponential: early events (diagnosis, treatment failure)
+surv_exponential <- create_survival_dates(
+  entry_var = "entry", event_var = "event",
+  entry_start = as.Date("2015-01-01"),
+  entry_end = as.Date("2015-12-31"),
+  followup_min = 100, followup_max = 1000,
+  length = 1000, df_mock = data.frame(),
+  event_distribution = "exponential", seed = 303
+)
+
+# Compare median survival times
+followup_uniform <- as.numeric(surv_uniform$event - surv_uniform$entry)
+followup_gompertz <- as.numeric(surv_gompertz$event - surv_gompertz$entry)
+followup_exponential <- as.numeric(surv_exponential$event - surv_exponential$entry)
+
+cat("Median time-to-event (days):\n")
+cat("  Uniform:    ", median(followup_uniform), "\n")
+cat("  Gompertz:   ", median(followup_gompertz), "\n")
+cat("  Exponential:", median(followup_exponential), "\n")
+```
+
+**Pattern interpretation:**
+
+- **Uniform**: Events spread evenly across follow-up
+- **Gompertz**: More events later (realistic for age-related mortality)
+- **Exponential**: More events early (realistic for disease progression)
 
 ### Longitudinal studies
 
