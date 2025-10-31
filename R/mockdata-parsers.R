@@ -56,6 +56,7 @@
 #' parse_variable_start("cycle2::age", "cycle1")
 #' # Returns: NULL
 #'
+#' @family parsing-utilities
 #' @export
 parse_variable_start <- function(variable_start, cycle) {
   # Basic validation
@@ -170,6 +171,7 @@ parse_variable_start <- function(variable_start, cycle) {
 #' parse_range_notation("else")    # Returns: list(type="special", value="else")
 #'
 #' @note Adapted from cchsflow v4.0.0 (2025-07-27) - universal across recodeflow projects
+#' @family parsing-utilities
 #' @export
 parse_range_notation <- function(range_string, range_type = "auto", expand_integers = TRUE) {
   # Handle NULL, NA, or empty inputs

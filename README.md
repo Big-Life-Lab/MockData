@@ -10,9 +10,11 @@ MockData creates realistic mock data for testing harmonisation workflows across 
 
 - **Metadata-driven**: Uses existing `variables.csv` and `variable-details.csv` - no duplicate specifications needed
 - **Recodeflow-standard**: Supports all recodeflow notation formats (database-prefixed, bracket, mixed)
+- **Temporal variables**: Date generation with realistic distributions (uniform, Gompertz, exponential)
+- **Data quality testing**: Generate invalid/out-of-range values to test validation pipelines (`prop_invalid`)
 - **Metadata validation**: Tools to check metadata quality
 - **Universal**: Works across CHMS, CCHS, and future recodeflow projects
-- **Test availability**: 224 tests covering parsers, helpers, and generators
+- **Test availability**: 250 tests covering parsers, helpers, and generators
 
 ## Installation
 
@@ -99,7 +101,18 @@ See `mockdata-tools/README.md` for detailed documentation.
 3. **Generators**:
    - `create_cat_var()` (`R/create_cat_var.R`): Generates categorical variables with tagged NA support
    - `create_con_var()` (`R/create_con_var.R`): Generates continuous variables with realistic distributions
+   - `create_date_var()` (`R/create_date_var.R`): Generates date variables with temporal distributions
 
+## Documentation
+
+**Vignettes**:
+- [Date variables and temporal data](vignettes/dates.qmd) - Date generation, distributions, and survival analysis prep
+- [CCHS example](vignettes/cchs-example.qmd) - CCHS workflow demonstration
+- [CHMS example](vignettes/chms-example.qmd) - CHMS workflow demonstration
+- [DemPoRT example](vignettes/demport-example.qmd) - Survival analysis workflow
+
+**Additional resources**:
+- [parking-lot.md](parking-lot.md) - Future features and planned enhancements
 
 ## Testing
 

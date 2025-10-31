@@ -60,6 +60,7 @@
 #'
 #' @seealso \code{\link{parse_variable_start}}
 #'
+#' @family metadata-utilities
 #' @export
 get_cycle_variables <- function(cycle, variables, variable_details,
                                  include_derived = TRUE) {
@@ -183,6 +184,7 @@ get_cycle_variables <- function(cycle, variables, variable_details,
 #'
 #' @seealso \code{\link{get_cycle_variables}}, \code{\link{parse_variable_start}}
 #'
+#' @family metadata-utilities
 #' @export
 get_raw_variables <- function(cycle, variables, variable_details,
                                include_derived = FALSE) {

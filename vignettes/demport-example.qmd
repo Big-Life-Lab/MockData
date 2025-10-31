@@ -17,31 +17,35 @@ Some resources:
 ```{r}
 #| warning: false
 #| message: false
-#| output: false
 
 library(dplyr)       # Data manipulation
 library(stringr)     # Working with strings
-#library(simstudy)    # Generate simulated data sets: https://cran.r-project.org/web/packages/simstudy/vignettes/simstudy.html
 
 # Load MockData package functions
-# Note: When running as vignette, use library(MockData)
-# For development, source directly:
-source("../R/mockdata-parsers.R")
-source("../R/mockdata-helpers.R")
-source("../R/create_cat_var.R")
-source("../R/create_con_var.R")
+devtools::load_all("../", quiet = TRUE)
 
 ```
 
 ## Read in variable and variable_details sheet
 
 ```{r}
-# DemPoRT variables
-variables <- read.csv(system.file("extdata/demport/variables_DemPoRT.csv", package = "MockData"),
-                     header = T, check.names=FALSE, na.strings=c("","NA","N/A"))
+# DemPoRT variables (use relative path for vignette building)
+variables <- read.csv(
+  "../inst/extdata/demport/variables_DemPoRT.csv",
+  header = TRUE,
+  check.names = FALSE,
+  na.strings = c("", "NA", "N/A"),
+  stringsAsFactors = FALSE
+)
+
 # DemPoRT variable details
-variable_details <- read.csv(system.file("extdata/demport/variable_details_DemPoRT.csv", package = "MockData"),
-                            header = T, check.names=FALSE, na.strings=c("","NA","N/A"))  
+variable_details <- read.csv(
+  "../inst/extdata/demport/variable_details_DemPoRT.csv",
+  header = TRUE,
+  check.names = FALSE,
+  na.strings = c("", "NA", "N/A"),
+  stringsAsFactors = FALSE
+)
 ```
 
 ## Get required cycles
@@ -165,33 +169,75 @@ for (cycle in cycles) {
 }
 ```
 
-### combine
+### Combine categorical and continuous data
 
 ```{r}
 df <- bind_cols(df_cat, df_con[, !(names(df_con) %in% names(df_cat))])
-write.csv(df, paste0("output/mock_all_cycles.csv"), row.names = F)
+
+# Show structure of combined data
+cat("Combined mock data dimensions:", nrow(df), "rows ×", ncol(df), "columns\n")
+cat("\nFirst few rows:\n")
+print(head(df, 3))
+
+# Optionally save to file (commented out for vignette)
+# write.csv(df, "mock_all_cycles.csv", row.names = FALSE)
 ```
 
-### save for each cycle
+### Examine data by cycle
 
 ```{r}
+# Show summary for each cycle
 for (cycle in cycles) {
-  dfi <- df %>% filter(cycle == cycle)
+  dfi <- df %>% filter(cycle == !!cycle)
   nNA <- colSums(is.na(dfi))
-  dfi[, nNA == 0]
+  cols_without_na <- names(dfi)[nNA == 0]
 
-  write.csv(dfi, paste0("output/mock_", cycle, ".csv"), row.names = F)
+  cat("\n=== Cycle:", cycle, "===\n")
+  cat("Rows:", nrow(dfi), "\n")
+  cat("Columns without NA:", length(cols_without_na), "\n")
+
+  # Optionally save per-cycle files (commented out for vignette)
+  # write.csv(dfi, paste0("mock_", cycle, ".csv"), row.names = FALSE)
 }
 ```
 
-# 2. Genarate outcome data
+## Generate outcome data
 
-one male data one female data
+This section demonstrates generating mortality outcome data for survival analysis. DemPoRT requires date variables for time-to-event analysis.
+
+**Note**: For comprehensive coverage of date variable generation including:
+
+- Multiple distribution types (uniform, Gompertz, exponential)
+- Handling invalid dates for testing
+- Survival analysis workflows
+
+See the [Date variables and temporal data](dates.html) vignette.
+
+### Example: Generate death dates
 
 ```{r}
+#| eval: false
 
+# Example of adding death dates to the mock data
+# This would use create_date_var() with Gompertz distribution
+# for realistic mortality patterns
+
+# death_dates <- create_date_var(
+#   var_raw = "death_date",
+#   cycle = "ices",
+#   variable_details = variable_details,
+#   length = nrow(df),
+#   df_mock = df,
+#   distribution = "gompertz",  # Realistic mortality pattern
+#   seed = 200
+# )
+#
+# df_with_dates <- cbind(df, death_dates)
 ```
 
-```{r}
+For a complete survival analysis workflow with DemPoRT, see the dates vignette which covers:
 
-```
+- Generating paired entry and event dates
+- Distribution selection for different event types
+- Calculating time-to-event variables
+- Handling censoring
