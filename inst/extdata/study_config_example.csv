@@ -1,4 +1,4 @@
-parameter,value,type,description
+parameter,value,field_type,field_description
 study_name,ICES_Mortality_Study,character,Study identifier
 study_design,open_cohort,character,Study design type: open_cohort or fixed_followup
 accrual_start,2000-01-01,date,Start of accrual window (when people can enter cohort)

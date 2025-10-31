@@ -10,9 +10,15 @@
 #'   the 'type' column in the config file
 #'
 #' @details
-#' The configuration CSV must have columns: parameter, value, type, description
+#' The configuration CSV must have columns: parameter, value, field_type, field_description
 #'
-#' Supported types:
+#' **Column definitions:**
+#' - parameter: Name of configuration parameter (e.g., "study_design", "accrual_start")
+#' - value: Value as string (will be type-converted based on field_type)
+#' - field_type: R data type for this parameter
+#' - field_description: Human-readable description (schema metadata, not study data)
+#'
+#' **Supported field_type values:**
 #' - character: Text values
 #' - date: Dates (YYYY-MM-DD format)
 #' - integer: Whole numbers
@@ -48,7 +54,7 @@ read_study_config <- function(config_path) {
   )
 
   # Validate required columns
-  required_cols <- c("parameter", "value", "type", "description")
+  required_cols <- c("parameter", "value", "field_type", "field_description")
   missing_cols <- setdiff(required_cols, names(config_df))
   if (length(missing_cols) > 0) {
     stop("Configuration file missing required columns: ",
@@ -61,7 +67,7 @@ read_study_config <- function(config_path) {
   for (i in seq_len(nrow(config_df))) {
     param_name <- config_df$parameter[i]
     param_value <- config_df$value[i]
-    param_type <- config_df$type[i]
+    param_type <- config_df$field_type[i]
 
     # Skip empty parameters
     if (is.na(param_name) || param_name == "") {

@@ -1,0 +1,289 @@
+schema_version: "1.0.0"
+schema_date: "2025-10-31"
+description: "Study configuration schema for MockData survival analysis - defines parameters for generating realistic cohort study data with time-to-event outcomes."
+registry_file: "../documentation/metadata_registry.yaml"
+
+# Note: Shared specifications (CSV format, tier system, validation patterns, etc.)
+# are defined in metadata_registry.yaml to maintain DRY principles
+
+study_config_schema:
+  title: "Study configuration for survival data generation"
+  description: "Specifies study design, time windows, event parameters, and data quality settings for generating mock survival analysis datasets."
+
+  target_csv: "study_config.csv"
+  id_column_name: "parameter"
+
+  # Column order for study_config.csv files
+  expected_column_order:
+    - "parameter"
+    - "value"
+    - "field_type"
+    - "field_description"
+
+  # Field definitions organized by functional group
+  fields:
+    # ============================================================================
+    # METADATA FIELDS - Define the structure of the config file itself
+    # ============================================================================
+
+    - name: "parameter"
+      title: "Parameter name"
+      description: "Name of the configuration parameter."
+      field_type: "string"
+      tier: "core"
+      constraints:
+        required: true
+        pattern: "^[a-z_][a-z0-9_]*$"
+      notes: |
+        Use lowercase with underscores for parameter names.
+        Groups parameters naturally (e.g., death_enabled, death_distribution, death_rate).
+
+    - name: "value"
+      title: "Parameter value"
+      description: "Value of the configuration parameter (as string, will be type-converted)."
+      field_type: "string"
+      tier: "core"
+      constraints:
+        required: true
+      notes: |
+        All values stored as strings in CSV.
+        Type conversion happens based on field_type column.
+
+    - name: "field_type"
+      title: "Field data type"
+      description: "R data type for this parameter."
+      field_type: "string"
+      tier: "core"
+      constraints:
+        required: true
+        enum: ["character", "date", "integer", "numeric", "logical"]
+      notes: |
+        Determines how read_study_config() converts the value string.
+        - character: Text values
+        - date: YYYY-MM-DD format
+        - integer: Whole numbers
+        - numeric: Decimal numbers
+        - logical: TRUE/FALSE
+
+    - name: "field_description"
+      title: "Field description"
+      description: "Human-readable description of what this parameter controls."
+      field_type: "string"
+      tier: "core"
+      constraints:
+        required: true
+      notes: |
+        Provides context and usage guidance for each parameter.
+        This is schema metadata, not study data.
+
+    # ============================================================================
+    # STUDY PARAMETERS - Actual configuration values
+    # ============================================================================
+    # These define the parameters that can appear in study_config.csv files
+
+  parameter_definitions:
+    description: "Valid parameters that can be specified in study configuration files."
+
+    study_identification:
+      - parameter: "study_name"
+        field_type: "character"
+        required: false
+        field_description: "Descriptive name for the study (for documentation)"
+
+      - parameter: "study_design"
+        field_type: "character"
+        required: true
+        field_description: "Study design type: open_cohort or fixed_followup"
+        constraints:
+          enum: ["open_cohort", "fixed_followup"]
+        notes: |
+          - open_cohort: Calendar-based design with accrual window and max follow-up date
+            (e.g., ICES population studies with administrative data through 2020-12-31)
+          - fixed_followup: Individual-based design with fixed follow-up duration
+            (e.g., RCT with 5-year follow-up for each participant)
+
+    time_windows:
+      - parameter: "accrual_start"
+        field_type: "date"
+        required: true
+        field_description: "Start of accrual window (first possible cohort entry date)"
+
+      - parameter: "accrual_end"
+        field_type: "date"
+        required: true
+        field_description: "End of accrual window (last possible cohort entry date)"
+        constraints:
+          validation: "Must be after accrual_start"
+
+      - parameter: "max_followup_date"
+        field_type: "date"
+        required_if: "study_design == 'open_cohort'"
+        field_description: "Maximum calendar date for follow-up (hard data cutoff)"
+        constraints:
+          validation: "Must be after accrual_end"
+        notes: |
+          For open cohort designs only.
+          Represents the last date for which outcome data is available.
+
+      - parameter: "followup_min"
+        field_type: "integer"
+        required_if: "study_design == 'fixed_followup'"
+        field_description: "Minimum follow-up duration in days"
+
+      - parameter: "followup_max"
+        field_type: "integer"
+        required_if: "study_design == 'fixed_followup'"
+        field_description: "Maximum follow-up duration in days"
+        constraints:
+          validation: "Must be greater than followup_min"
+
+    death_parameters:
+      - parameter: "death_enabled"
+        field_type: "logical"
+        required: false
+        default: "FALSE"
+        field_description: "Whether to generate death dates"
+
+      - parameter: "death_distribution"
+        field_type: "character"
+        required_if: "death_enabled == TRUE"
+        field_description: "Distribution for time to death"
+        constraints:
+          enum: ["uniform", "gompertz", "exponential"]
+        notes: |
+          - uniform: Constant hazard (events spread evenly)
+          - gompertz: Increasing hazard (mortality rises with time)
+          - exponential: Decreasing hazard (early events more common)
+
+      - parameter: "death_rate"
+        field_type: "numeric"
+        required_if: "death_enabled == TRUE && death_distribution != 'uniform'"
+        field_description: "Rate parameter for death distribution"
+
+      - parameter: "death_shape"
+        field_type: "numeric"
+        required_if: "death_enabled == TRUE && death_distribution == 'gompertz'"
+        field_description: "Shape parameter for Gompertz distribution"
+
+    primary_outcome_parameters:
+      - parameter: "primary_outcome_enabled"
+        field_type: "logical"
+        required: false
+        default: "FALSE"
+        field_description: "Whether to generate primary outcome dates"
+
+      - parameter: "primary_outcome_distribution"
+        field_type: "character"
+        required_if: "primary_outcome_enabled == TRUE"
+        field_description: "Distribution for time to primary outcome"
+        constraints:
+          enum: ["uniform", "gompertz", "exponential"]
+
+      - parameter: "primary_outcome_rate"
+        field_type: "numeric"
+        required_if: "primary_outcome_enabled == TRUE && primary_outcome_distribution != 'uniform'"
+        field_description: "Rate parameter for primary outcome distribution"
+
+    competing_outcome_parameters:
+      - parameter: "competing_outcome_enabled"
+        field_type: "logical"
+        required: false
+        default: "FALSE"
+        field_description: "Whether to generate competing outcome dates"
+
+      - parameter: "competing_outcome_distribution"
+        field_type: "character"
+        required_if: "competing_outcome_enabled == TRUE"
+        field_description: "Distribution for time to competing outcome"
+        constraints:
+          enum: ["uniform", "gompertz", "exponential"]
+
+      - parameter: "competing_outcome_rate"
+        field_type: "numeric"
+        required_if: "competing_outcome_enabled == TRUE && competing_outcome_distribution != 'uniform'"
+        field_description: "Rate parameter for competing outcome distribution"
+
+    data_quality_parameters:
+      - parameter: "prop_censored"
+        field_type: "numeric"
+        required: false
+        default: "0"
+        field_description: "Proportion of records to censor (0-1)"
+        constraints:
+          minimum: 0
+          maximum: 1
+
+      - parameter: "prop_NA"
+        field_type: "numeric"
+        required: false
+        default: "0"
+        field_description: "Proportion of missing date values (0-1)"
+        constraints:
+          minimum: 0
+          maximum: 1
+
+      - parameter: "prop_invalid"
+        field_type: "numeric"
+        required: false
+        default: "0"
+        field_description: "Proportion of out-of-range dates for testing (0-1)"
+        constraints:
+          minimum: 0
+          maximum: 1
+        notes: |
+          Generates dates 1-5 years before or after valid range.
+          Useful for testing data validation pipelines.
+
+    sample_parameters:
+      - parameter: "sample_size"
+        field_type: "integer"
+        required: true
+        field_description: "Number of individuals to generate"
+        constraints:
+          minimum: 1
+
+      - parameter: "seed"
+        field_type: "integer"
+        required: true
+        field_description: "Random seed for reproducibility"
+
+  # ============================================================================
+  # VALIDATION RULES
+  # ============================================================================
+
+  validation_rules:
+    cross_parameter_validation:
+      - rule: "accrual_start < accrual_end"
+        message: "Accrual start date must be before end date"
+
+      - rule: "IF study_design == 'open_cohort' THEN max_followup_date > accrual_end"
+        message: "Maximum follow-up date must be after accrual period"
+
+      - rule: "IF study_design == 'fixed_followup' THEN followup_min < followup_max"
+        message: "Minimum follow-up must be less than maximum"
+
+      - rule: "prop_censored + prop_NA + prop_invalid <= 1.0"
+        message: "Sum of data quality proportions cannot exceed 1.0"
+
+    conditional_requirements:
+      open_cohort:
+        required_parameters: ["accrual_start", "accrual_end", "max_followup_date"]
+        forbidden_parameters: []
+
+      fixed_followup:
+        required_parameters: ["accrual_start", "accrual_end", "followup_min", "followup_max"]
+        forbidden_parameters: []
+
+  # ============================================================================
+  # VERSION CONTROL
+  # ============================================================================
+
+  versioning:
+    schema_changelog:
+      - version: "1.0.0"
+        date: "2025-10-31"
+        changes:
+          - "Initial schema for study configuration files"
+          - "Support for open_cohort and fixed_followup designs"
+          - "Death, primary outcome, and competing outcome parameters"
+          - "Data quality parameters (censoring, NA, invalid)"
