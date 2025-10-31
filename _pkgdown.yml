@@ -1,0 +1,39 @@
+url: https://big-life-lab.github.io/MockData/
+
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+
+reference:
+  - title: "Variable generation"
+    desc: "Functions for generating mock variables"
+    contents:
+      - create_cat_var
+      - create_con_var
+  - title: "Helper functions"
+    desc: "Helper functions for metadata processing"
+    contents:
+      - get_variable_categories
+      - get_cycle_variables
+      - get_raw_variables
+
+articles:
+  - title: "Tutorial"
+    desc: "Learning-oriented: hands-on introduction"
+    contents:
+      - getting-started
+  - title: "How-to guides"
+    desc: "Goal-oriented: solve specific problems"
+    contents:
+      - cchs-example
+      - chms-example
+      - demport-example
+  - title: "Explanation"
+    desc: "Understanding-oriented: comprehensive documentation"
+    contents:
+      - user-guide
+      - advanced-topics

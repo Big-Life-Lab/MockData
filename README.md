@@ -41,29 +41,43 @@ variable_details <- read.csv(
   stringsAsFactors = FALSE
 )
 
-# Get variables for a specific cycle
-cycle1_vars <- get_cycle_variables("cycle1", variables, variable_details)
-
-# Get unique raw variables to generate
-raw_vars <- get_raw_variables("cycle1", variables, variable_details)
-
 # Create empty data frame
 df_mock <- data.frame(id = 1:1000)
 
 # Generate a categorical variable
-result <- create_cat_var("alc_11", "cycle1", variable_details, variables,
-                        length = 1000, df_mock = df_mock, seed = 123)
-if (!is.null(result)) {
-  df_mock <- cbind(df_mock, result)
-}
+df_mock <- create_cat_var(
+  var_raw = "alc_11",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  df_mock = df_mock,
+  prop_NA = 0.05  # 5% missing values
+)
 
 # Generate a continuous variable
-result <- create_con_var("alcdwky", "cycle1", variable_details, variables,
-                        length = 1000, df_mock = df_mock, seed = 123)
-if (!is.null(result)) {
-  df_mock <- cbind(df_mock, result)
-}
+df_mock <- create_con_var(
+  var_raw = "alcdwky",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 1000,
+  df_mock = df_mock,
+  distribution = "uniform",
+  prop_NA = 0.03  # 3% missing values
+)
 ```
+
+## Documentation
+
+- **[Getting started](vignettes/getting-started.qmd)**: Hands-on tutorial for new users
+- **[User guide](vignettes/user-guide.qmd)**: Comprehensive feature documentation
+- **[Advanced topics](vignettes/advanced-topics.qmd)**: Technical details and edge cases
+
+### Database-specific examples
+
+- **[CCHS example](vignettes/cchs-example.qmd)**: Generate CCHS mock data
+- **[CHMS example](vignettes/chms-example.qmd)**: Generate CHMS mock data
+- **[DemPoRT example](vignettes/demport-example.qmd)**: Generate DemPoRT mock data
 
 ## Validation tools
 

@@ -1,197 +1,413 @@
 ---
-title: "Create mock data for DemPoRT"
-author: "Juan Li"
-date: 2025-07-30
-format: 
+title: "How to: Generate DemPoRT mock data"
+author: "MockData Team"
+date: 2025-10-30
+format:
   html:
     toc: true
     html-math-method: katex
     css: styles.css
 editor: visual
 ---
+```{r}
+#| label: setup
+#| include: false
+devtools::load_all("../", quiet = TRUE)
+```
 
-Some resources:
+## Prerequisites
 
-<https://kgoldfeld.github.io/simstudy/>
+- Complete the [Getting started](getting-started.html) tutorial
+- Familiar with DemPoRT (Dementia Population Risk Tool) structure
+
+See the [User guide](user-guide.html) for detailed feature documentation.
+
+## DemPoRT-specific considerations
+
+The Dementia Population Risk Tool has unique characteristics:
+
+- **Risk prediction model:** DemPoRT predicts dementia incidence using population health survey data
+- **Multiple source databases:** Uses harmonized variables from CCHS and other sources
+- **Derived variables:** Many DemPoRT variables are calculated risk scores
+- **Cohort design:** Designed for longitudinal cohort analysis
+
+MockData helps develop and test DemPoRT workflows with realistic mock input data.
+
+## Load DemPoRT metadata
 
 ```{r}
 #| warning: false
 #| message: false
 #| output: false
 
-library(dplyr)       # Data manipulation
-library(stringr)     # Working with strings
-#library(simstudy)    # Generate simulated data sets: https://cran.r-project.org/web/packages/simstudy/vignettes/simstudy.html
-
-# Load MockData package functions
-# Note: When running as vignette, use library(MockData)
-# For development, source directly:
-source("../R/mockdata-parsers.R")
-source("../R/mockdata-helpers.R")
-source("../R/create_cat_var.R")
-source("../R/create_con_var.R")
-
+library(dplyr)
+library(stringr)
 ```
 
-## Read in variable and variable_details sheet
-
 ```{r}
-# DemPoRT variables
-variables <- read.csv(system.file("extdata/demport/variables_DemPoRT.csv", package = "MockData"),
-                     header = T, check.names=FALSE, na.strings=c("","NA","N/A"))
-# DemPoRT variable details
-variable_details <- read.csv(system.file("extdata/demport/variable_details_DemPoRT.csv", package = "MockData"),
-                            header = T, check.names=FALSE, na.strings=c("","NA","N/A"))  
+# Load DemPoRT metadata from package
+variables <- read.csv(
+  "../inst/extdata/demport/variables_DemPoRT.csv",
+  header = TRUE,
+  check.names = FALSE,
+  na.strings = c("", "NA", "N/A"),
+  stringsAsFactors = FALSE
+)
+
+variable_details <- read.csv(
+  "../inst/extdata/demport/variable_details_DemPoRT.csv",
+  header = TRUE,
+  check.names = FALSE,
+  na.strings = c("", "NA", "N/A"),
+  stringsAsFactors = FALSE
+)
+
+cat("Loaded DemPoRT metadata:\n")
+cat("- Variables:", nrow(variables), "rows\n")
+cat("- Variable details:", nrow(variable_details), "rows\n")
 ```
 
-## Get required cycles
+## Explore available cycles
+
+DemPoRT uses CCHS cycles as source data:
 
 ```{r}
+# Extract CCHS cycles from metadata
 cycles <- unlist(str_split(paste(variables$databaseStart, collapse = ","), ","))
-cycles <- unlist(str_split(cycles, " ")) 
-cycles <- str_trim(cycles[str_detect(cycles, "cchs")]) # trim whitespaces
-(cycles <- sort(unique(cycles)))
-
-# NOTE: clean cycles
+cycles <- str_trim(cycles[str_detect(cycles, "cchs")])
 cycles <- sort(unique(str_replace_all(cycles, "cchs_", "cchs")))
-cycles
+
+cat("Available CCHS cycles in DemPoRT metadata:\n")
+print(cycles)
+
+# Choose first cycle for this example
+target_cycle <- cycles[1]
+cat("\nGenerating mock data for:", target_cycle, "\n")
 ```
 
-## Get variable names of each type
+## Identify variable types
+
+DemPoRT has three types of variables:
 
 ```{r}
-# check if variables and variable_details sheets match
-var1 <- variables$variable
-var2 <- unique(variable_details$variable)
+# Derived variables (calculated from other variables)
+var_derived <- unique(c(
+  variables[str_detect(variables$variableStart, "DerivedVar::") |
+            str_detect(variables$variable, "_der"), "variable"],
+  variable_details[str_detect(variable_details$variableStart, "DerivedVar::") |
+                   str_detect(variable_details$variable, "_der"), "variable"]
+))
 
-print("In variables, not in variable_details:")
-var1[!(var1 %in% var2)]
-print("In variable_details, not in variables:")
-var2[!(var2 %in% var1)]
+# Categorical variables (excluding derived)
+var_cat <- unique(c(
+  variables[variables$variableType == "Categorical", "variable"],
+  variable_details[variable_details$variableType == "Categorical", "variable"]
+))
+var_cat <- var_cat[!(var_cat %in% var_derived)]
+
+# Continuous variables (excluding derived)
+var_con <- unique(c(
+  variables[variables$variableType == "Continuous", "variable"],
+  variable_details[variable_details$variableType == "Continuous", "variable"]
+))
+var_con <- var_con[!(var_con %in% var_derived)]
+
+cat("Variable breakdown:\n")
+cat("- Categorical:", length(var_cat), "variables\n")
+cat("- Continuous:", length(var_con), "variables\n")
+cat("- Derived:", length(var_derived), "variables (not generated)\n")
 ```
 
+## Generate categorical variables
+
 ```{r}
-# --- derived variables ---
-var_derived <- unique(c(variables[str_detect(variables$variableStart, "DerivedVar::") |
-                          str_detect(variables$variable, "_der"), "variable"],
-                        variable_details[str_detect(variable_details$variableStart, "DerivedVar::") |
-                          str_detect(variable_details$variable, "_der"), "variable"]))
-print("--- Derived variables: ---")
-print(var_derived)
+# Configuration
+n_records <- 100
+set.seed(12345)
 
-# --- original variables ---
-# categorical variables
-var_cat <- unique(c(variables[variables$variableType == "Categorical", "variable"],
-                    variable_details[variable_details$variableType == "Categorical", "variable"]))
-var_cat <- var_cat[!(var_cat %in% var_derived)] # remove derived variable
-print("--- Categorical variables: ---")
-print(var_cat)
+# Initialize data frame
+df_mock <- data.frame(id = 1:n_records, cycle = target_cycle)
 
-# continuous variables
-var_con <- unique(c(variables[variables$variableType == "Continuous", "variable"],
-                    variable_details[variable_details$variableType == "Continuous", "variable"]))
-var_con <- var_con[!(var_con %in% var_derived)] # remove derived variable
-print("--- Continuous variables: ---")
-print(var_con)
+# Generate each categorical variable
+cat("\nGenerating", length(var_cat), "categorical variables:\n\n")
 
-# check
-nrow(variables) == length(var_derived) + length(var_cat) + length(var_con)
+for (var in var_cat) {
+  cat("Generating:", var, "\n")
+
+  col <- create_cat_var(
+    var_raw = var,
+    cycle = target_cycle,
+    variable_details = variable_details,
+    variables = variables,
+    length = nrow(df_mock),
+    df_mock = df_mock,
+    prop_NA = 0.05  # Realistic 5% missingness
+  )
+
+  if (!is.null(col)) {
+    df_mock <- cbind(df_mock, col)
+  }
+}
+
+cat("\nCategorical generation complete. Columns:", ncol(df_mock), "\n")
 ```
 
-## 1. Generate mock data of original variables
-
-### Categorical variables
+## Generate continuous variables
 
 ```{r}
-length <- 5
+# Generate each continuous variable
+cat("\nGenerating", length(var_con), "continuous variables:\n\n")
 
-df_cat <- data.frame()
-for (cycle in cycles) {
-  df_i <- data.frame(cycle = rep(cycle, length))
+for (var in var_con) {
+  cat("Generating:", var, "\n")
+
+  col <- create_con_var(
+    var_raw = var,
+    cycle = target_cycle,
+    variable_details = variable_details,
+    variables = variables,
+    length = nrow(df_mock),
+    df_mock = df_mock,
+    distribution = "uniform",
+    prop_NA = 0.03  # Lower missingness for numeric measures
+  )
+
+  if (!is.null(col)) {
+    df_mock <- cbind(df_mock, col)
+  }
+}
+
+cat("\nContinuous generation complete. Columns:", ncol(df_mock), "\n")
+```
+
+## Verify results
+
+```{r}
+# Show structure
+cat("\nMock DemPoRT data structure:\n")
+cat("- Records:", nrow(df_mock), "\n")
+cat("- Variables:", ncol(df_mock), "\n\n")
+
+# Display first rows
+cat("First 10 rows:\n")
+print(head(df_mock, 10))
+
+# Check missing data
+cat("\nMissing value counts:\n")
+na_counts <- colSums(is.na(df_mock))
+if (any(na_counts > 0)) {
+  print(na_counts[na_counts > 0])
+  cat("\nMissingness rates:\n")
+  print(round(na_counts[na_counts > 0] / nrow(df_mock) * 100, 1))
+} else {
+  cat("No missing values\n")
+}
+```
+
+## DemPoRT-specific tips
+
+### Working with multiple cycles
+
+DemPoRT analysis often pools multiple CCHS cycles:
+
+```{r}
+# Generate for multiple cycles
+cycle_list <- cycles[1:min(3, length(cycles))]
+
+all_cycles_data <- lapply(cycle_list, function(cyc) {
+  cat("\nGenerating for:", cyc, "\n")
+
+  df <- data.frame(id = 1:50, cycle = cyc)
+
+  # Generate categorical variables
   for (var in var_cat) {
-    # Note: Using new function signature from mockdata-generators.R
-    col <- create_cat_var(
-      var_raw = var,
-      cycle = cycle,
-      variable_details = variable_details,
-      variables = variables,
-      length = length,
-      df_mock = df_i
-    )
+    col <- create_cat_var(var, cyc, variable_details, variables,
+                         length = nrow(df), df_mock = df, prop_NA = 0.05)
     if (!is.null(col)) {
-      df_i <- bind_cols(df_i, col)
+      df <- cbind(df, col)
     }
   }
-  df_cat <- bind_rows(df_cat, df_i)
-}
-```
 
-### Continuous variables
-
-```{r}
-df_con <- data.frame()
-for (cycle in cycles) {
-  df_i <- data.frame(cycle = rep(cycle, length))
+  # Generate continuous variables
   for (var in var_con) {
-    # Note: Using new function signature from mockdata-generators.R
-    # Catch warnings
-    tryCatch({
-      col <- create_con_var(
-        var_raw = var,
-        cycle = cycle,
-        variable_details = variable_details,
-        variables = variables,
-        length = length,
-        df_mock = df_i,
-        distribution = "uniform"
-      )
-    }, warning = function(w) print(paste0(var, " in ", cycle)))
-
-    # Run again to actually get the result (workaround for tryCatch behavior)
-    col <- create_con_var(
-      var_raw = var,
-      cycle = cycle,
-      variable_details = variable_details,
-      variables = variables,
-      length = length,
-      df_mock = df_i,
-      distribution = "uniform"
-    )
+    col <- create_con_var(var, cyc, variable_details, variables,
+                         length = nrow(df), df_mock = df,
+                         distribution = "uniform", prop_NA = 0.03)
     if (!is.null(col)) {
-      df_i <- bind_cols(df_i, col)
+      df <- cbind(df, col)
     }
   }
-  df_con <- bind_rows(df_con, df_i)
+
+  return(df)
+})
+
+# Combine all cycles (DemPoRT typical pattern)
+pooled_data <- bind_rows(all_cycles_data)
+
+cat("\nPooled multi-cycle dataset:\n")
+cat("- Total records:", nrow(pooled_data), "\n")
+cat("- Cycles:", paste(unique(pooled_data$cycle), collapse = ", "), "\n")
+cat("\nThis simulates the DemPoRT approach of pooling CCHS cycles\n")
+```
+
+### Handling derived variables
+
+DemPoRT has many derived variables (e.g., risk scores). MockData generates raw variables only:
+
+```{r}
+if (length(var_derived) > 0) {
+  cat("Derived variables in DemPoRT metadata:\n")
+  print(head(var_derived, 10))
+
+  cat("\nNote: Derived variables are NOT generated by MockData\n")
+  cat("- Generate raw variables first\n")
+  cat("- Then calculate derived variables using DemPoRT algorithms\n")
+  cat("- Or generate derived variables independently with mock ranges\n")
 }
 ```
 
-### combine
+### Realistic age and sex distributions
+
+DemPoRT models are often stratified by age and sex:
 
 ```{r}
-df <- bind_cols(df_cat, df_con[, !(names(df_con) %in% names(df_cat))])
-write.csv(df, paste0("output/mock_all_cycles.csv"), row.names = F)
-```
+# Example: Generate age with realistic older adult distribution
+# DemPoRT typically focuses on ages 55+
 
-### save for each cycle
+# Check if age variable exists
+if ("age" %in% var_con || "DHHGAGE" %in% var_con) {
+  age_var <- ifelse("age" %in% var_con, "age", "DHHGAGE")
 
-```{r}
-for (cycle in cycles) {
-  dfi <- df %>% filter(cycle == cycle)
-  nNA <- colSums(is.na(dfi))
-  dfi[, nNA == 0]
+  df_test <- data.frame(id = 1:1000, cycle = target_cycle)
 
-  write.csv(dfi, paste0("output/mock_", cycle, ".csv"), row.names = F)
+  col <- create_con_var(
+    var_raw = age_var,
+    cycle = target_cycle,
+    variable_details = variable_details,
+    variables = variables,
+    length = nrow(df_test),
+    df_mock = df_test,
+    distribution = list(type = "normal", mean = 65, sd = 10),  # Focus on 55+
+    prop_NA = 0.01
+  )
+
+  if (!is.null(col)) {
+    df_test <- cbind(df_test, col)
+
+    cat("Age distribution for DemPoRT cohort:\n")
+    cat("Mean:", round(mean(df_test[[age_var]], na.rm = TRUE), 1), "\n")
+    cat("Range:", range(df_test[[age_var]], na.rm = TRUE), "\n")
+    cat("Proportion 55+:", round(sum(df_test[[age_var]] >= 55, na.rm = TRUE) / nrow(df_test) * 100, 1), "%\n")
+  }
+}
+
+# Sex distribution (typically balanced in cohort studies)
+# Note: Weighted distributions for categorical variables coming in v0.3.0
+if ("sex" %in% var_cat || "DHH_SEX" %in% var_cat) {
+  sex_var <- ifelse("sex" %in% var_cat, "sex", "DHH_SEX")
+
+  df_test <- data.frame(id = 1:1000, cycle = target_cycle)
+
+  col <- create_cat_var(
+    var_raw = sex_var,
+    cycle = target_cycle,
+    variable_details = variable_details,
+    variables = variables,
+    length = nrow(df_test),
+    df_mock = df_test,
+    prop_NA = 0
+  )
+
+  if (!is.null(col)) {
+    df_test <- cbind(df_test, col)
+
+    cat("\nSex distribution:\n")
+    print(table(df_test[[sex_var]]))
+  }
 }
 ```
 
-# 2. Genarate outcome data
+### Saving mock data for DemPoRT workflow
 
-one male data one female data
+DemPoRT workflows often expect separate files per cycle:
 
-```{r}
+```{r, eval=FALSE}
+# Example: Save mock data per cycle (not run in vignette)
+for (cyc in cycle_list) {
+  df_cycle <- pooled_data %>% filter(cycle == cyc)
 
+  # Remove columns with all NAs
+  df_cycle <- df_cycle[, colSums(is.na(df_cycle)) < nrow(df_cycle)]
+
+  # Save
+  output_file <- paste0("mock_demport_", gsub(" ", "_", cyc), ".csv")
+  write.csv(df_cycle, output_file, row.names = FALSE)
+
+  cat("Saved:", output_file, "(", nrow(df_cycle), "records )\n")
+}
 ```
 
-```{r}
+## Use cases for DemPoRT mock data
 
+**Model development:**
+- Test DemPoRT risk algorithms without real data
+- Validate variable transformations
+- Develop new risk score calculations
+
+**Workflow testing:**
+- Test data preparation pipelines
+- Validate cohort selection criteria
+- Test outcome definitions
+
+**Training:**
+- Demonstrate DemPoRT methodology
+- Train analysts on workflow
+- Practice cohort analysis techniques
+
+**Example validation:**
+```{r}
+# Example: Verify mock data has expected structure for DemPoRT
+validate_demport_data <- function(df) {
+  checks <- list(
+    has_id = "id" %in% names(df),
+    has_cycle = "cycle" %in% names(df),
+    has_age = any(c("age", "DHHGAGE") %in% names(df)),
+    has_sex = any(c("sex", "DHH_SEX") %in% names(df)),
+    n_rows = nrow(df) > 0
+  )
+
+  all_pass <- all(unlist(checks))
+
+  cat("DemPoRT data validation:\n")
+  for (check_name in names(checks)) {
+    status <- ifelse(checks[[check_name]], "\u2713", "\u2717")
+    cat(status, check_name, "\n")
+  }
+
+  return(all_pass)
+}
+
+# Validate our mock data
+validate_demport_data(df_mock)
 ```
+
+## Troubleshooting
+
+**Issue: Derived variables not found**
+- DemPoRT has many derived variables (DerivedVar::*)
+- These are NOT generated - calculate them after generating raw variables
+- Or generate independently with realistic ranges
+
+**Issue: Cycle naming inconsistencies**
+- DemPoRT metadata may have "cchs_2001" or "cchs2001"
+- Use `str_replace_all()` to normalize cycle names
+
+**Issue: Missing key variables**
+- Check that age, sex, and key predictors exist in metadata
+- Verify variable names match between metadata tables
+
+## Next steps
+
+- **Other databases:** Try [CCHS example](cchs-example.html) or [CHMS example](chms-example.html)
+- **Feature details:** Read [User guide](user-guide.html) for missing data, distributions, etc.
+- **Technical depth:** See [Advanced topics](advanced-topics.html) for NA handling internals

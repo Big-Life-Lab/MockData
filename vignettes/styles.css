@@ -1,0 +1,9 @@
+/* Minimal styles for package vignettes */
+:root {
+  --md-accent: #0d6efd;
+}
+
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+h1, h2, h3, h4 { scroll-margin-top: 80px; }
+a { color: var(--md-accent); }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }

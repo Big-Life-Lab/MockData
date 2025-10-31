@@ -1,0 +1,245 @@
+---
+title: "Getting started with MockData"
+author: "MockData Team"
+date: 2025-10-30
+format:
+  html:
+    toc: true
+    html-math-method: katex
+    css: styles.css
+editor: visual
+---
+```{r}
+#| label: setup
+#| include: false
+devtools::load_all("../", quiet = TRUE)
+```
+
+## What is MockData?
+
+MockData is an R package that generates realistic mock datasets based on harmonization metadata. It's designed for:
+
+-   **Testing harmonization code** without access to real health survey data
+-   **Developing analysis pipelines** with realistic mock data structures
+-   **Training and education** with representative but non-sensitive data
+
+MockData uses recodeflow metadata (variable definitions and recode rules) to generate data that mimics the structure and distributions of real health survey datasets like CCHS and CHMS.
+
+## Your first mock dataset
+
+This tutorial walks you through generating a simple mock dataset with both categorical and continuous variables.
+
+### Setup
+
+```{r}
+#| warning: false
+#| message: false
+#| output: false
+
+library(dplyr)
+```
+
+### Step 1: Prepare metadata
+
+MockData uses two metadata tables:
+
+1.  **variables**: defines which variables exist in each database cycle
+2.  **variable_details**: defines categories, ranges, and recode rules
+
+For this tutorial, we'll use a simple example with two variables: smoking status (categorical) and age (continuous).
+
+```{r}
+# Define variables table
+variables <- data.frame(
+  variable = c("smoking", "smoking", "age", "age"),
+  variableStart = c("SMK_01", "SMK_01", "AGE_01", "AGE_01"),
+  databaseStart = c("cycle1", "cycle2", "cycle1", "cycle2"),
+  databaseEnd = c("cycle1", "cycle2", "cycle1", "cycle2"),
+  variableType = c("categorical", "categorical", "continuous", "continuous")
+)
+
+# Define variable details (categories and ranges)
+variable_details <- data.frame(
+  variable = c("smoking", "smoking", "smoking", "smoking",
+               "age", "age", "age"),
+  recStart = c("1", "2", "3", "[996, 999]",
+               "[18, 100]", "996", "[997, 999]"),
+  recEnd = c("1", "2", "3", "NA::b",
+             "copy", "NA::a", "NA::b"),
+  catLabel = c("Daily smoker", "Occasional smoker", "Never smoked", "Missing",
+               "Age in years", "Not applicable", "Missing"),
+  variableStart = c("SMK_01", "SMK_01", "SMK_01", "SMK_01",
+                    "AGE_01", "AGE_01", "AGE_01"),
+  databaseStart = c("cycle1", "cycle1", "cycle1", "cycle1",
+                    "cycle1", "cycle1", "cycle1")
+)
+
+print("Variables:")
+print(variables)
+print("\nVariable details:")
+print(variable_details)
+```
+
+### Step 2: Generate categorical variable
+
+Use `create_cat_var()` to generate categorical variables like smoking status.
+
+```{r}
+# Create mock data frame for cycle1
+df_mock <- data.frame(id = 1:100)
+
+# Generate smoking variable
+smoking_col <- create_cat_var(
+  var_raw = "SMK_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 100,
+  df_mock = df_mock  # Pass existing data to prevent duplicates
+)
+
+# Add to data frame
+df_mock <- cbind(df_mock, smoking_col)
+
+# View results
+head(df_mock, 10)
+table(df_mock$SMK_01)
+```
+
+**What happened:**
+
+-   MockData extracted categories from variable_details (1, 2, 3)
+-   Generated 100 random values uniformly distributed across categories
+-   Checked `df_mock` to ensure SMK_01 doesn't already exist (duplicate prevention)
+-   Returned a single-column data frame that we added to df_mock
+
+### Step 3: Generate continuous variable
+
+Use `create_con_var()` to generate continuous variables like age.
+
+```{r}
+# Generate age variable
+age_col <- create_con_var(
+  var_raw = "AGE_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 100,
+  df_mock = df_mock,
+  distribution = "uniform"  # Uniform distribution within range [18, 100]
+)
+
+# Add to data frame
+df_mock <- cbind(df_mock, age_col)
+
+# View results
+head(df_mock, 10)
+summary(df_mock$AGE_01)
+```
+
+**What happened:**
+
+-   MockData extracted the range from variable_details \[18, 100\]
+-   Generated 100 random ages uniformly distributed between 18 and 100
+-   Returned a single-column data frame that we added to df_mock
+
+### Step 4: Add missing data
+
+Real datasets have missing values. Use the `prop_NA` parameter to add realistic missingness.
+
+```{r}
+# Regenerate with 10% missing data
+df_mock <- data.frame(id = 1:100)
+
+# Smoking with missingness
+smoking_col <- create_cat_var(
+  var_raw = "SMK_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 100,
+  df_mock = df_mock,
+  prop_NA = 0.1  # 10% missing values
+)
+df_mock <- cbind(df_mock, smoking_col)
+
+# Age with missingness
+age_col <- create_con_var(
+  var_raw = "AGE_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 100,
+  df_mock = df_mock,
+  distribution = "uniform",
+  prop_NA = 0.05  # 5% missing values
+)
+df_mock <- cbind(df_mock, age_col)
+
+# Check missingness
+cat("Smoking missing:", sum(is.na(df_mock$SMK_01)), "/ 100\n")
+cat("Age missing:", sum(is.na(df_mock$AGE_01)), "/ 100\n")
+
+head(df_mock, 10)
+```
+
+**What happened:**
+
+-   MockData randomly assigned \~10% of smoking values as NA
+-   MockData randomly assigned \~5% of age values as NA
+-   Missing values use NA codes from metadata when available (996, 997, etc.)
+
+### Step 5: Control reproducibility with seeds
+
+Use seeds to generate the same mock data every time.
+
+```{r}
+# Set seed for reproducibility
+set.seed(12345)
+
+df_mock <- data.frame(id = 1:100)
+
+result1 <- create_cat_var(
+  var_raw = "SMK_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 100,
+  df_mock = df_mock
+)
+
+# Reset seed
+set.seed(12345)
+
+df_mock <- data.frame(id = 1:100)
+
+result2 <- create_cat_var(
+  var_raw = "SMK_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 100,
+  df_mock = df_mock
+)
+
+# Verify identical
+identical(result1$SMK_01, result2$SMK_01)
+```
+
+**Result:** TRUE - same seed produces identical mock data
+
+## What you learned
+
+In this tutorial, you learned:
+
+-   How to prepare metadata (variables and variable_details tables)
+-   How to generate categorical variables with `create_cat_var()`
+-   How to generate continuous variables with `create_con_var()`
+-   How to add realistic missing data with `prop_NA`
+-   How to ensure reproducibility with seeds
+
+## Next steps
+
+-   **Work with real databases:** See how-to guides for [CCHS](cchs-example.html), [CHMS](chms-example.html), and [DemPoRT](demport-example.html) examples
+-   **Learn all features:** Read the [User guide](user-guide.html) for comprehensive feature documentation
+-   **Advanced topics:** Explore [Advanced topics](advanced-topics.html) for technical details on NA handling, derived variables, and custom metadata
