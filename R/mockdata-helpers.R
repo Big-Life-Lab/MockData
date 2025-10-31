@@ -332,18 +332,48 @@ get_variable_details_for_raw <- function(var_raw, cycle, variable_details, varia
 #' - Simple category values: "1", "2", "3"
 #' - Integer ranges: "[7,9]" → c("7", "8", "9")
 #' - Continuous ranges: "[18.5,25)" → kept as single value for continuous vars
-#' - Special codes: "copy", "else", "NA::a", "NA::b"
+#' - Special codes: "copy", "NA::a", "NA::b"
 #' - Function calls: "Func::function_name"
+#'
+#' **Note:** "else" rules are SKIPPED because "else" represents unexpected
+#' values that should become NA in mock data, not the literal string "else".
+#' This is appropriate for mock data generation where we cannot predict what
+#' garbage values "else" might represent in real data.
 #'
 #' Uses parse_range_notation() for robust range handling.
 #'
 #' @examples
 #' \dontrun{
-#' # Get regular categories (non-NA)
-#' categories <- get_variable_categories(var_details, include_na = FALSE)
+#' # Example: Variable with explicit NA codes and "else" rule
+#' var_details <- data.frame(
+#'   variable = c("alcdwky", "alcdwky", "alcdwky", "alcdwky"),
+#'   recStart = c("[0, 84]", "996", "[997, 999]", "else"),
+#'   recEnd = c("copy", "NA::a", "NA::b", "NA::b"),
+#'   catLabel = c("Drinks per week", "not applicable", "missing", "missing"),
+#'   stringsAsFactors = FALSE
+#' )
 #'
-#' # Get NA codes
+#' # Get regular categories (non-NA values)
+#' categories <- get_variable_categories(var_details, include_na = FALSE)
+#' # Returns: "[0, 84]" (continuous range for valid values)
+#'
+#' # Get NA codes (filters out "else")
 #' na_codes <- get_variable_categories(var_details, include_na = TRUE)
+#' # Returns: c("996", "997", "998", "999")
+#' # Note: "else" is NOT included - it's filtered as a rule, not a value
+#'
+#' # Example: Variable with ONLY "else" for NA
+#' var_details2 <- data.frame(
+#'   variable = c("testvar", "testvar"),
+#'   recStart = c("[0, 100]", "else"),
+#'   recEnd = c("copy", "NA::b"),
+#'   catLabel = c("Valid range", "missing"),
+#'   stringsAsFactors = FALSE
+#' )
+#'
+#' na_codes2 <- get_variable_categories(var_details2, include_na = TRUE)
+#' # Returns: character(0) (empty - "else" filtered out)
+#' # Generator will use actual NA values in this case
 #' }
 #'
 #' @keywords internal
@@ -405,6 +435,16 @@ get_variable_categories <- function(var_details, include_na = FALSE) {
 
     } else if (parsed$type == "special") {
       # Special codes: copy, else, NA::a, NA::b
+
+      # Skip "else" - it's a harmonization rule, not a raw data value
+      # In mock raw data, "else" means "unexpected values" → generate NA
+      # We can't predict what garbage values might appear, so we represent
+      # them as NA rather than the literal string "else"
+      if (parsed$value == "else") {
+        next
+      }
+
+      # Keep other special codes (copy, NA::a, NA::b)
       all_values <- c(all_values, parsed$value)
 
     } else if (parsed$type == "function") {
