@@ -17,31 +17,35 @@ Some resources:
 ```{r}
 #| warning: false
 #| message: false
-#| output: false
 
 library(dplyr)       # Data manipulation
 library(stringr)     # Working with strings
-#library(simstudy)    # Generate simulated data sets: https://cran.r-project.org/web/packages/simstudy/vignettes/simstudy.html
 
 # Load MockData package functions
-# Note: When running as vignette, use library(MockData)
-# For development, source directly:
-source("../R/mockdata-parsers.R")
-source("../R/mockdata-helpers.R")
-source("../R/create_cat_var.R")
-source("../R/create_con_var.R")
+devtools::load_all("../", quiet = TRUE)
 
 ```
 
 ## Read in variable and variable_details sheet
 
 ```{r}
-# CCHS sample variables
-variables <- read.csv(system.file("extdata/cchs/cchsflow_sample_variables.csv", package = "MockData"),
-                     header = T, check.names=FALSE, na.strings=c("","NA","N/A"))
+# CCHS sample variables (use relative path for vignette building)
+variables <- read.csv(
+  "../inst/extdata/cchs/cchsflow_sample_variables.csv",
+  header = TRUE,
+  check.names = FALSE,
+  na.strings = c("", "NA", "N/A"),
+  stringsAsFactors = FALSE
+)
+
 # CCHS sample variable details from cchsflow
-variable_details <- read.csv(system.file("extdata/cchs/cchsflow_sample_variable_details.csv", package = "MockData"),
-                              header = T, check.names=FALSE, na.strings=c("","NA","N/A"))
+variable_details <- read.csv(
+  "../inst/extdata/cchs/cchsflow_sample_variable_details.csv",
+  header = TRUE,
+  check.names = FALSE,
+  na.strings = c("", "NA", "N/A"),
+  stringsAsFactors = FALSE
+)
 ```
 
 ## Get required cycles
