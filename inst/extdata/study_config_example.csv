@@ -1,0 +1,23 @@
+parameter,value,type,description
+study_name,ICES_Mortality_Study,character,Study identifier
+study_design,open_cohort,character,Study design type: open_cohort or fixed_followup
+accrual_start,2000-01-01,date,Start of accrual window (when people can enter cohort)
+accrual_end,2005-12-31,date,End of accrual window
+max_followup_date,2020-12-31,date,Maximum calendar date for follow-up (open_cohort only)
+followup_min,365,integer,Minimum follow-up days (fixed_followup design)
+followup_max,3650,integer,Maximum follow-up days (fixed_followup design)
+death_enabled,TRUE,logical,Generate death dates
+death_distribution,gompertz,character,Distribution: uniform/gompertz/exponential
+death_rate,0.01,numeric,Gompertz rate parameter
+death_shape,0.1,numeric,Gompertz shape parameter
+primary_outcome_enabled,FALSE,logical,Generate primary outcome dates
+primary_outcome_distribution,exponential,character,Distribution type
+primary_outcome_rate,0.05,numeric,Exponential rate parameter
+competing_outcome_enabled,FALSE,logical,Generate competing outcome dates
+competing_outcome_distribution,exponential,character,Distribution type
+competing_outcome_rate,0.03,numeric,Exponential rate parameter
+prop_censored,0.15,numeric,Proportion administratively censored (0-1)
+prop_NA,0.02,numeric,Proportion with missing dates (0-1)
+prop_invalid,0.01,numeric,Proportion with invalid out-of-range dates (0-1)
+sample_size,10000,integer,Number of individuals to generate
+seed,12345,integer,Random seed for reproducibility

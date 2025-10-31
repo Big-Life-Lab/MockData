@@ -296,6 +296,49 @@ dates_complex <- create_date_var(
 stopifnot(prop_NA + prop_invalid <= 1.0)  # Must sum to ≤ 1
 ```
 
+## Configuration-driven workflow
+
+For complex studies with multiple events and data quality parameters, use configuration files to manage settings. This approach improves reproducibility and makes it easy to share study specifications.
+
+### Using configuration files
+
+Configuration files are CSV files with four columns: parameter, value, type, and description. They specify study design, time windows, event parameters, and data quality settings.
+
+```{r}
+#| eval: false
+
+# Load configuration
+config <- read_study_config("../inst/extdata/study_config_example.csv")
+
+# Validate configuration
+validate_study_config(config)
+
+# Generate survival data using config parameters
+survival_data <- create_survival_dates(
+  entry_var = "index_date",
+  event_var = "death_date",
+  entry_start = config$accrual_start,
+  entry_end = config$accrual_end,
+  followup_min = config$followup_min,
+  followup_max = config$followup_max,
+  length = config$sample_size,
+  df_mock = data.frame(),
+  event_distribution = config$death_distribution,
+  prop_censored = config$prop_censored,
+  seed = config$seed
+)
+```
+
+**Benefits:**
+
+- All study parameters in one file
+- Easy to version control and share
+- Validates parameters before generation
+- Documents study design decisions
+- Supports both open cohort and fixed follow-up designs
+
+See `inst/extdata/study_config_example.csv` for a complete example configuration.
+
 ## Survival analysis workflows
 
 ### Basic cohort study

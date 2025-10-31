@@ -2,9 +2,13 @@
 
 export(create_cat_var)
 export(create_con_var)
+export(create_date_var)
+export(create_survival_dates)
 export(get_cycle_variables)
 export(get_raw_variables)
 export(parse_range_notation)
 export(parse_variable_start)
+export(read_study_config)
+export(validate_study_config)
 importFrom(stats,rnorm)
 importFrom(stats,runif)
