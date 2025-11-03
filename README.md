@@ -4,17 +4,26 @@ Generate mock testing data from recodeflow metadata (variables.csv and variable-
 
 ## Overview
 
-MockData creates realistic mock data for testing harmonisation workflows across recodeflow projects (CHMS, CCHS, etc.). It reads variable specifications from metadata files and generates appropriate categorical and continuous variables with correct value ranges, tagged NAs, and reproducible seeds.
+MockData generates realistic test data from variable descriptive statistics—**not from real individual-level data**. Unlike synthetic data generators that preserve statistical relationships from actual datasets, MockData creates data purely from metadata definitions (variable types, value ranges, category labels).
+
+**Key distinction**: MockData is for testing data pipelines and harmonization workflows, not for statistical analysis or research. It generates data that *looks* realistic but has no relationship to any actual population.
+
+**Use cases**:
+- Test data harmonization code (cchsflow, chmsflow)
+- Develop analysis scripts before data access
+- Create reproducible examples for documentation
+- Train new analysts on survey data structure
+- Validate data processing pipelines
+
+MockData reads recodeflow metadata files (variables.csv and variable_details.csv) and generates appropriate categorical and continuous variables with correct value ranges, labeled categories, tagged NAs, and reproducible seeds.
 
 ## Features
 
-- **Metadata-driven**: Uses existing `variables.csv` and `variable-details.csv` - no duplicate specifications needed
-- **Recodeflow-standard**: Supports all recodeflow notation formats (database-prefixed, bracket, mixed)
-- **Temporal variables**: Date generation with realistic distributions (uniform, Gompertz, exponential)
-- **Data quality testing**: Generate invalid/out-of-range values to test validation pipelines (`prop_invalid`)
-- **Metadata validation**: Tools to check metadata quality
+- **Metadata-driven**: Uses existing `variables.csv` and `variable-details.csv` from recodeflow package - no duplicate specifications needed
 - **Universal**: Works across CHMS, CCHS, and future recodeflow projects
-- **Test availability**: 250 tests covering parsers, helpers, and generators
+- **Recodeflow-standard**: Supports all recodeflow notation formats (database-prefixed, bracket, mixed)
+- **Data quality testing**: Generate invalid/out-of-range values to test validation pipelines (`prop_invalid`)
+- **Validation**: Tools to check metadata quality
 
 ## Installation
 
@@ -35,11 +44,11 @@ library(MockData)
 
 # Load metadata (CHMS example with sample data)
 variables <- read.csv(
-  system.file("extdata/chms/chmsflow_sample_variables.csv", package = "MockData"),
+  system.file("extdata/chms/variables_chmsflow_sample.csv", package = "MockData"),
   stringsAsFactors = FALSE
 )
 variable_details <- read.csv(
-  system.file("extdata/chms/chmsflow_sample_variable_details.csv", package = "MockData"),
+  system.file("extdata/chms/variable_details_chmsflow_sample.csv", package = "MockData"),
   stringsAsFactors = FALSE
 )
 
@@ -67,62 +76,14 @@ if (!is.null(result)) {
 }
 ```
 
-## Validation tools
-
-Located in `mockdata-tools/`:
-
-```bash
-# Validate metadata quality
-Rscript mockdata-tools/validate-metadata.R
-
-# Test all cycles
-Rscript mockdata-tools/test-all-cycles.R
-
-# Compare different approaches
-Rscript mockdata-tools/create-comparison.R
-```
-
-See `mockdata-tools/README.md` for detailed documentation.
-
-## Architecture
-
-### Core modules
-
-1. **Parsers** (`R/mockdata-parsers.R`):
-   - `parse_variable_start()`: Extracts raw variable names from variableStart
-   - `parse_range_notation()`: Handles range syntax like `[7,9]`, `[18.5,25)`, `else`
-
-2. **Helpers** (`R/mockdata-helpers.R`):
-   - `get_cycle_variables()`: Filters metadata by cycle
-   - `get_raw_variables()`: Returns unique raw variables with harmonisation groupings
-   - `get_variable_details_for_raw()`: Retrieves category specifications
-   - `get_variable_categories()`: Extracts valid category codes
-
-3. **Generators**:
-   - `create_cat_var()` (`R/create_cat_var.R`): Generates categorical variables with tagged NA support
-   - `create_con_var()` (`R/create_con_var.R`): Generates continuous variables with realistic distributions
-   - `create_date_var()` (`R/create_date_var.R`): Generates date variables with temporal distributions
-
 ## Documentation
 
 **Vignettes**:
+
 - [Date variables and temporal data](vignettes/dates.qmd) - Date generation, distributions, and survival analysis prep
 - [CCHS example](vignettes/cchs-example.qmd) - CCHS workflow demonstration
 - [CHMS example](vignettes/chms-example.qmd) - CHMS workflow demonstration
 - [DemPoRT example](vignettes/demport-example.qmd) - Survival analysis workflow
-
-**Additional resources**:
-- [parking-lot.md](parking-lot.md) - Future features and planned enhancements
-
-## Testing
-
-```r
-# Run all tests
-devtools::test()
-
-# Run specific test file
-testthat::test_file("tests/testthat/test-mockdata.R")
-```
 
 ## Contributing
 
@@ -132,7 +93,7 @@ This package is part of the recodeflow ecosystem. See [CONTRIBUTING.md](CONTRIBU
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-## Related Projects
+## Related projects
 
-- [**chmsflow**](https://github.com/Big-Life-Lab/chmsflow): CHMS harmonisation workflows
-- [**cchsflow**](https://github.com/Big-Life-Lab/cchsflow): CCHS harmonisation workflows
+- [**chmsflow**](https://github.com/Big-Life-Lab/chmsflow): CHMS harmonization workflows
+- [**cchsflow**](https://github.com/Big-Life-Lab/cchsflow): CCHS harmonization workflows

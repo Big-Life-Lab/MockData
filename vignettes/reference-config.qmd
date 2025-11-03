@@ -1,0 +1,442 @@
+---
+title: "Configuration reference"
+author: "MockData Team"
+date: 2025-11-01
+format:
+  html:
+    toc: true
+    html-math-method: katex
+    css: styles.css
+editor: visual
+---
+
+## Overview
+
+MockData uses a two-file configuration system to define mock datasets. This reference documents the complete schema, all special codes, and validation rules.
+
+## File structure
+
+### mock_data_config.csv
+
+**Purpose:** Lists which variables to generate
+
+**Required columns:**
+
+| Column | Type | Description | Example |
+|----------------|----------------|------------------------|----------------|
+| `uid` | character | Unique identifier for this variable definition | `"age_v1"` |
+| `variable` | character | Variable name (appears as column in output) | `"age"` |
+| `role` | character | Set to "enabled" to generate; for dates use "baseline-date", "index-date" | `"enabled"` |
+| `variableType` | character | One of: `"categorical"`, `"continuous"` (dates use "continuous") | `"continuous"` |
+| `position` | integer | Generation order (1 = first, 2 = second, etc.) | `1` |
+
+**Optional columns:**
+
+| Column | Type | Description | Example |
+|----------------|----------------|------------------------|----------------|
+| `variableLabel` | character | Short human-readable description | `"Age in years"` |
+| `variableLabelLong` | character | Extended description | `"Participant age at baseline interview"` |
+| `variableUnit` | character | Unit of measurement | `"years"` |
+| `notes` | character | Implementation notes | `"Rounded to nearest integer"` |
+
+**Example:**
+
+``` csv
+uid,variable,role,variableType,variableLabel,position
+age_v1,age,enabled,continuous,Age in years,1
+smoking_v1,smoking,enabled,categorical,Smoking status,2
+birth_date_v1,birth_date,baseline-date,continuous,Date of birth,3
+```
+
+**Note:** Dates use `variableType = "continuous"` with a date-related `role` for compatibility with recodeflow metadata.
+
+### mock_data_config_details.csv
+
+**Purpose:** Defines categories, ranges, proportions, and data quality patterns
+
+**Required columns:**
+
+| Column       | Type      | Description                           | Example       |
+|----------------|----------------|------------------------|----------------|
+| `uid`        | character | Must match uid in config file         | `"age_v1"`    |
+| `uid_detail` | character | Unique identifier for this detail row | `"age_v1_d1"` |
+| `variable`   | character | Must match variable in config file    | `"age"`       |
+| `recStart`   | character | Input value or range                  | `"[18, 100]"` |
+| `recEnd`     | character | Output value or special code          | `"copy"`      |
+
+**Optional but commonly used columns:**
+
+| Column | Type | Description | Example |
+|----------------|----------------|------------------------|----------------|
+| `catLabel` | character | Short label for this category | `"Valid age"` |
+| `catLabelLong` | character | Extended category description | `"Age in years at baseline"` |
+| `proportion` | numeric | Proportion (0-1), must sum to 1.0 per variable | `0.95` |
+| `rType` | character | R data type for output ("integer", "factor", "Date", "double") | `"integer"` |
+| `date_start` | Date | Start date (for date variables with `recEnd = "date_start"`) | `"2001-01-01"` |
+| `date_end` | Date | End date (for date variables with `recEnd = "date_end"`) | `"2017-03-31"` |
+
+**Example:**
+
+``` csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,catLabelLong,proportion,rType
+age_v1,age_v1_d1,age,[18,100],copy,Valid age,Age in years,0.93,integer
+age_v1,age_v1_d2,age,999,NA::b,Missing,Not stated,0.05,integer
+age_v1,age_v1_d3,age,[200,300],corrupt_high,Invalid age,Data entry error,0.02,integer
+smoking_v1,smoking_v1_d1,smoking,1,1,Daily,Daily smoker,0.25,factor
+smoking_v1,smoking_v1_d2,smoking,2,2,Occasional,Occasional smoker,0.15,factor
+smoking_v1,smoking_v1_d3,smoking,3,3,Never,Never smoked,0.60,factor
+```
+
+## Special codes in recEnd
+
+### Missing data codes
+
+**Note on `NA::` codes:** These codes (`NA::a`, `NA::b`, `NA::c`) are part of the recodeflow harmonization framework, where they indicate how missing codes should be transformed during harmonization. When generating **raw mock data**, we use numeric missing codes that match the raw survey data format. However, the `NA::` notation is handy in metadata because:
+
+-   It documents the **meaning** of numeric missing codes
+-   The same metadata can be reused for both mock data generation (outputs numeric codes) and harmonization (converts codes to proper R NA types)
+-   It maintains consistency between raw data simulation and the harmonization pipeline
+
+| Code | Meaning | Example raw data codes |
+|----------------|----------------|-----------------------------------------|
+| `NA::a` | Not applicable | Variable doesn't apply to this person (e.g., pregnancy questions for males). CCHS/CHMS often use 996. |
+| `NA::b` | Missing/refused | Participant refused to answer or data is missing. CCHS/CHMS often use 999. |
+| `NA::c` | Don't know | Participant doesn't know the answer. CCHS/CHMS often use 998 or 997. |
+
+**Important**: The specific numeric codes (996, 997, 998, 999) shown in examples are from CCHS/CHMS surveys documented in this package. Your database may use different codes: - Some surveys use single digits: 7, 8, 9 - Some use three digits: 997, 998, 999 - Some use ranges: \[96, 99\] - Check your survey's data dictionary for the actual codes used
+
+The `NA::` notation works with any numeric coding scheme - just specify the appropriate numeric codes in `recStart`.
+
+**Example - generates numeric codes in raw mock data:**
+
+``` csv
+variable,recStart,recEnd,catLabel,proportion
+alcohol_weekly,[0,100],copy,Drinks per week,0.85
+alcohol_weekly,996,NA::a,Not applicable,0.10
+alcohol_weekly,999,NA::b,Missing,0.05
+```
+
+This will generate raw data with numeric values 0-100, 996, and 999. During harmonization with recodeflow, the 996 and 999 codes will be converted to proper R NA values based on the `NA::a` and `NA::b` specifications.
+
+### Value transformation codes
+
+| Code | Meaning | Usage |
+|--------------------|-----------------------------|-----------------------|
+| `copy` | Pass through unchanged | Use with ranges like `[0, 100]` - generates values in range |
+| `date_start` | Extract date_start column | For date variables: marks the row containing start date |
+| `date_end` | Extract date_end column | For date variables: marks the row containing end date |
+
+**Example:**
+
+``` csv
+variable,recStart,recEnd,catLabel,date_start,date_end,proportion
+index_date,NA,date_start,Start date,2001-01-01,,1.0
+index_date,NA,date_end,End date,,2017-03-31,1.0
+```
+
+### Garbage/data quality codes
+
+| Code | Meaning | Usage |
+|--------------------|-----------------------------|-----------------------|
+| `corrupt_low` | Below valid range | Generate values lower than expected (e.g., age = -5) |
+| `corrupt_high` | Above valid range | Generate values higher than expected (e.g., age = 250) |
+| `corrupt_future` | Future dates | For date variables: dates after valid range |
+| `corrupt_past` | Past dates | For date variables: dates before valid range |
+
+**Example:**
+
+``` csv
+variable,recStart,recEnd,catLabel,proportion
+age,[18,100],copy,Valid age,0.95
+age,[200,300],corrupt_high,Invalid age,0.03
+age,[-10,0],corrupt_low,Negative age,0.02
+```
+
+**Important:** Garbage proportions are SEPARATE from valid+missing proportions. MockData first allocates values to valid vs missing (which must sum to 1.0), then applies garbage to a subset of the valid values.
+
+## recStart syntax
+
+### Single values
+
+``` csv
+recStart,recEnd,Meaning
+1,1,Value 1
+2,2,Value 2
+999,NA::b,Code 999 becomes missing
+```
+
+### Ranges
+
+**Inclusive ranges** (both endpoints included):
+
+``` csv
+recStart,Meaning
+[0,100],Values from 0 to 100 inclusive
+[18.5,25),Values from 18.5 (inclusive) to 25 (exclusive)
+```
+
+**Range notation:**
+
+-   `[a, b]`: Inclusive on both ends (a ≤ x ≤ b)
+-   `[a, b)`: Inclusive start, exclusive end (a ≤ x \< b)
+-   `(a, b]`: Exclusive start, inclusive end (a \< x ≤ b)
+-   `(a, b)`: Exclusive on both ends (a \< x \< b)
+
+**For categorical variables:** Ranges expand to all integer values
+
+``` csv
+recStart,recEnd,Expands to
+[1,5],copy,"1, 2, 3, 4, 5"
+```
+
+**For continuous variables:** Ranges define sampling bounds
+
+``` csv
+recStart,recEnd,Generates
+[0,100],copy,Random values uniformly distributed between 0 and 100
+```
+
+### Date format
+
+**Raw data format:** Real survey data (like CCHS/CHMS) stores dates in SAS format (e.g., `01JAN2001`). MockData can parse these formats in `recStart`:
+
+``` csv
+recStart,recEnd,Meaning
+[01JAN2001,31MAR2017],copy,Dates between Jan 1 2001 and Mar 31 2017
+```
+
+**Output format controlled by `source_format` parameter:**
+
+By default, MockData generates dates as **R Date objects** (analysis-ready format). However, you can simulate different source formats to test harmonization pipelines:
+
+``` r
+# Default: analysis-ready R Date objects
+mock <- create_mock_data(..., source_format = "analysis")
+
+# CSV format: character ISO strings
+mock_csv <- create_mock_data(..., source_format = "csv")
+
+# SAS format: numeric (days since 1960-01-01)
+mock_sas <- create_mock_data(..., source_format = "sas")
+```
+
+**Format options:**
+
+-   `"analysis"` (default): R Date objects - ready for analysis
+-   `"csv"`: Character strings (`"2001-01-15"`) - simulates `read.csv()` output
+-   `"sas"`: Numeric values (days since 1960-01-01) - simulates `haven::read_sas()` output
+
+**Use case:** Testing harmonization code that needs to parse dates from raw sources:
+
+``` r
+# Generate CSV-format mock data
+mock_csv <- create_mock_data(..., source_format = "csv")
+
+# Test your date parsing logic
+harmonized <- mock_csv %>%
+  mutate(interview_date = as.Date(interview_date, format = "%Y-%m-%d"))
+```
+
+See [Date variables and temporal data](dates.html#source-format-simulating-raw-data-imports) for detailed examples.
+
+**Alternative approach using `date_start`/`date_end` columns:**
+
+``` csv
+variable,recStart,recEnd,date_start,date_end,proportion
+death_date,NA,date_start,2001-01-01,,1.0
+death_date,NA,date_end,,2017-03-31,1.0
+```
+
+Both metadata approaches (SAS format in `recStart` vs. `date_start`/`date_end` columns) work with all `source_format` options.
+
+## Proportions
+
+### Basic rules
+
+1.  **Must sum to 1.0 per variable** (excluding garbage rows)
+2.  **Garbage proportions are separate** from valid/missing proportions
+3.  **Applies to population before garbage** is added
+
+### Categorical variables
+
+``` csv
+variable,recStart,recEnd,catLabel,proportion
+smoking,1,1,Daily,0.25
+smoking,2,2,Occasional,0.15
+smoking,3,3,Never,0.55
+smoking,999,NA::b,Missing,0.05
+```
+
+**Sum check:** 0.25 + 0.15 + 0.55 + 0.05 = 1.0 ✓
+
+### Continuous variables
+
+``` csv
+variable,recStart,recEnd,catLabel,proportion
+age,[18,100],copy,Valid age,0.95
+age,999,NA::b,Missing,0.05
+```
+
+**Interpretation:**
+
+-   95% of values: sampled uniformly from \[18, 100\]
+-   5% of values: set to 999, then converted to NA
+
+### With garbage
+
+``` csv
+variable,recStart,recEnd,catLabel,proportion
+age,[18,100],copy,Valid age,0.95
+age,999,NA::b,Missing,0.05
+age,[200,300],corrupt_high,Invalid,0.02
+```
+
+**Process:**
+
+1.  Generate population: 95% valid (18-100), 5% missing (999→NA)
+2.  Apply garbage: Replace 2% of valid values with corrupt_high (200-300)
+
+**Result:** \~93% valid, \~5% missing, \~2% garbage
+
+## Validation rules
+
+### Configuration file validation
+
+**Checked by `validate_mock_data_config()`:**
+
+1.  Required columns present: `variable`, `variableType`, `variableLabel`
+2.  `variableType` must be one of: `"categorical"`, `"continuous"`, `"date"`
+3.  No duplicate variable names
+4.  No empty variable names
+
+### Details file validation
+
+**Checked by `validate_mock_data_config_details()`:**
+
+1.  Required columns present: `variable`, `recStart`, `recEnd`, `catLabel`, `proportion`
+2.  All variables in details exist in config file
+3.  Proportions are numeric and between 0 and 1
+4.  Proportions sum to 1.0 per variable (excluding garbage rows)
+5.  No duplicate `recStart` values per variable
+6.  Range notation is well-formed
+7.  Special codes are valid
+
+### Cross-file validation
+
+**Checked during generation:**
+
+1.  Every variable in config has at least one row in details
+2.  Variable types match usage (e.g., date variables use date_start/date_end)
+3.  Garbage rows have valid proportion values
+4.  Date ranges are valid dates
+
+## Common patterns
+
+### Pattern 1: Simple categorical
+
+``` csv
+# Config
+uid,variable,role,variableType,variableLabel,position
+sex_v1,sex,enabled,categorical,Biological sex,1
+
+# Details
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion,rType
+sex_v1,sex_v1_d1,sex,1,1,Male,0.48,factor
+sex_v1,sex_v1_d2,sex,2,2,Female,0.52,factor
+```
+
+### Pattern 2: Continuous with missing
+
+``` csv
+# Config
+uid,variable,role,variableType,variableLabel,variableUnit,position
+bmi_v1,bmi,enabled,continuous,Body mass index,kg/m²,1
+
+# Details
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion,rType
+bmi_v1,bmi_v1_d1,bmi,[15,50],copy,Valid BMI,0.95,double
+bmi_v1,bmi_v1_d2,bmi,999,NA::b,Missing,0.05,double
+```
+
+### Pattern 3: Date variable with range
+
+``` csv
+# Config
+uid,variable,role,variableType,variableLabel,position
+index_date_v1,index_date,index-date,continuous,Cohort entry date,1
+
+# Details
+uid,uid_detail,variable,recStart,recEnd,catLabel,date_start,date_end,proportion,rType
+index_date_v1,index_date_v1_d1,index_date,NA,date_start,Start,2001-01-01,,1.0,Date
+index_date_v1,index_date_v1_d2,index_date,NA,date_end,End,,2017-03-31,1.0,Date
+```
+
+### Pattern 4: With data quality issues
+
+``` csv
+# Config
+uid,variable,role,variableType,variableLabel,position
+age_v1,age,enabled,continuous,Age in years,1
+
+# Details
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion,rType
+age_v1,age_v1_d1,age,[18,100],copy,Valid age,0.93,integer
+age_v1,age_v1_d2,age,999,NA::b,Missing,0.05,integer
+age_v1,age_v1_d3,age,[150,250],corrupt_high,Too high,0.01,integer
+age_v1,age_v1_d4,age,[-5,0],corrupt_low,Negative,0.01,integer
+```
+
+## Complete example
+
+Here's a complete two-file configuration for a simple cohort study:
+
+**mock_data_config.csv:**
+
+``` csv
+uid,variable,role,variableType,variableLabel,variableUnit,position
+person_id_v1,person_id,enabled,continuous,Person ID,,1
+age_v1,age,enabled,continuous,Age at baseline,years,2
+sex_v1,sex,enabled,categorical,Biological sex,,3
+smoking_v1,smoking,enabled,categorical,Smoking status,,4
+index_date_v1,index_date,index-date,continuous,Cohort entry date,,5
+death_date_v1,death_date,outcome-date,continuous,Death date,,6
+```
+
+**mock_data_config_details.csv:**
+
+``` csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,date_start,date_end,proportion,rType
+person_id_v1,person_id_v1_d1,person_id,[1,100000],copy,Person ID,,,1.0,integer
+age_v1,age_v1_d1,age,[18,100],copy,Valid age,,,0.93,integer
+age_v1,age_v1_d2,age,999,NA::b,Missing,,,0.05,integer
+age_v1,age_v1_d3,age,[150,200],corrupt_high,Invalid age,,,0.02,integer
+sex_v1,sex_v1_d1,sex,1,1,Male,,,0.48,factor
+sex_v1,sex_v1_d2,sex,2,2,Female,,,0.52,factor
+smoking_v1,smoking_v1_d1,smoking,1,1,Daily,,,0.25,factor
+smoking_v1,smoking_v1_d2,smoking,2,2,Occasional,,,0.15,factor
+smoking_v1,smoking_v1_d3,smoking,3,3,Never,,,0.55,factor
+smoking_v1,smoking_v1_d4,smoking,999,NA::b,Missing,,,0.05,factor
+index_date_v1,index_date_v1_d1,index_date,NA,date_start,Start,2001-01-01,,1.0,Date
+index_date_v1,index_date_v1_d2,index_date,NA,date_end,End,,2017-03-31,1.0,Date
+death_date_v1,death_date_v1_d1,death_date,NA,date_start,Start,2001-01-01,,1.0,Date
+death_date_v1,death_date_v1_d2,death_date,NA,date_end,End,,2025-12-31,1.0,Date
+```
+
+**Generate the data:**
+
+``` r
+library(MockData)
+
+mock_data <- create_mock_data(
+  config_path = "mock_data_config.csv",
+  details_path = "mock_data_config_details.csv",
+  n = 1000,
+  seed = 123
+)
+```
+
+## See also
+
+-   [Getting started](getting-started.html) - Tutorial for creating your first mock dataset
+-   [User guide](user-guide.html) - Complete feature documentation
+-   [Advanced topics](advanced-topics.html) - Technical details and edge cases
