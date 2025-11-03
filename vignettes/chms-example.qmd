@@ -9,6 +9,7 @@ format:
     css: styles.css
 editor: visual
 ---
+
 ```{r}
 #| label: setup
 #| include: false
@@ -17,8 +18,8 @@ devtools::load_all("../", quiet = TRUE)
 
 ## Prerequisites
 
-- Complete the [Getting started](getting-started.html) tutorial
-- Familiar with CHMS (Canadian Health Measures Survey) structure
+-   Complete the [Getting started](getting-started.html) tutorial
+-   Familiar with CHMS (Canadian Health Measures Survey) structure
 
 See the [User guide](user-guide.html) for detailed feature documentation.
 
@@ -26,10 +27,10 @@ See the [User guide](user-guide.html) for detailed feature documentation.
 
 The Canadian Health Measures Survey has unique characteristics:
 
-- **Restricted access:** CHMS data only exists in secure environments (StatsCan RDCs)
-- **Physical measures:** Unlike CCHS, CHMS includes biomarker and physical measurement data
-- **Multiple cycles:** CHMS Cycle 1, Cycle 2, Cycle 3, etc.
-- **Smaller sample sizes:** CHMS has ~5,000-6,000 participants per cycle (vs CCHS ~65,000+)
+-   **Restricted access:** CHMS data only exists in secure environments (StatsCan RDCs)
+-   **Physical measures:** Unlike CCHS, CHMS includes biomarker and physical measurement data
+-   **Multiple cycles:** CHMS Cycle 1, Cycle 2, Cycle 3, etc.
+-   **Smaller sample sizes:** CHMS has \~5,000-6,000 participants per cycle (vs CCHS \~65,000+)
 
 MockData helps develop and test chmsflow workflows without RDC access.
 
@@ -115,7 +116,7 @@ n_records <- 100  # Use 5000-6000 for realistic CHMS cycle size
 set.seed(12345)
 
 # Initialize data frame
-df_mock <- data.frame(id = 1:n_records)
+df_mock <- data.frame(clinicid = 1:n_records)
 
 # Generate each categorical variable
 cat("Generating", nrow(raw_cat), "categorical variables:\n\n")
@@ -204,15 +205,15 @@ CHMS cycles are smaller than CCHS. Use realistic sizes for testing:
 ```{r}
 # Typical CHMS cycle sizes
 chms_cycle_sizes <- data.frame(
-  cycle = c("Cycle 1", "Cycle 2", "Cycle 3", "Cycle 4", "Cycle 5"),
-  approx_n = c(5600, 6400, 5800, 5800, 5700)
+  cycle = c("Cycle 1", "Cycle 2", "Cycle 3", "Cycle 4", "Cycle 5", "Cycle 6"),
+  approx_n = c(5600, 6400, 5800, 5800, 5800, 5800)
 )
 
 cat("Realistic CHMS sample sizes:\n")
 print(chms_cycle_sizes)
 
 cat("\nFor testing, generate with realistic size:\n")
-cat("df_mock <- data.frame(id = 1:5800)  # Typical CHMS cycle\n")
+cat("df_mock <- data.frame(clinicid = 1:5800)  # Typical CHMS cycle\n")
 ```
 
 ### Physical measurement distributions
@@ -233,7 +234,7 @@ if (length(bp_vars) > 0) {
 
   cat("\nExample with normal distribution for realistic BP:\n")
   cat('col <- create_con_var(
-    var_raw = "SYSTOLIC_BP",
+    var_raw = "BPMDPBPS",
     cycle = target_cycle,
     variable_details = variable_details,
     variables = variables,
@@ -262,7 +263,7 @@ all_cycles_data <- lapply(cycle_list, function(cyc) {
   raw_vars <- get_raw_variables(cyc, variables, variable_details,
                                  include_derived = FALSE)
 
-  df <- data.frame(id = 1:50, cycle = cyc)
+  df <- data.frame(clinicid = 1:50, cycle = cyc)
 
   # Generate variables (simplified loop)
   for (i in 1:nrow(raw_vars)) {
@@ -315,22 +316,14 @@ if (is_rdc) {
 
 ## Use cases for CHMS mock data
 
-**Development:**
-- Build chmsflow harmonization code without RDC access
-- Test variable transformations and derivations
-- Develop analysis pipelines
+**Development:** - Build chmsflow harmonization code without RDC access - Test variable transformations and derivations - Develop analysis pipelines
 
-**Testing:**
-- Unit tests for harmonization functions
-- Integration tests for complete workflows
-- Edge case testing (extreme values, missing data patterns)
+**Testing:** - Unit tests for harmonization functions - Integration tests for complete workflows - Edge case testing (extreme values, missing data patterns)
 
-**Training:**
-- Onboard new team members
-- Practice CHMS data workflows
-- Demonstrate harmonization concepts
+**Training:** - Onboard new team members - Practice CHMS data workflows - Demonstrate harmonization concepts
 
 **Example test:**
+
 ```{r}
 # Example: Test that harmonized smoking variable has expected categories
 harmonize_smoking <- function(raw_smoking) {
@@ -344,7 +337,7 @@ harmonize_smoking <- function(raw_smoking) {
 }
 
 # Generate mock data
-df_test <- data.frame(id = 1:100)
+df_test <- data.frame(clinicid = 1:100)
 col <- create_cat_var(
   var_raw = "smoking_raw",
   cycle = target_cycle,
@@ -371,20 +364,14 @@ if ("smoking_raw" %in% names(df_test)) {
 
 ## Troubleshooting
 
-**Issue: Variable not found**
-- CHMS variable names may differ from CCHS
-- Check metadata for actual variable names in each cycle
+**Issue: Variable not found** - CHMS variable names may differ from CCHS - Check metadata for actual variable names in each cycle
 
-**Issue: Unrealistic values**
-- Physical measures need realistic distributions (use `distribution = list(type = "normal", ...)`)
-- Check ranges in variable_details match real CHMS data
+**Issue: Unrealistic values** - Physical measures need realistic distributions (use `distribution = list(type = "normal", ...)`) - Check ranges in variable_details match real CHMS data
 
-**Issue: Sample size too large**
-- CHMS cycles are smaller (~5,000-6,000) than CCHS
-- Use realistic sample sizes for memory efficiency
+**Issue: Sample size too large** - CHMS cycles are smaller (\~5,000-6,000) than CCHS - Use realistic sample sizes for memory efficiency
 
 ## Next steps
 
-- **Other databases:** Try [CCHS example](cchs-example.html) or [DemPoRT example](demport-example.html)
-- **Feature details:** Read [User guide](user-guide.html) for missing data, distributions, etc.
-- **Technical depth:** See [Advanced topics](advanced-topics.html) for NA handling internals
+-   **Other databases:** Try [CCHS example](cchs-example.html) or [DemPoRT example](demport-example.html)
+-   **Feature details:** Read [User guide](user-guide.html) for missing data, distributions, etc.
+-   **Technical depth:** See [Advanced topics](advanced-topics.html) for NA handling internals
