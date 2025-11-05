@@ -1,0 +1,321 @@
+---
+title: "Getting started with MockData"
+author: "Juan Li and the recodeflow contributors"
+date: 2025-10-30
+format:
+  html:
+    toc: true
+    html-math-method: katex
+    css: styles.css
+editor: visual
+---
+
+```{r}
+#| label: setup
+#| include: false
+# Load package - works in both local dev and pkgdown build
+if (file.exists("../DESCRIPTION")) {
+  devtools::load_all("../", quiet = TRUE)
+} else {
+  library(MockData)
+}
+```
+
+::: callout-note
+## About this vignette
+
+This introductory tutorial teaches core MockData concepts through progressive examples. All code runs during vignette build to ensure accuracy.
+:::
+
+## What is MockData?
+
+MockData is an R package that generates realistic mock datasets based on harmonization metadata. It's designed for:
+
+-   **Testing harmonization code** without access to real health survey data
+-   **Developing analysis pipelines** with realistic mock data structures
+-   **Training and education** with representative but non-sensitive data
+
+MockData uses recodeflow metadata (variable definitions and recode rules) to generate data that mimics the structure and distributions of real health survey datasets like the Canadian Community Health Survey (CCHS) and the Canadian Health Measures Survey (CHMS).
+
+## Your first mock dataset
+
+This tutorial walks you through generating a simple mock dataset with both categorical and continuous variables.
+
+### Setup
+
+```{r}
+#| warning: false
+#| message: false
+#| output: false
+
+library(dplyr)
+```
+
+### Step 1: Prepare metadata
+
+MockData uses two metadata tables:
+
+1.  **variables**: defines which variables exist in each database cycle
+2.  **variable_details**: defines categories, ranges, and recode rules
+
+For this tutorial, we'll use a simple example with two variables: smoking status (categorical) and age (continuous) .
+
+```{r}
+# Define variables table
+variables <- data.frame(
+  variable = c("smoking", "smoking", "age", "age"),
+  variableStart = c("SMK_01", "SMK_01", "AGE_01", "AGE_01"),
+  databaseStart = c("cycle1", "cycle2", "cycle1", "cycle2"),
+  databaseEnd = c("cycle1", "cycle2", "cycle1", "cycle2"),
+  variableType = c("categorical", "categorical", "continuous", "continuous")
+)
+
+# Define variable details (categories and ranges)
+variable_details <- data.frame(
+  variable = c("smoking", "smoking", "smoking",
+               "smoking", "smoking", "smoking", "smoking",
+               "age", "age", "age"),
+  recStart = c("1", "2", "3", "996", "997", "998", "999",
+               "[18, 100]", "996", "[997, 999]"),
+  recEnd = c("1", "2", "3", "996", "997", "998", "999",
+             "copy", "NA::a", "NA::b"),
+  catLabel = c("Daily smoker", "Occasional smoker", "Never smoked",
+               "Not applicable", "Don't know", "Refusal", "Not stated",
+               "Age in years", "Not applicable", "Missing"),
+  variableStart = c("SMK_01", "SMK_01", "SMK_01", "SMK_01", "SMK_01", "SMK_01", "SMK_01",
+                    "AGE_01", "AGE_01", "AGE_01"),
+  databaseStart = c("cycle1", "cycle1", "cycle1", "cycle1", "cycle1", "cycle1", "cycle1",
+                    "cycle1", "cycle1", "cycle1"),
+  rType = c("factor", "factor", "factor", "factor", "factor", "factor", "factor",
+            "integer", "integer", "integer")
+)
+```
+
+**Variables table** (`r nrow(variables)` rows):
+
+```{r}
+#| echo: false
+knitr::kable(variables)
+```
+
+**Variable details table** (`r nrow(variable_details)` rows):
+
+```{r}
+#| echo: false
+knitr::kable(variable_details)
+```
+
+### Step 2: Generate a categorical variable with custom proportions
+
+Real survey data has different types of missing values. Use the `proportions` parameter to explicitly specify the distribution for all categories, including missing codes:
+
+```{r}
+# Create mock data frame
+df_mock <- data.frame(id = 1:1000)
+
+# Generate smoking variable with explicit proportions for ALL categories
+smoking_col <- create_cat_var(
+  var_raw = "SMK_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 1000,
+  df_mock = df_mock,
+  proportions = list(
+    "1" = 0.30,   # Daily smoker
+    "2" = 0.50,   # Occasional smoker
+    "3" = 0.15,   # Never smoked
+    "996" = 0.01, # Not applicable (valid skip)
+    "997" = 0.01, # Don't know
+    "998" = 0.02, # Refusal
+    "999" = 0.01  # Not stated
+  )
+)
+
+# Add to data frame
+df_mock <- cbind(df_mock, smoking_col)
+
+# View distribution
+table(df_mock$SMK_01)
+```
+
+**What happened:**
+
+-   MockData extracted all 7 categories from variable_details (1, 2, 3, 996, 997, 998, 999)
+-   Generated 1000 random values distributed according to the specified proportions
+-   The `proportions` parameter gives you full control over the distribution, including missing data codes
+-   Categories 1-3 are valid responses, while 996-999 are different types of missing data
+
+For further discussion on making mock missing data see [Missing data in health surveys](missing-data.html).
+
+### Step 3: Generate continuous variable
+
+Use `create_con_var()` to generate continuous variables like age.
+
+```{r}
+# Generate age variable
+age_col <- create_con_var(
+  var_raw = "AGE_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 100,
+  df_mock = df_mock,
+  distribution = "uniform"  # Uniform distribution within range [18, 100]
+)
+
+# Add to data frame
+df_mock <- cbind(df_mock, age_col)
+
+# View results
+head(df_mock, 10)
+summary(df_mock$AGE_01)
+```
+
+**What happened:**
+
+-   MockData extracted the range from variable_details \[18, 100\]
+-   Generated 100 random ages uniformly distributed between 18 and 100
+-   Returned a single-column data frame that we added to df_mock
+
+### Step 4: Working with configuration files
+
+For larger projects, MockData supports batch generation using configuration CSV files instead of inline data frames. This makes it easier to generate many variables at once.
+
+```{r}
+#| eval: false
+# Read configuration files (not run in this tutorial)
+config <- read_mock_data_config("mock_data_config.csv")
+details <- read_mock_data_config_details("mock_data_config_details.csv")
+
+# Generate all variables in one call
+mock_data <- create_mock_data(
+  config = config,
+  details = details,
+  n = 1000,
+  seed = 123
+)
+```
+
+**Why use config files:**
+
+-   Generate dozens of variables in a single call
+-   Easier to maintain and version control metadata
+-   Consistent with recodeflow harmonization workflows
+-   Supports advanced features like derived variables and garbage data
+
+See [CCHS example](cchs-example.html), [CHMS example](chms-example.html), and [DemPoRT example](demport-example.html) for real-world configuration file usage.
+
+### Step 5: Control reproducibility with seeds
+
+Use seeds to generate the same mock data every time.
+
+```{r}
+# Set seed for reproducibility
+set.seed(12345)
+
+df_mock <- data.frame(id = 1:100)
+
+result1 <- create_cat_var(
+  var_raw = "SMK_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 100,
+  df_mock = df_mock
+)
+
+# Reset seed
+set.seed(12345)
+
+df_mock <- data.frame(id = 1:100)
+
+result2 <- create_cat_var(
+  var_raw = "SMK_01",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 100,
+  df_mock = df_mock
+)
+
+# Verify identical
+identical(result1$SMK_01, result2$SMK_01)
+```
+
+**Result:** TRUE - same seed produces identical mock data
+
+### Step 6: Working with derived variables
+
+MockData generates **raw variables** (direct survey measurements). Derived variables should be calculated from the generated data using harmonization workflows.
+
+**Conceptual workflow:**
+
+```{r}
+#| eval: false
+# 1. Generate mock raw variables
+mock_data <- create_mock_data(
+  config = config,        # Includes height_raw, weight_raw
+  details = details,
+  n = 1000
+)
+
+# 2. Apply harmonization to create derived variables
+# (Requires cchsflow or recodeflow package)
+# library(cchsflow)
+# mock_data <- rec_with_table(
+#   data = mock_data,
+#   variables = variables,
+#   variable_details = variable_details,
+#   database_name = "cchs2001"
+# )
+# Now mock_data includes derived variables like BMI_der, age categories, etc.
+```
+
+**Why this approach:**
+
+-   Mirrors real data processing (derived variables computed during harmonization)
+-   Allows testing harmonization logic with mock data
+-   Keeps raw and derived variables separate
+-   Tests the complete workflow: generate → harmonize → analyze
+
+**Common derived variables:**
+
+-   BMI categories from height and weight
+-   Age categories from continuous age
+-   Income quintiles from income
+-   Health risk scores from multiple indicators
+
+See [CCHS example](cchs-example.html) and [DemPoRT example](demport-example.html) for complete workflows with derived variables.
+
+## What you learned
+
+In this tutorial, you learned:
+
+-   How to prepare metadata (variables and variable_details tables)
+-   How to specify custom proportions for all categories including missing codes
+-   The critical difference between valid skip (996) and other missing codes (997-999)
+-   How to calculate prevalence correctly by handling missing codes appropriately
+-   How to generate continuous variables with `create_con_var()`
+-   How configuration files enable batch generation for larger projects
+-   How to ensure reproducibility with seeds
+-   How to work with derived variables through harmonization workflows
+
+## Next steps
+
+**Core topics:**
+
+-   [Missing data](missing-data.html) - Realistic missing data patterns in health surveys
+-   [Date variables](dates.html) - Working with dates and survival times
+-   [Configuration files](cchs-example.html#configuration-format) - Batch generation approach
+
+**Database-specific examples:**
+
+-   [CCHS example](cchs-example.html) - Canadian Community Health Survey
+-   [CHMS example](chms-example.html) - Canadian Health Measures Survey
+-   [DemPoRT example](demport-example.html) - Dementia Population Risk Tool
+
+**Advanced topics:**
+
+-   [Garbage data](cchs-example.html#garbage-data) - Simulating data quality issues
+-   [Advanced topics](advanced-topics.html) - Technical details and performance

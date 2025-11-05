@@ -1,8 +1,8 @@
 ---
-title: "Create mock data for DemPoRT"
-author: "Juan Li"
-date: 2025-07-30
-format: 
+title: "DemPoRT example: Survival analysis workflow"
+author: "Juan Li and the recodeflow contributors"
+date: 2025-11-02
+format:
   html:
     toc: true
     html-math-method: katex
@@ -10,37 +10,74 @@ format:
 editor: visual
 ---
 
-Some resources:
+::: callout-note
+## About this vignette
 
-<https://kgoldfeld.github.io/simstudy/>
+All numeric values shown in this vignette are computed from the actual DemPoRT metadata files. Code is hidden by default for readability, but you can view the source `.qmd` file to see how values are calculated.
+:::
 
-```{r}
-#| warning: false
+## Overview
+
+This vignette demonstrates generating mock data for **DemPoRT** (Dementia Population Risk Tool), a survival analysis model predicting dementia risk. DemPoRT uses harmonized data from multiple Canadian Community Health Survey (CCHS) cycles spanning 2001-2018. Dementia incidence (onset) is individually linked using administrative data housed at ICES -- along with mortality records and other censoring information, where it is combined with CCHS survey data.
+
+**The MockData workflow for multi-cycle projects:**
+
+1.  **Generate separate mock datasets** for individual cycles/databases (e.g., CCHS 2001, CCHS 2003)
+2.  **Hand off to analyst** to test harmonization pipeline (using recodeflow/cchsflow)
+3.  **Harmonize and bind** the individual datasets using your analysis code
+4.  **Calculate derived variables** after harmonization
+
+MockData generates **raw, unharmonized data** that mimics individual source databases. It does NOT pool or bind data—that is the analyst's responsibility to test.
+
+**What you'll learn:**
+
+-   Generate mock data for individual survey cycles
+-   Understand multi-cycle metadata structure
+-   Test harmonization workflows with mock data
+-   Validate metadata consistency
+-   Generate survival analysis variables (dates, events)
+
+**Prerequisites:**
+
+-   [Getting started](getting-started.html) - Basic mock data generation
+-   [Configuration files](tutorial-config-files.html) - Batch generation approach
+-   [Date variables](dates.html) - Temporal data and survival analysis
+
+## Setup
+
+Load required packages:
+
+```{r setup}
 #| message: false
-
-library(dplyr)       # Data manipulation
-library(stringr)     # Working with strings
-
-# Load MockData package functions
-devtools::load_all("../", quiet = TRUE)
-
+library(MockData)
+library(dplyr)
+library(stringr)
 ```
 
-## Read in variable and variable_details sheet
+## Required inputs
 
-```{r}
-# DemPoRT variables (use relative path for vignette building)
+Typically, you need three configuration files to generate mock data:
+
+1.  **Mock data config file** (`mock_data_config.csv`): Specifies which variables to generate and their roles
+2.  **Variables file** (`variables.csv`): Defines variable metadata (labels, types, cycles)
+3.  **Variable details file** (`variable_details.csv`): Specifies distributions and categories
+
+**Note**: The mock data config file is not yet complete for DemPoRT. This example demonstrates generating mock data directly from harmonization metadata (variables and variable_details files). We will update this vignette once the mock data config is available.
+
+For DemPoRT, the harmonization metadata describes **20+ individual CCHS cycles** (2001-2018):
+
+```{r load-metadata}
+# Load DemPoRT metadata
 variables <- read.csv(
-  "../inst/extdata/demport/variables_DemPoRT.csv",
+  system.file("extdata/demport/variables_DemPoRT.csv", package = "MockData"),
   header = TRUE,
   check.names = FALSE,
   na.strings = c("", "NA", "N/A"),
   stringsAsFactors = FALSE
 )
 
-# DemPoRT variable details
 variable_details <- read.csv(
-  "../inst/extdata/demport/variable_details_DemPoRT.csv",
+  system.file("extdata/demport/variable_details_DemPoRT.csv", package = "MockData"),
   header = TRUE,
   check.names = FALSE,
   na.strings = c("", "NA", "N/A"),
@@ -48,196 +85,659 @@ variable_details <- read.csv(
 )
 ```
 
-## Get required cycles
-
-```{r}
-cycles <- unlist(str_split(paste(variables$databaseStart, collapse = ","), ","))
-cycles <- unlist(str_split(cycles, " ")) 
-cycles <- str_trim(cycles[str_detect(cycles, "cchs")]) # trim whitespaces
-(cycles <- sort(unique(cycles)))
-
-# NOTE: clean cycles
-cycles <- sort(unique(str_replace_all(cycles, "cchs_", "cchs")))
-cycles
+```{r metadata-summary}
+#| echo: false
+first_5_vars <- paste(head(variables$variable, 5), collapse = ", ")
 ```
 
-## Get variable names of each type
+The DemPoRT metadata includes `r nrow(variables)` variables with `r nrow(variable_details)` detail rows. First 5 variables: `r first_5_vars`.
 
-```{r}
-# check if variables and variable_details sheets match
-var1 <- variables$variable
-var2 <- unique(variable_details$variable)
+**Variable types in the metadata:**
 
-print("In variables, not in variable_details:")
-var1[!(var1 %in% var2)]
-print("In variable_details, not in variables:")
-var2[!(var2 %in% var1)]
+-   **Categorical**: Sex, education, marital status, immigration status
+-   **Continuous**: Age, BMI, alcohol consumption
+-   **Date**: Birth date, interview date (baseline), death date (outcome)
+-   **Derived**: Age groups, BMI categories (calculated from raw variables)
+
+**Important**: The metadata describes **harmonized target variables**, not raw source data. MockData uses this metadata to generate mock data that mimics **raw source databases** before harmonization.
+
+**Multi-cycle structure**: Each variable's metadata includes a `databaseStart` column listing which cycles contain that variable (e.g., "cchs2001_p, cchs2003_p, cchs2005_p").
+
+## Generate mock data
+
+The simplest way to generate DemPoRT mock data is using `create_mock_data()`. This function reads the metadata files and generates all variables at once.
+
+```{r generate-mock-data}
+#| eval: false
+# Generate mock data for all DemPoRT raw variables
+# Derived variables are automatically excluded
+mock_demport <- create_mock_data(
+  config_path = system.file("extdata/demport/variables_DemPoRT.csv", package = "MockData"),
+  details_path = system.file("extdata/demport/variable_details_DemPoRT.csv", package = "MockData"),
+  n = 100,
+  seed = 123
+)
+
+# View structure
+dim(mock_demport)
+# [1] 100  69
+
+# First few columns
+names(mock_demport)[1:5]
+# [1] "ADL_01" "ADL_02" "ADL_03" "ADL_04" "ADL_05"
+
+# Show sample of first 3 rows, first 5 columns
+head(mock_demport[, 1:5], 3)
+#   ADL_01         ADL_02         ADL_03    ADL_04    ADL_05
+# 1 No difficulty  No difficulty  No help   No help   No help
+# 2 Some difficulty No difficulty  No help   No help   Some help
+# 3 No difficulty  No difficulty  No help   No help   No help
 ```
 
-```{r}
-# --- derived variables ---
-var_derived <- unique(c(variables[str_detect(variables$variableStart, "DerivedVar::") |
-                          str_detect(variables$variable, "_der"), "variable"],
-                        variable_details[str_detect(variable_details$variableStart, "DerivedVar::") |
-                          str_detect(variable_details$variable, "_der"), "variable"]))
-print("--- Derived variables: ---")
-print(var_derived)
+**Important: Derived variables are NOT generated**
 
-# --- original variables ---
-# categorical variables
-var_cat <- unique(c(variables[variables$variableType == "Categorical", "variable"],
-                    variable_details[variable_details$variableType == "Categorical", "variable"]))
-var_cat <- var_cat[!(var_cat %in% var_derived)] # remove derived variable
-print("--- Categorical variables: ---")
-print(var_cat)
+MockData automatically excludes derived variables during generation. Derived variables (e.g., `ADL_der`, `HWTGBMI_der`, `pack_years_der`) are calculated from raw variables and should NOT be generated as mock data.
 
-# continuous variables
-var_con <- unique(c(variables[variables$variableType == "Continuous", "variable"],
-                    variable_details[variable_details$variableType == "Continuous", "variable"]))
-var_con <- var_con[!(var_con %in% var_derived)] # remove derived variable
-print("--- Continuous variables: ---")
-print(var_con)
+**How it works:**
 
-# check
-nrow(variables) == length(var_derived) + length(var_cat) + length(var_con)
+1.  Variables with `role = "derived,enabled"` are automatically filtered out
+2.  Only raw variables (e.g., `ADL_01`, `HWTGHTM`, `HWTGWTK`) are generated. This includes raw variables required to calculate derived variables.
+3.  You calculate derived variables using your analysis pipeline after generation.
+
+**Why this matters:**
+
+-   **Consistency**: Derived variables use the same calculation logic as your real analysis
+-   **Testing**: Test your derived variable calculations on mock data
+-   **Correctness**: Prevents generating fake derived values that don't match raw inputs
+
+## Understanding multi-cycle data
+
+DemPoRT harmonizes and pools data from multiple CCHS cycles. The harmonization metadata specifies which cycles contain each variable via the `databaseStart` column.
+
+**Key concept**: MockData generates individual cycle datasets (e.g., mock CCHS 2001, mock CCHS 2003). The analyst then:
+
+1.  Harmonizes each cycle separately using recodeflow/cchsflow
+2.  Binds the harmonized cycles together
+3.  Calculates derived variables on the pooled dataset
+
+### Extract cycle information
+
+```{r extract-cycles}
+#| echo: false
+# Parse cycles from databaseStart column
+cycles_raw <- unlist(str_split(paste(variables$databaseStart, collapse = ","), ","))
+cycles <- cycles_raw %>%
+  str_split(" ") %>%
+  unlist() %>%
+  str_trim() %>%
+  str_subset("cchs") %>%
+  str_replace_all("cchs_", "cchs") %>%  # Standardize naming
+  unique() %>%
+  sort()
 ```
 
-## 1. Generate mock data of original variables
+DemPoRT harmonizes `r length(cycles)` CCHS cycles ranging from 2001 to 2017-2018. The cycles are: `r paste(cycles, collapse = ", ")`.
 
-### Categorical variables
+**Interpretation:**
 
-```{r}
-length <- 5
+-   Each variable may appear in **different subsets** of cycles
+-   Example: `EDU_04` (education) appears in cycles 2001-2014, but not 2015-2018
 
-df_cat <- data.frame()
-for (cycle in cycles) {
-  df_i <- data.frame(cycle = rep(cycle, length))
-  for (var in var_cat) {
-    # Note: Using new function signature from mockdata-generators.R
-    col <- create_cat_var(
-      var_raw = var,
-      cycle = cycle,
-      variable_details = variable_details,
-      variables = variables,
-      length = length,
-      df_mock = df_i
-    )
-    if (!is.null(col)) {
-      df_i <- bind_cols(df_i, col)
-    }
+### Check variable coverage by cycle
+
+```{r check-variable-coverage}
+#| echo: false
+# Example: Which cycles have education variable?
+edu_cycles <- variables %>%
+  filter(variable == "EDU_04") %>%
+  pull(databaseStart) %>%
+  str_split(",") %>%
+  unlist() %>%
+  str_trim()
+
+first_3_edu <- paste(head(edu_cycles, 3), collapse = ", ")
+```
+
+The EDU_04 (education) variable is available in `r length(edu_cycles)` cycles. First 3: `r first_3_edu`.
+
+**Why this matters for MockData:**
+
+-   Generate separate mock datasets for each cycle you want to test
+-   Each cycle will have different variables based on `databaseStart` metadata
+-   Test your harmonization pipeline on individual cycles before pooling
+-   Missing data patterns may differ by cycle
+
+## Validate metadata consistency
+
+Before generating mock data, it's good practice to check that your config and details files are aligned.
+
+```{r validate-metadata}
+#| echo: false
+# Get unique variables from each file
+vars_config <- unique(variables$variable)
+vars_details <- unique(variable_details$variable)
+
+# Check for mismatches
+vars_missing_details <- setdiff(vars_config, vars_details)
+vars_extra_details <- setdiff(vars_details, vars_config)
+
+all_vars_have_details <- length(vars_missing_details) == 0
+no_extra_vars <- length(vars_extra_details) == 0
+```
+
+The metadata includes `r length(vars_config)` variables in config and `r length(vars_details)` variables in details. `r if(all_vars_have_details) "All config variables have details." else paste("Warning: ", length(vars_missing_details), " variables missing details.")` `r if(no_extra_vars) "No extra variables in details." else paste("Warning: ", length(vars_extra_details), " extra variables in details.")`
+
+**Common issues this catches:**
+
+-   Typos in variable names
+-   Variables defined in config but missing implementation details
+-   Orphaned details rows from deleted variables
+-   Helpful for troubleshooting `create_mock_data()` errors
+
+## Classify variables by type
+
+Understanding variable types helps organize analysis and identify which variables need special handling.
+
+```{r classify-variables}
+#| echo: false
+# Identify derived variables (shouldn't be in raw mock data)
+var_derived <- variables %>%
+  filter(
+    str_detect(variableStart, "DerivedVar::") |
+    str_detect(variable, "_der")
+  ) %>%
+  pull(variable) %>%
+  unique()
+
+# Classify raw variables by type
+# Note: DemPoRT uses "Categorical" and "Continuous" (capital C)
+var_cat <- variables %>%
+  filter(
+    variableType == "Categorical",
+    !(variable %in% var_derived)
+  ) %>%
+  pull(variable) %>%
+  unique()
+
+var_con <- variables %>%
+  filter(
+    variableType == "Continuous",
+    !(variable %in% var_derived)
+  ) %>%
+  pull(variable) %>%
+  unique()
+
+total_vars <- length(var_derived) + length(var_cat) + length(var_con)
+all_accounted <- nrow(variables) == total_vars
+```
+
+**Variable type summary:**
+
+-   Derived: `r length(var_derived)`
+-   Categorical: `r length(var_cat)`
+-   Continuous: `r length(var_con)`
+-   Total: `r total_vars`
+
+`r if(all_accounted) "Classification accounts for all variables." else "Warning: Some variables unclassified."`
+
+**About derived variables:**
+
+-   Examples: `age_cat` (age groups), `bmi_cat` (BMI categories)
+-   These are **calculated** from raw variables (age, BMI) after harmonization
+-   Should **not** be generated as raw mock data
+-   In real workflows, you'd calculate them using recodeflow after generating raw variables
+
+## Examine data quality for individual cycles
+
+After generating mock data for an individual cycle, check variable completeness and data types.
+
+**Remember**: You're examining **one cycle's raw data** here, not pooled data. Each cycle may have different variables and different data patterns.
+
+```{r examine-data-quality}
+#| eval: false
+# Example: Check mock data for CCHS 2001
+# (Replace mock_demport with your cycle-specific dataset, e.g., mock_2001)
+
+# Check for date variables
+date_vars <- names(mock_demport)[sapply(mock_demport, inherits, "Date")]
+
+cat("Date variables in this cycle:\n")
+if (length(date_vars) > 0) {
+  for (var in date_vars) {
+    date_range <- range(mock_demport[[var]], na.rm = TRUE)
+    n_missing <- sum(is.na(mock_demport[[var]]))
+
+    cat(sprintf("  %s: %s to %s (%d missing)\n",
+                var,
+                as.character(date_range[1]),
+                as.character(date_range[2]),
+                n_missing))
   }
-  df_cat <- bind_rows(df_cat, df_i)
+} else {
+  cat("  (No date variables in this cycle)\n")
 }
-```
 
-### Continuous variables
+# Check for factor variables
+factor_vars <- names(mock_demport)[sapply(mock_demport, is.factor)]
 
-```{r}
-df_con <- data.frame()
-for (cycle in cycles) {
-  df_i <- data.frame(cycle = rep(cycle, length))
-  for (var in var_con) {
-    # Note: Using new function signature from mockdata-generators.R
-    # Catch warnings
-    tryCatch({
-      col <- create_con_var(
-        var_raw = var,
-        cycle = cycle,
-        variable_details = variable_details,
-        variables = variables,
-        length = length,
-        df_mock = df_i,
-        distribution = "uniform"
-      )
-    }, warning = function(w) print(paste0(var, " in ", cycle)))
+cat("\nFactor variables:", length(factor_vars), "\n")
+if (length(factor_vars) > 0) {
+  cat("  First 3:", paste(head(factor_vars, 3), collapse = ", "), "\n")
 
-    # Run again to actually get the result (workaround for tryCatch behavior)
-    col <- create_con_var(
-      var_raw = var,
-      cycle = cycle,
-      variable_details = variable_details,
-      variables = variables,
-      length = length,
-      df_mock = df_i,
-      distribution = "uniform"
-    )
-    if (!is.null(col)) {
-      df_i <- bind_cols(df_i, col)
-    }
-  }
-  df_con <- bind_rows(df_con, df_i)
+  # Show levels for first factor
+  cat(sprintf("  %s levels: %s\n",
+              factor_vars[1],
+              paste(levels(mock_demport[[factor_vars[1]]]), collapse = ", ")))
 }
-```
 
-### Combine categorical and continuous data
+# Example output:
+# Factor variables: 8
+#   First 3: DHH_SEX, EDU_04, SMK_202
+#   DHH_SEX levels: Male, Female
 
-```{r}
-df <- bind_cols(df_cat, df_con[, !(names(df_con) %in% names(df_cat))])
+# Check for numeric variables
+numeric_vars <- names(mock_demport)[sapply(mock_demport, is.numeric)]
 
-# Show structure of combined data
-cat("Combined mock data dimensions:", nrow(df), "rows ×", ncol(df), "columns\n")
-cat("\nFirst few rows:\n")
-print(head(df, 3))
-
-# Optionally save to file (commented out for vignette)
-# write.csv(df, "mock_all_cycles.csv", row.names = FALSE)
-```
-
-### Examine data by cycle
-
-```{r}
-# Show summary for each cycle
-for (cycle in cycles) {
-  dfi <- df %>% filter(cycle == !!cycle)
-  nNA <- colSums(is.na(dfi))
-  cols_without_na <- names(dfi)[nNA == 0]
-
-  cat("\n=== Cycle:", cycle, "===\n")
-  cat("Rows:", nrow(dfi), "\n")
-  cat("Columns without NA:", length(cols_without_na), "\n")
-
-  # Optionally save per-cycle files (commented out for vignette)
-  # write.csv(dfi, paste0("mock_", cycle, ".csv"), row.names = FALSE)
+cat("\nNumeric variables:", length(numeric_vars), "\n")
+if (length(numeric_vars) > 0) {
+  cat("  First 3:", paste(head(numeric_vars, 3), collapse = ", "), "\n")
 }
+
+# Example output:
+# Numeric variables: 12
+#   First 3: ADL_01, ADL_02, HWTDHTM
 ```
 
-## Generate outcome data
+## Practical workflow: Generate individual cycle datasets
 
-This section demonstrates generating mortality outcome data for survival analysis. DemPoRT requires date variables for time-to-event analysis.
+MockData generates **separate datasets for individual cycles**. You do NOT bind them together in MockData - that's the analyst's job to test harmonization.
 
-**Note**: For comprehensive coverage of date variable generation including:
+**Recommended workflow:**
 
-- Multiple distribution types (uniform, Gompertz, exponential)
-- Handling invalid dates for testing
-- Survival analysis workflows
+### Step 1: Filter metadata for each cycle
 
-See the [Date variables and temporal data](dates.html) vignette.
-
-### Example: Generate death dates
-
-```{r}
+```{r filter-metadata-by-cycle}
 #| eval: false
 
-# Example of adding death dates to the mock data
-# This would use create_date_var() with Gompertz distribution
-# for realistic mortality patterns
+# Example: Create cycle-specific metadata files
+# Filter variables and details by databaseStart column
 
-# death_dates <- create_date_var(
-#   var_raw = "death_date",
-#   cycle = "ices",
-#   variable_details = variable_details,
-#   length = nrow(df),
-#   df_mock = df,
-#   distribution = "gompertz",  # Realistic mortality pattern
-#   seed = 200
-# )
-#
-# df_with_dates <- cbind(df, death_dates)
+# CCHS 2001
+vars_2001 <- variables %>%
+  filter(str_detect(databaseStart, "cchs2001"))
+
+details_2001 <- variable_details %>%
+  filter(variable %in% vars_2001$variable)
+
+# Save cycle-specific metadata
+write.csv(vars_2001, "demport_variables_2001.csv", row.names = FALSE)
+write.csv(details_2001, "demport_details_2001.csv", row.names = FALSE)
+
+# Repeat for other cycles...
 ```
 
-For a complete survival analysis workflow with DemPoRT, see the dates vignette which covers:
+### Step 2: Generate mock data for each cycle
 
-- Generating paired entry and event dates
-- Distribution selection for different event types
-- Calculating time-to-event variables
-- Handling censoring
+```{r generate-by-cycle}
+#| eval: false
+
+# Generate separate mock dataset for CCHS 2001
+mock_2001 <- create_mock_data(
+  config_path = "demport_variables_2001.csv",
+  details_path = "demport_details_2001.csv",
+  n = 1000,
+  seed = 2001  # Cycle-specific seed for reproducibility
+)
+
+# Generate separate mock dataset for CCHS 2003
+mock_2003 <- create_mock_data(
+  config_path = "demport_variables_2003.csv",
+  details_path = "demport_details_2003.csv",
+  n = 1000,
+  seed = 2003
+)
+
+# MockData STOPS here - hand off to analyst
+```
+
+### Step 3: Test harmonization (analyst's job)
+
+After generating individual cycle datasets, you'll harmonize them using your harmonization pipeline (e.g., recodeflow/cchsflow), bind the harmonized cycles together, and calculate derived variables. Good luck!
+
+**Key principles:**
+
+1.  **MockData generates**: Individual raw cycle datasets (separate files/objects)
+2.  **Analyst harmonizes**: Each cycle using recodeflow/cchsflow
+3.  **Analyst binds**: Harmonized cycles together for analysis
+4.  **Analyst calculates**: Derived variables on pooled data
+
+**Why separate cycles matter:**
+
+-   Tests harmonization logic on realistic raw data structure
+-   Allows cycle-specific sample sizes (CCHS 2001 = 130K, CCHS 2017 = 110K)
+-   Enables testing cycle-specific missing patterns
+-   Matches real workflow: harmonize first, then pool
+
+## Survival analysis dates
+
+DemPoRT is a survival model predicting time to dementia diagnosis. This section demonstrates how to generate realistic survival dates with proper temporal ordering and competing risks.
+
+### Date variables for survival analysis
+
+The table below shows the date variables in temporal order. The survival analysis focuses on the three key dates: **interview** (cohort entry), **dementia onset** (primary outcome), and **death** (competing risk). Birth date is included in the metadata for age calculation but is not required for the survival analysis itself.
+
+| Variable | Role in analysis | Date range | Temporal constraint |
+|----------|------------------|------------|---------------------|
+| `birth_date` | Age calculation (not used in survival analysis) | 1920-1987 | birth < interview |
+| `interview_date` | **Cohort entry (t=0)** | 2001-2005 | Baseline for all follow-up |
+| `dementia_onset_date` | **Primary outcome** | 2001-2017 | interview < dementia < death |
+| `death_date` | **Competing risk** | 2001-2017 | interview < death |
+
+**Administrative censoring:** End of follow-up is 2017-03-31. Individuals alive at this date are censored.
+
+### Step 1: Generate survival dates with temporal ordering
+
+The `create_survival_dates()` function generates paired entry and event dates with guaranteed temporal ordering. This must be called separately from `create_mock_data()` because it processes TWO variables together.
+
+```{r survival-dates-generation}
+#| message: false
+#| warning: false
+
+# Extract metadata for interview (cohort entry) and death (competing risk)
+interview_details <- variable_details %>%
+  filter(variable == "interview_date")
+
+death_details <- variable_details %>%
+  filter(variable == "death_date")
+
+interview_row <- variables %>%
+  filter(variable == "interview_date")
+
+death_row <- variables %>%
+  filter(variable == "death_date")
+
+# Generate 1000 individuals with guaranteed temporal ordering
+survival_dates <- create_survival_dates(
+  entry_var_row = interview_row,
+  entry_details_subset = interview_details,
+  event_var_row = death_row,
+  event_details_subset = death_details,
+  n = 1000,
+  seed = 456,
+  df_mock = data.frame()
+)
+```
+
+**Verify temporal ordering and date ranges:**
+
+```{r date-verification}
+#| echo: false
+
+# Build verification table
+verification <- data.frame(
+  Variable = c("interview_date", "death_date"),
+  Min = c(
+    format(min(survival_dates$interview_date), "%Y-%m-%d"),
+    format(min(survival_dates$death_date), "%Y-%m-%d")
+  ),
+  Max = c(
+    format(max(survival_dates$interview_date), "%Y-%m-%d"),
+    format(max(survival_dates$death_date), "%Y-%m-%d")
+  ),
+  Expected = c("2001-2005", "2001-2017"),
+  `Temporal ordering` = c(
+    "Baseline (t=0)",
+    sprintf("✓ All >= interview (n=%d)", sum(survival_dates$death_date >= survival_dates$interview_date))
+  ),
+  check.names = FALSE
+)
+
+knitr::kable(verification, caption = "Generated date ranges and temporal ordering verification")
+```
+
+### Step 2: Add competing risks (dementia onset)
+
+Real survival studies track multiple outcomes. In DemPoRT, two mutually exclusive events can occur:
+
+1.  **Dementia diagnosis** (primary outcome)
+2.  **Death without dementia** (competing risk)
+
+We'll simulate dementia occurring between interview and death for 10% of the cohort:
+
+```{r competing-risks}
+#| message: false
+#| warning: false
+
+# Simulate dementia incidence (10% develop dementia)
+set.seed(789)
+survival_dates$dementia_occurred <- rbinom(
+  n = nrow(survival_dates),
+  size = 1,
+  prob = 0.10
+)
+
+# For those with dementia, set dementia_onset_date between interview and death
+survival_dates$dementia_onset_date <- ifelse(
+  survival_dates$dementia_occurred == 1,
+  survival_dates$interview_date +
+    runif(nrow(survival_dates)) *
+    (survival_dates$death_date - survival_dates$interview_date),
+  NA
+)
+
+# Convert back to Date class
+survival_dates$dementia_onset_date <- as.Date(
+  survival_dates$dementia_onset_date,
+  origin = "1970-01-01"
+)
+```
+
+### Step 3: Add administrative censoring
+
+Not everyone is followed to death in real cohort studies. We apply administrative censoring at 2017-03-31 (end of follow-up):
+
+```{r censoring}
+#| message: false
+#| warning: false
+
+# Apply censoring: individuals alive after 2017-03-31 are censored
+censor_date <- as.Date("2017-03-31")
+survival_dates$censored <- survival_dates$death_date > censor_date
+
+# Set observed death date (censored individuals get censor_date)
+survival_dates$death_date_observed <- ifelse(
+  survival_dates$censored,
+  censor_date,
+  survival_dates$death_date
+)
+
+survival_dates$death_date_observed <- as.Date(
+  survival_dates$death_date_observed,
+  origin = "1970-01-01"
+)
+```
+
+### Step 4: Calculate time-to-event and final outcomes
+
+```{r final-time}
+#| message: false
+#| warning: false
+
+# Calculate follow-up time to first event (years)
+survival_dates$time_to_event <- pmin(
+  as.numeric(difftime(survival_dates$dementia_onset_date,
+                     survival_dates$interview_date,
+                     units = "days")) / 365.25,
+  as.numeric(difftime(survival_dates$death_date_observed,
+                     survival_dates$interview_date,
+                     units = "days")) / 365.25,
+  na.rm = TRUE
+)
+
+# Event type: 0=censored, 1=dementia, 2=death without dementia
+survival_dates$event_type <- ifelse(
+  !is.na(survival_dates$dementia_onset_date), 1,
+  ifelse(!survival_dates$censored, 2, 0)
+)
+```
+
+### Summary: Cohort characteristics
+
+```{r summary-table}
+#| echo: false
+
+# Build comprehensive summary table
+event_counts <- table(factor(survival_dates$event_type, levels = 0:2))
+mean_fu <- aggregate(time_to_event ~ event_type,
+                     data = survival_dates,
+                     FUN = mean)
+
+# Helper function to get mean FU for an event type
+get_mean_fu <- function(event_val) {
+  idx <- which(mean_fu$event_type == event_val)
+  if (length(idx) > 0) {
+    return(sprintf("%.1f", mean_fu$time_to_event[idx]))
+  }
+  return("—")
+}
+
+summary_data <- data.frame(
+  Outcome = c("Censored", "Dementia", "Death"),
+  `Event code` = c("0", "1", "2"),
+  N = as.numeric(event_counts),
+  Percent = sprintf("%.1f%%", 100 * as.numeric(event_counts) / 1000),
+  `Mean follow-up (years)` = c(get_mean_fu(0), get_mean_fu(1), get_mean_fu(2)),
+  `Temporal ordering verified` = c(
+    sprintf("✓ All interview < censor (n=%d)", event_counts[1]),
+    sprintf("✓ All interview < dementia < death (n=%d)", event_counts[2]),
+    sprintf("✓ All interview < death (n=%d)", event_counts[3])
+  ),
+  check.names = FALSE
+)
+
+knitr::kable(summary_data,
+             caption = "Final cohort summary: Events, follow-up time, and temporal ordering verification")
+```
+
+The simulated cohort demonstrates realistic survival analysis patterns:
+
+- **Temporal ordering:** All dates satisfy the constraint interview < event < death
+- **Competing risks:** Individuals experience either dementia or death, not both
+- **Censoring:** Individuals alive at study end (2017-03-31) are censored
+- **Follow-up time:** Varies by outcome, with censored individuals having longest follow-up
+
+### Prepare for Cox regression or competing risks analysis
+
+The dataset is now ready for survival analysis:
+
+```{r survival-analysis-example}
+#| eval: false
+
+# Example: Cox proportional hazards for dementia
+# library(survival)
+#
+# model_dementia <- coxph(
+#   Surv(time_to_event, event_type == 1) ~ age + sex + education,
+#   data = survival_dates
+# )
+#
+# # Example: Competing risks analysis
+# library(cmprsk)
+#
+# cr_fit <- cuminc(
+#   ftime = survival_dates$time_to_event,
+#   fstatus = survival_dates$event_type,
+#   cencode = 0
+# )
+```
+
+**Key takeaways:**
+
+1.  `create_survival_dates()` generates entry and event dates with guaranteed temporal ordering
+2.  Competing risks (dementia vs death) require additional simulation between entry and event
+3.  Administrative censoring is applied based on study design (end date)
+4.  All temporal constraints are verified before analysis
+5.  The dataset is ready for Cox regression or competing risks models
+
+**See also:** [Date variables tutorial](dates.html) for more on date generation and temporal constraints.
+
+## Visualize mock data (optional)
+
+After generating mock data, you can visualize distributions to verify data quality. For example, create histograms for continuous variables (height, weight) or bar charts for categorical variables (sex, education).
+
+```{r visualize-mock-data}
+#| eval: false
+
+# Example: Check a continuous variable distribution
+hist(mock_demport$HWTDHTM,  # Height in cm
+     breaks = 20,
+     main = "Height Distribution",
+     xlab = "Height (cm)",
+     col = "lightblue")
+
+# Example: Check a categorical variable distribution
+barplot(table(mock_demport$DHH_SEX),
+        main = "Sex Distribution",
+        col = "lightgreen")
+```
+
+These visualizations help you verify that generated values fall within expected ranges and categories match your metadata specifications.
+
+## Export mock data
+
+Save your generated mock data for use in testing your analysis pipeline. You can export to CSV for broad compatibility or RDS to preserve R-specific data types (Date objects, factor levels).
+
+```{r export-mock-data}
+#| eval: false
+
+# Save to CSV (compatible with most tools)
+write.csv(
+  mock_demport,
+  "demport_mock_data.csv",
+  row.names = FALSE
+)
+
+# Save to RDS (preserves R data types like Date, factor levels)
+saveRDS(
+  mock_demport,
+  "demport_mock_data.rds"
+)
+```
+
+After running these commands, you'll have two files saved to your working directory: `demport_mock_data.csv` and `demport_mock_data.rds`.
+
+## What you learned
+
+This vignette demonstrated:
+
+1.  **Batch generation** with `create_mock_data()` for complex multi-variable datasets
+2.  **Multi-cycle data** concepts and why they matter for survey harmonization
+3.  **Metadata validation** to catch inconsistencies before generation
+4.  **Variable classification** to distinguish raw vs. derived variables
+5.  **Data quality checks** to verify generated data meets expectations
+6.  **Survival analysis setup** including date variables and event indicators
+
+## Next steps
+
+**Core concepts:**
+
+-   [Getting started](getting-started.html) - If you haven't read this yet
+-   [Configuration files](tutorial-config-files.html) - Deep dive on metadata format
+-   [Date variables](dates.html) - Advanced temporal data and survival workflows
+
+**Real-world examples:**
+
+-   [CCHS example](cchs-example.html) - Canadian Community Health Survey
+-   [CHMS example](chms-example.html) - Canadian Health Measures Survey
+
+**Advanced topics:**
+
+-   [Configuration reference](reference-config.html) - Complete metadata specification
+-   [Advanced topics](advanced-topics.html) - Performance optimization and integration
+
+**For DemPoRT users:**
+
+-   Apply mock data in analysis pipelines
+-   Test harmonization code before accessing real data
+-   Validate survival model implementation
+-   Generate sample datasets for method development

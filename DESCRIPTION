@@ -3,7 +3,7 @@ Title: Generate Mock Data from Recodeflow Metadata
 Version: 0.2.0
 Authors@R: c(
     person("Juan", "Li", role = c("aut", "cre"), email = "juan.li@oahpp.ca"),
-    person("Doug", "Manuel", role = "aut", email = "dmanuel@ohri.ca")
+    person("recodeflow contributors", role = "ctb")
   )
 Description: Generates mock testing data from recodeflow metadata (variables.csv
     and variable-details.csv). Supports categorical and continuous variables
@@ -11,6 +11,8 @@ Description: Generates mock testing data from recodeflow metadata (variables.csv
     across CHMS, CCHS, and other recodeflow projects. Uses recodeflow-standard
     notation for parsing variable specifications and range notation.
 License: MIT + file LICENSE
+URL: https://big-life-lab.github.io/MockData/, https://github.com/Big-Life-Lab/MockData
+BugReports: https://github.com/Big-Life-Lab/MockData/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
@@ -24,4 +26,8 @@ Suggests:
     readr,
     dplyr,
     stringr,
-    lubridate
+    lubridate,
+    quarto,
+    devtools,
+    pkgdown,
+    roxygen2

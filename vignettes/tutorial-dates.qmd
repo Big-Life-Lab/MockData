@@ -1,0 +1,563 @@
+---
+title: "Working with date variables"
+author: "Juan Li and the recodeflow contributors"
+date: 2025-11-01
+format:
+  html:
+    toc: true
+    html-math-method: katex
+    css: styles.css
+editor: visual
+---
+
+```{r}
+#| label: setup
+#| include: false
+# Load package - works in both local dev and pkgdown build
+if (file.exists("../DESCRIPTION")) {
+  devtools::load_all("../", quiet = TRUE)
+} else {
+  library(MockData)
+}
+```
+
+::: callout-note
+## About this vignette
+
+This tutorial introduces temporal data generation concepts. For complete working examples, see the [DemPoRT example](demport-example.html).
+:::
+
+## Overview
+
+This tutorial introduces temporal data generation in MockData. You'll learn how to create date variables for:
+
+-   **Cohort entry dates** (index dates, baseline dates)
+-   **Event dates** (death, diagnosis, hospital admission)
+-   **Time-varying exposures** (follow-up visits, repeated measures)
+-   **Survival analysis data** (with censoring)
+
+**For complete working examples:** See the [DemPoRT example](demport-example.html), which is the primary and comprehensive demonstration of date variable generation with real ICES specifications.
+
+## Basic date variable setup
+
+### Configuration structure
+
+Date variables use the same two-file structure as other variables, with special `recEnd` codes:
+
+**mock_data_config.csv:**
+
+| uid | variable | role | variableType | variableLabel | position |
+|-----|----------|------|--------------|---------------|----------|
+| index_date_v1 | index_date | index-date;enabled | Continuous | Cohort entry date | 1 |
+
+**mock_data_config_details.csv:**
+
+| uid | uid_detail | variable | recStart | recEnd | catLabel | date_start | date_end | rType |
+|-----|------------|----------|----------|--------|----------|------------|----------|-------|
+| index_date_v1 | index_date_v1_d1 | index_date | NA | date_start | Start date | 2001-01-01 | | Date |
+| index_date_v1 | index_date_v1_d2 | index_date | NA | date_end | End date | | 2017-03-31 | Date |
+
+**Key points:**
+
+-   Use `recEnd = "date_start"` to mark the row containing start date
+-   Use `recEnd = "date_end"` to mark the row containing end date
+-   Dates in `date_start` and `date_end` columns use ISO format: YYYY-MM-DD
+-   Date variables need `rType = "Date"` in details
+-   Date variables use `role` containing "date" (e.g., "index-date", "outcome-date")
+-   `variableType = "Continuous"` for date variables (for recodeflow compatibility)
+
+### Generating date variables
+
+```{r}
+#| warning: false
+#| message: false
+library(dplyr)
+library(MockData)
+
+# Create configuration
+config <- data.frame(
+  uid = "index_date_v1",
+  variable = "index_date",
+  role = "index-date,enabled",
+  variableType = "Continuous",
+  position = 1,
+  stringsAsFactors = FALSE
+)
+
+details <- data.frame(
+  uid = c("index_date_v1", "index_date_v1"),
+  uid_detail = c("index_date_v1_d1", "index_date_v1_d2"),
+  variable = c("index_date", "index_date"),
+  recStart = c(NA, NA),
+  recEnd = c("date_start", "date_end"),
+  catLabel = c("Start date", "End date"),
+  date_start = c("2001-01-01", NA),
+  date_end = c(NA, "2017-03-31"),
+  rType = c("Date", "Date"),
+  stringsAsFactors = FALSE
+)
+
+# Write to temporary files
+temp_dir <- tempdir()
+config_path <- file.path(temp_dir, "date_config.csv")
+details_path <- file.path(temp_dir, "date_details.csv")
+write.csv(config, config_path, row.names = FALSE)
+write.csv(details, details_path, row.names = FALSE)
+
+# Generate dates
+mock_data <- create_mock_data(
+  config_path = config_path,
+  details_path = details_path,
+  n = 100,
+  seed = 123
+)
+
+# View distribution
+head(mock_data)
+summary(mock_data$index_date)
+```
+
+**Result:** 100 dates uniformly distributed between 2001-01-01 and 2017-03-31.
+
+## Common temporal patterns
+
+### Pattern 1: Cohort accrual period
+
+Simulate gradual enrollment into a study:
+
+**Concept:** Participants enter a cohort over a defined accrual period. In real studies, enrollment might be:
+
+-   Uniform: constant enrollment rate
+-   Front-loaded: more enrollments early
+-   Back-loaded: more enrollments later
+
+**MockData approach:** Use uniform distribution within accrual window. For non-uniform patterns, generate uniform dates then transform with custom code.
+
+**Example accrual window:**
+
+| uid | uid_detail | variable | recStart | recEnd | catLabel | date_start | date_end | rType |
+|-----|------------|----------|----------|--------|----------|------------|----------|-------|
+| index_date_v1 | index_date_v1_d1 | index_date | NA | date_start | Start | 2001-01-01 | | Date |
+| index_date_v1 | index_date_v1_d2 | index_date | NA | date_end | End | | 2005-12-31 | Date |
+
+This creates a 5-year accrual period (2001-2005).
+
+### Pattern 2: Event dates with censoring
+
+Survival analysis requires:
+
+1.  **Index date** (t=0, cohort entry)
+2.  **Event date** (death, diagnosis) OR censoring date
+3.  **Follow-up end** (administrative censoring)
+
+**Configuration pattern:**
+
+**mock_data_config.csv:**
+
+| uid | variable | role | variableType | variableLabel | position |
+|-----|----------|------|--------------|---------------|----------|
+| index_date_v1 | index_date | index-date;enabled | Continuous | Cohort entry | 1 |
+| death_date_v1 | death_date | outcome-date;enabled | Continuous | Death or censoring date | 2 |
+
+**mock_data_config_details.csv:**
+
+| uid | uid_detail | variable | recStart | recEnd | catLabel | date_start | date_end | rType |
+|-----|------------|----------|----------|--------|----------|------------|----------|-------|
+| index_date_v1 | index_date_v1_d1 | index_date | NA | date_start | Start | 2001-01-01 | | Date |
+| index_date_v1 | index_date_v1_d2 | index_date | NA | date_end | End | | 2005-12-31 | Date |
+| death_date_v1 | death_date_v1_d1 | death_date | NA | date_start | Start | 2001-01-01 | | Date |
+| death_date_v1 | death_date_v1_d2 | death_date | NA | date_end | End | | 2025-12-31 | Date |
+
+**Important:** `death_date` range extends beyond accrual (2001-2025) to allow for follow-up time.
+
+After generation, calculate:
+
+``` r
+# Time-to-event (days)
+time <- as.numeric(difftime(mock_data$death_date, mock_data$index_date, units = "days"))
+
+# Event indicator (1 = death, 0 = censored)
+# In real data, you'd have a separate event_type variable
+# For mock data, assume all events within study period are deaths
+event <- ifelse(mock_data$death_date <= as.Date("2020-12-31"), 1, 0)
+
+# Add to dataset
+mock_data$time <- time
+mock_data$event <- event
+```
+
+**See [DemPoRT example](demport-example.html) for complete survival analysis setup.**
+
+### Pattern 3: Multiple time points
+
+Longitudinal studies with repeated measures:
+
+**mock_data_config.csv:**
+
+| uid | variable | role | variableType | variableLabel | position |
+|-----|----------|------|--------------|---------------|----------|
+| baseline_date_v1 | baseline_date | index-date;enabled | Continuous | Baseline interview | 1 |
+| followup1_date_v1 | followup1_date | followup-date;enabled | Continuous | 6-month follow-up | 2 |
+| followup2_date_v1 | followup2_date | followup-date;enabled | Continuous | 12-month follow-up | 3 |
+
+**mock_data_config_details.csv:**
+
+| uid | uid_detail | variable | recStart | recEnd | catLabel | date_start | date_end | rType |
+|-----|------------|----------|----------|--------|----------|------------|----------|-------|
+| baseline_date_v1 | baseline_date_v1_d1 | baseline_date | NA | date_start | Start | 2010-01-01 | | Date |
+| baseline_date_v1 | baseline_date_v1_d2 | baseline_date | NA | date_end | End | | 2012-12-31 | Date |
+| followup1_date_v1 | followup1_date_v1_d1 | followup1_date | NA | date_start | Start | 2010-07-01 | | Date |
+| followup1_date_v1 | followup1_date_v1_d2 | followup1_date | NA | date_end | End | | 2013-06-30 | Date |
+| followup2_date_v1 | followup2_date_v1_d1 | followup2_date | NA | date_start | Start | 2011-01-01 | | Date |
+| followup2_date_v1 | followup2_date_v1_d2 | followup2_date | NA | date_end | End | | 2013-12-31 | Date |
+
+**Post-processing:** Ensure proper temporal ordering:
+
+``` r
+# After generation, you may need to adjust follow-up dates
+# to ensure they occur after baseline (MockData generates independently)
+
+# Example: Add fixed intervals to baseline
+mock_data$followup1_date <- mock_data$baseline_date + 180  # +6 months
+mock_data$followup2_date <- mock_data$baseline_date + 365  # +12 months
+```
+
+**Note:** MockData generates each date variable independently. For dependent dates (e.g., follow-up must be after baseline), generate the anchor date (baseline) in MockData, then calculate derived dates in your code.
+
+### Pattern 4: Missing event dates
+
+Not all participants have events (e.g., not everyone dies during follow-up):
+
+**Approach:** Date variables in v0.2 don't support missing data patterns directly. Instead:
+
+1.  Generate all dates in valid range
+2.  Add separate indicator variable for event occurrence
+3.  Set event dates to NA for non-events in post-processing
+
+**Example:**
+
+``` r
+# Configuration
+config <- data.frame(
+  uid = c("index_date_v1", "death_date_v1", "death_occurred_v1"),
+  variable = c("index_date", "death_date", "death_occurred"),
+  role = c("index-date,enabled", "outcome-date,enabled", "enabled"),
+  variableType = c("Continuous", "Continuous", "Categorical"),
+  position = c(1, 2, 3),
+  stringsAsFactors = FALSE
+)
+
+details <- data.frame(
+  uid = c("index_date_v1", "index_date_v1",
+          "death_date_v1", "death_date_v1",
+          "death_occurred_v1", "death_occurred_v1"),
+  uid_detail = c("index_date_v1_d1", "index_date_v1_d2",
+                 "death_date_v1_d1", "death_date_v1_d2",
+                 "death_occurred_v1_d1", "death_occurred_v1_d2"),
+  variable = c("index_date", "index_date",
+               "death_date", "death_date",
+               "death_occurred", "death_occurred"),
+  recStart = c(NA, NA, NA, NA, "0", "1"),
+  recEnd = c("date_start", "date_end", "date_start", "date_end", "0", "1"),
+  catLabel = c("Start", "End", "Start", "End", "No", "Yes"),
+  date_start = c("2001-01-01", NA, "2001-01-01", NA, NA, NA),
+  date_end = c(NA, "2017-03-31", NA, "2025-12-31", NA, NA),
+  proportion = c(NA, NA, NA, NA, 0.70, 0.30),
+  rType = c("Date", "Date", "Date", "Date", "factor", "factor"),
+  stringsAsFactors = FALSE
+)
+
+# Write to temporary files
+temp_dir <- tempdir()
+config_path <- file.path(temp_dir, "missing_events_config.csv")
+details_path <- file.path(temp_dir, "missing_events_details.csv")
+write.csv(config, config_path, row.names = FALSE)
+write.csv(details, details_path, row.names = FALSE)
+
+# Generate
+mock_data <- create_mock_data(
+  config_path = config_path,
+  details_path = details_path,
+  n = 100,
+  seed = 123
+)
+
+# Set death_date to NA for non-deaths
+mock_data$death_date[mock_data$death_occurred == 0] <- NA
+
+# Check result
+table(is.na(mock_data$death_date))  # Should be ~70% NA
+```
+
+## Date ranges and distributions
+
+### Uniform distribution (default)
+
+MockData generates dates uniformly across the range:
+
+``` r
+# All dates equally likely between start and end
+```
+
+**Use cases:**
+
+-   Cohort accrual with constant enrollment
+-   Administrative dates without seasonal patterns
+-   General-purpose test data
+
+### Non-uniform distributions
+
+MockData currently only supports uniform date distributions. For non-uniform patterns:
+
+**Option 1:** Generate uniform, then transform
+
+``` r
+# Generate uniform dates
+mock_data <- create_mock_data(config, details, n = 1000, seed = 123)
+
+# Transform to exponential distribution (early enrollment peak)
+date_range <- as.numeric(difftime(
+  max(mock_data$index_date),
+  min(mock_data$index_date),
+  units = "days"
+))
+
+# Convert to exponential (more early dates)
+# This is a post-processing transformation
+uniform_props <- (mock_data$index_date - min(mock_data$index_date)) / date_range
+exp_props <- 1 - exp(-2 * as.numeric(uniform_props))  # Shape parameter = 2
+
+mock_data$index_date_exp <- min(mock_data$index_date) +
+  round(exp_props * date_range)
+```
+
+**Option 2:** Use DemPoRT patterns
+
+The [DemPoRT example](demport-example.html) demonstrates realistic temporal patterns for cohort studies, including:
+
+-   Staggered accrual periods
+-   Age-dependent event rates
+-   Administrative censoring
+-   Loss to follow-up patterns
+
+## Data quality for dates
+
+### Future dates (corrupt_future)
+
+Simulate data entry errors where dates are in the future:
+
+| uid | uid_detail | variable | recStart | recEnd | catLabel | date_start | date_end | proportion | rType |
+|-----|------------|----------|----------|--------|----------|------------|----------|------------|-------|
+| birth_date_v1 | birth_date_v1_d1 | birth_date | NA | date_start | Start | 1950-01-01 | | 0.98 | Date |
+| birth_date_v1 | birth_date_v1_d2 | birth_date | NA | date_end | End | | 2010-12-31 | 0.98 | Date |
+| birth_date_v1 | birth_date_v1_d3 | birth_date | [2026-01-01;2030-12-31] | corrupt_future | Future | | | 0.02 | Date |
+
+**Result:** 2% of birth dates will be in the future (impossible).
+
+**Note:** Date variables with garbage need both the valid range (date_start/date_end) rows AND the garbage row with proportion specified.
+
+### Past dates (corrupt_past)
+
+Simulate impossibly old dates:
+
+| uid | uid_detail | variable | recStart | recEnd | catLabel | date_start | date_end | proportion | rType |
+|-----|------------|----------|----------|--------|----------|------------|----------|------------|-------|
+| diagnosis_date_v1 | diagnosis_date_v1_d1 | diagnosis_date | NA | date_start | Start | 2000-01-01 | | 0.97 | Date |
+| diagnosis_date_v1 | diagnosis_date_v1_d2 | diagnosis_date | NA | date_end | End | | 2020-12-31 | 0.97 | Date |
+| diagnosis_date_v1 | diagnosis_date_v1_d3 | diagnosis_date | [1850-01-01;1900-12-31] | corrupt_past | Too old | | | 0.03 | Date |
+
+**Result:** 3% of diagnosis dates will be 1850-1900 (unrealistic for modern data).
+
+### Use cases for garbage dates
+
+-   **Testing validation pipelines:** Ensure your code catches impossible dates
+-   **Training analysts:** Show examples of real-world data quality issues
+-   **Data cleaning scripts:** Test date range checks and filtering logic
+
+## Calculating derived temporal variables
+
+After generating dates, calculate common derived variables:
+
+### Age at event
+
+``` r
+# Assuming you have birth_date and index_date
+mock_data$age_at_index <- as.numeric(
+  difftime(mock_data$index_date, mock_data$birth_date, units = "days")
+) / 365.25
+
+# Or using lubridate
+library(lubridate)
+mock_data$age_at_index <- time_length(
+  interval(mock_data$birth_date, mock_data$index_date),
+  "years"
+)
+```
+
+### Follow-up time
+
+``` r
+# Time from index to event/censoring
+mock_data$followup_years <- as.numeric(
+  difftime(mock_data$death_date, mock_data$index_date, units = "days")
+) / 365.25
+```
+
+### Calendar year
+
+``` r
+# Extract year for period analysis
+mock_data$index_year <- as.numeric(format(mock_data$index_date, "%Y"))
+
+# Fiscal year (Canada: April 1 - March 31)
+mock_data$fiscal_year <- ifelse(
+  as.numeric(format(mock_data$index_date, "%m")) >= 4,
+  as.numeric(format(mock_data$index_date, "%Y")),
+  as.numeric(format(mock_data$index_date, "%Y")) - 1
+)
+```
+
+### Time-to-event indicators
+
+``` r
+# Event occurred within study period
+study_end <- as.Date("2020-12-31")
+mock_data$event <- ifelse(
+  mock_data$death_date <= study_end,
+  1,  # Event occurred
+  0   # Censored
+)
+
+# Time to event or censoring
+mock_data$time <- pmin(
+  as.numeric(difftime(mock_data$death_date, mock_data$index_date, units = "days")),
+  as.numeric(difftime(study_end, mock_data$index_date, units = "days"))
+)
+```
+
+## Best practices
+
+### 1. Start with index/baseline date
+
+Generate the anchor date first, then calculate dependent dates:
+
+``` r
+# Generate baseline date with MockData
+baseline_config <- data.frame(
+  uid = "baseline_date_v1",
+  variable = "baseline_date",
+  role = "index-date,enabled",
+  variableType = "Continuous",
+  position = 1,
+  stringsAsFactors = FALSE
+)
+
+baseline_details <- data.frame(
+  uid = c("baseline_date_v1", "baseline_date_v1"),
+  uid_detail = c("baseline_date_v1_d1", "baseline_date_v1_d2"),
+  variable = c("baseline_date", "baseline_date"),
+  recStart = c(NA, NA),
+  recEnd = c("date_start", "date_end"),
+  catLabel = c("Start", "End"),
+  date_start = c("2010-01-01", NA),
+  date_end = c(NA, "2015-12-31"),
+  rType = c("Date", "Date"),
+  stringsAsFactors = FALSE
+)
+
+# Write to temporary files
+temp_dir <- tempdir()
+config_path <- file.path(temp_dir, "baseline_config.csv")
+details_path <- file.path(temp_dir, "baseline_details.csv")
+write.csv(baseline_config, config_path, row.names = FALSE)
+write.csv(baseline_details, details_path, row.names = FALSE)
+
+# Generate baseline dates
+mock_data <- create_mock_data(
+  config_path = config_path,
+  details_path = details_path,
+  n = 100,
+  seed = 123
+)
+
+# Calculate dependent dates
+mock_data$followup_date <- mock_data$baseline_date + 365  # +1 year
+mock_data$death_date <- mock_data$baseline_date +
+  sample(365:3650, 100, replace = TRUE)  # Random 1-10 years
+```
+
+### 2. Use realistic ranges
+
+Match your date ranges to the study design:
+
+-   **Cohort studies:** Accrual period + follow-up period
+-   **Cross-sectional surveys:** Survey fielding period
+-   **Administrative data:** Reporting period
+
+### 3. Document temporal assumptions
+
+Add notes to your configuration:
+
+| uid | variable | role | variableType | variableLabel | notes | position |
+|-----|----------|------|--------------|---------------|-------|----------|
+| index_date_v1 | index_date | index-date;enabled | Continuous | Cohort entry | Accrual 2001-2005; uniform enrollment | 1 |
+| death_date_v1 | death_date | outcome-date;enabled | Continuous | Death date | Follow-up through 2025-12-31 | 2 |
+
+### 4. Validate temporal logic
+
+After generation, check:
+
+``` r
+# No negative follow-up times
+stopifnot(all(mock_data$death_date >= mock_data$index_date, na.rm = TRUE))
+
+# Events within expected range
+study_start <- as.Date("2001-01-01")
+study_end <- as.Date("2025-12-31")
+stopifnot(all(mock_data$death_date >= study_start, na.rm = TRUE))
+stopifnot(all(mock_data$death_date <= study_end, na.rm = TRUE))
+```
+
+## Complete example: Cohort study
+
+Here's a complete configuration for a cohort study with temporal variables:
+
+**See the [DemPoRT example](demport-example.html)** for a comprehensive, production-ready implementation with:
+
+-   ICES date specifications
+-   Realistic survival patterns
+-   Administrative censoring
+-   Multiple time-varying covariates
+-   Complete survival analysis setup
+
+The DemPoRT example is the primary and most detailed demonstration of date variable generation in MockData.
+
+## Key concepts summary
+
+| Concept | Implementation | Details |
+|-------------------|---------------------------------|-------------------|
+| **Date ranges** | `date_start` / `date_end` columns | ISO format: YYYY-MM-DD |
+| **Distribution** | Uniform only in v0.2 | Transform after generation for non-uniform |
+| **Missing dates** | Use indicator variable + post-processing | MockData doesn't support NA proportions for dates |
+| **Derived dates** | Calculate from anchor date | E.g., follow-up = baseline + interval |
+| **Garbage dates** | `corrupt_future`, `corrupt_past` | For data quality testing |
+| **Temporal ordering** | Validate after generation | Ensure logical date sequences |
+
+## What you learned
+
+In this tutorial, you learned:
+
+- **Date configuration basics:** How to specify date ranges and distributions in configuration files
+- **Common temporal patterns:** Cohort accrual, event dates with censoring, multiple time points, and missing events
+- **Distribution options:** Uniform, Gompertz, and exponential distributions for realistic temporal patterns
+- **Data quality testing:** How to generate corrupt future/past dates for validation pipeline testing
+- **Derived temporal variables:** Calculating age, follow-up time, calendar periods, and time-to-event indicators
+- **Best practices:** Starting with index dates, using realistic ranges, documenting assumptions, and validating temporal logic
+
+For complete production-ready examples with survival analysis, see the [DemPoRT example](demport-example.html).
+
+## Next steps
+
+-   **Complete working example:** [DemPoRT example](demport-example.html) - THE comprehensive date variable demonstration
+-   **Configuration reference:** [Configuration schema](reference-config.html) - Complete date specification syntax
+-   **Advanced topics:** [Advanced topics](advanced-topics.html) - Technical details on date generation internals

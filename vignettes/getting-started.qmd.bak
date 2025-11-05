@@ -1,0 +1,298 @@
+---
+title: "Getting started with MockData"
+author: "MockData Team"
+date: 2025-11-01
+format:
+  html:
+    toc: true
+    html-math-method: katex
+    css: styles.css
+editor: visual
+---
+
+```{r}
+#| label: setup
+#| include: false
+devtools::load_all("../", quiet = TRUE)
+```
+
+## What is MockData?
+
+MockData generates realistic test data from variable descriptive statistics—**not from real individual-level data**. Unlike synthetic data generators that preserve statistical relationships from actual datasets, MockData creates data purely from metadata definitions.
+
+**Use cases**:
+
+- Test data harmonization code (cchsflow, chmsflow)
+- Develop analysis scripts before data access
+- Create reproducible examples for documentation
+- Train new analysts on survey data structure
+- Validate data processing pipelines
+
+**Key principle**: MockData is for testing pipelines and developing code, not for statistical analysis or research.
+
+## Your first mock dataset
+
+This tutorial walks you through generating a simple mock dataset variable-by-variable to understand how MockData works.
+
+### Setup
+
+```{r}
+#| warning: false
+#| message: false
+library(MockData)
+```
+
+### Load metadata
+
+MockData reads variable specifications from CSV files. Let's use the CHMS example metadata included with the package:
+
+```{r}
+# Load CHMS metadata
+variables <- read.csv(
+  system.file("extdata/chms/variables_chmsflow_sample.csv", package = "MockData"),
+  stringsAsFactors = FALSE
+)
+variable_details <- read.csv(
+  system.file("extdata/chms/variable_details_chmsflow_sample.csv", package = "MockData"),
+  stringsAsFactors = FALSE
+)
+
+# See what variables are available
+cat("Available variables:\n")
+print(unique(variables$variable[1:10]))
+```
+
+**What's in the metadata?**
+
+- **variables.csv**: Lists variable names, types, and cycles
+- **variable_details.csv**: Defines categories, value ranges, and proportions
+
+### Create an empty data frame
+
+Start with an empty data frame to hold your mock data:
+
+```{r}
+# Create data frame with 1000 observations
+df_mock <- data.frame(id = 1:1000)
+```
+
+### Generate a categorical variable
+
+Let's generate smoking status (categorical variable):
+
+```{r}
+# Generate smoking variable (alc_11)
+result <- create_cat_var(
+  var_raw = "alc_11",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 1000,
+  df_mock = df_mock,
+  seed = 123
+)
+
+# Add to data frame if generation succeeded
+if (!is.null(result)) {
+  df_mock <- cbind(df_mock, result)
+}
+
+# Examine result
+head(df_mock)
+table(df_mock$alc_11)
+```
+
+**What happened:**
+
+- MockData looked up "alc_11" specifications in `variable_details`
+- Found the categories and proportions
+- Generated 1000 values according to those proportions
+- Returned a data frame with one column
+
+### Generate a continuous variable
+
+Now add a continuous variable (drinks per week):
+
+```{r}
+# Generate continuous variable (alcdwky)
+result <- create_con_var(
+  var_raw = "alcdwky",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 1000,
+  df_mock = df_mock,
+  seed = 123
+)
+
+# Add to data frame
+if (!is.null(result)) {
+  df_mock <- cbind(df_mock, result)
+}
+
+# Examine result
+head(df_mock)
+summary(df_mock$alcdwky)
+```
+
+**What happened:**
+
+- MockData found the value range for "alcdwky" (e.g., [0, 50])
+- Generated 1000 values within that range
+- Applied missing data codes (e.g., 999 → NA)
+- Combined with existing data frame
+
+### Generate a date variable
+
+Let's add a date variable to see temporal data generation:
+
+```{r}
+# Load ICES metadata with date variables
+ices_variables <- read.csv(
+  system.file("extdata/ices/variables.csv", package = "MockData"),
+  stringsAsFactors = FALSE
+)
+ices_details <- read.csv(
+  system.file("extdata/ices/variable_details.csv", package = "MockData"),
+  stringsAsFactors = FALSE
+)
+
+# Create new data frame for ICES example
+df_ices <- data.frame(id = 1:100)
+
+# Generate birth date
+birth_result <- create_date_var(
+  var_raw = "birth_date",
+  cycle = "ices",
+  variable_details = ices_details,
+  variables = ices_variables,
+  length = 100,
+  df_mock = df_ices,
+  seed = 456,
+  distribution = "uniform"
+)
+
+if (!is.null(birth_result)) {
+  df_ices <- cbind(df_ices, birth_result)
+}
+
+# Generate death date (with Gompertz distribution - events accumulate over time)
+death_result <- create_date_var(
+  var_raw = "death_date",
+  cycle = "ices",
+  variable_details = ices_details,
+  variables = ices_variables,
+  length = 100,
+  df_mock = df_ices,
+  seed = 456,
+  distribution = "gompertz",
+  prop_NA = 0.3  # 30% censored (alive at study end)
+)
+
+if (!is.null(death_result)) {
+  df_ices <- cbind(df_ices, death_result)
+}
+
+# Examine dates
+head(df_ices)
+cat("\nDate ranges:\n")
+cat("Birth dates:", min(df_ices$birth_date, na.rm = TRUE), "to",
+    max(df_ices$birth_date, na.rm = TRUE), "\n")
+cat("Death dates:", sum(!is.na(df_ices$death_date)), "events,",
+    sum(is.na(df_ices$death_date)), "censored\n")
+```
+
+**What happened:**
+
+- Generated birth dates uniformly distributed across range
+- Generated death dates with Gompertz distribution (realistic survival pattern)
+- Applied 30% censoring (NA values)
+- Both are R Date objects (not character strings)
+
+### Calculate derived variables
+
+With dates generated, you can calculate temporal variables:
+
+```{r}
+# Calculate age at death (in years)
+df_ices$age_at_death <- as.numeric(
+  difftime(df_ices$death_date, df_ices$birth_date, units = "days")
+) / 365.25
+
+# Summary
+cat("Age at death summary:\n")
+summary(df_ices$age_at_death)
+```
+
+## Understanding the workflow
+
+The basic MockData workflow is:
+
+1. **Load metadata**: Read variables.csv and variable_details.csv
+2. **Create empty data frame**: Start with IDs or row numbers
+3. **Generate variables**: Call `create_cat_var()`, `create_con_var()`, or `create_date_var()`
+4. **Combine results**: Use `cbind()` to add each variable
+5. **Calculate derived variables**: Compute any additional columns needed
+
+**Why this approach?**
+
+- Clear and explicit (you see each step)
+- Easy to debug (generate one variable at a time)
+- Flexible (skip variables, customize parameters)
+- Understandable (no hidden magic)
+
+## Adding data quality issues
+
+Real datasets have errors. MockData can generate these for testing validation code:
+
+```{r}
+# Generate age with some invalid values
+result_dirty <- create_con_var(
+  var_raw = "alcdwky",
+  cycle = "cycle1",
+  variable_details = variable_details,
+  variables = variables,
+  length = 100,
+  df_mock = data.frame(id = 1:100),
+  seed = 789,
+  prop_invalid = 0.05  # 5% impossible values
+)
+
+# Find invalid values
+if (!is.null(result_dirty)) {
+  cat("Generated values range:", min(result_dirty$alcdwky, na.rm = TRUE),
+      "to", max(result_dirty$alcdwky, na.rm = TRUE), "\n")
+  cat("Values > 100 (likely invalid):",
+      sum(result_dirty$alcdwky > 100, na.rm = TRUE), "\n")
+}
+```
+
+**Use case**: Test your data cleaning pipeline to ensure it catches invalid values.
+
+## What you learned
+
+In this tutorial, you learned:
+
+- How to load metadata from CSV files
+- How to generate categorical variables with `create_cat_var()`
+- How to generate continuous variables with `create_con_var()`
+- How to generate date variables with `create_date_var()`
+- How to combine variables into a dataset with `cbind()`
+- How to calculate derived variables
+- How to add data quality issues for testing
+
+## Next steps
+
+**For batch generation** (many variables at once):
+
+- See [Configuration files tutorial](tutorial-config-files.html) to learn the `create_mock_data()` wrapper
+
+**For real-world examples**:
+
+- [CCHS example](cchs-example.html): Canadian Community Health Survey workflow
+- [CHMS example](chms-example.html): Canadian Health Measures Survey workflow
+- [DemPoRT example](demport-example.html): Survival analysis with competing risks
+
+**For complete reference**:
+
+- [Configuration reference](reference-config.html): All configuration options and formats
