@@ -1,4 +1,4 @@
-#' Read MockData configuration details file
+#' Read and validate MockData configuration details file containing distribution parameters and category proportions
 #'
 #' @description
 #' Reads a mock_data_config_details.csv file containing distribution parameters
@@ -93,7 +93,7 @@ read_mock_data_config_details <- function(details_path, validate = TRUE, config 
   return(details)
 }
 
-#' Validate MockData configuration details
+#' Validate MockData configuration details against schema requirements including proportion sums and parameter completeness
 #'
 #' @description
 #' Validates a mock_data_config_details data frame against schema requirements.
@@ -115,7 +115,7 @@ read_mock_data_config_details <- function(details_path, validate = TRUE, config 
 #' - uid_detail values must be unique
 #'
 #' **Proportion validation:**
-#' - Values must be in range [0, 1]
+#' - Values must be in range `[0, 1]`
 #' - Population proportions (valid + missing codes) must sum to 1.0 ±0.001 per variable
 #' - Contamination proportions (corrupt_*) are excluded from sum
 #' - Auto-normalizes with warning if sum ≠ 1.0

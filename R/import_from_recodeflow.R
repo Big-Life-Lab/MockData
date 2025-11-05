@@ -1,4 +1,4 @@
-#' Import recodeflow metadata to MockData configuration format
+#' Import and convert recodeflow variables and variable details metadata files to MockData configuration format
 #'
 #' @description
 #' Converts recodeflow variables.csv and variable_details.csv files into

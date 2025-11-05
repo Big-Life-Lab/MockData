@@ -1,4 +1,4 @@
-url: ~
+url: https://big-life-lab.github.io/MockData/
 template:
   bootstrap: 5
 
@@ -29,11 +29,15 @@ reference:
   - extract_distribution_params
   - sample_with_proportions
   - apply_missing_codes
+  - apply_rtype_defaults
+  - determine_proportions
   - has_garbage
   - make_garbage
   - generate_garbage_values
   - get_variables_by_role
   - get_enabled_variables
+  - get_cycle_variables
+  - get_raw_variables
 
 - title: Parsers
   desc: Parse recodeflow notation
@@ -58,6 +62,7 @@ articles:
   - dates
   - tutorial-dates
   - tutorial-config-files
+  - missing-data-tutorial-outline
   - advanced-topics
 
 - title: Reference

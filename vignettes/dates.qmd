@@ -11,6 +11,12 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+::: callout-note
+## About this vignette
+
+This reference document provides comprehensive technical specifications for date variable generation. For step-by-step tutorials, see [Working with date variables](tutorial-dates.html).
+:::
+
 ## Overview
 
 MockData supports generating date variables for temporal analysis, including survival analysis and longitudinal studies. This vignette covers:
@@ -42,17 +48,12 @@ The function parses the SAS format and generates R `Date` objects within the spe
 ```{r}
 #| message: false
 #| warning: false
-# Load package functions
-# Load package - works in both local dev and pkgdown build
-if (file.exists("../DESCRIPTION")) {
-  devtools::load_all("../", quiet = TRUE)
-} else {
-  library(MockData)
-}
+# Load package
+library(MockData)
 
 # Load DemPoRT metadata (has date variables)
 variable_details <- read.csv(
-  "../inst/extdata/demport/variable_details_DemPoRT.csv",
+  system.file("extdata/demport/variable_details_DemPoRT.csv", package = "MockData"),
   stringsAsFactors = FALSE
 )
 
@@ -442,7 +443,7 @@ Configuration files are CSV files with four columns: parameter, value, type, and
 #| eval: false
 
 # Load configuration
-config <- read_study_config("../inst/extdata/study_config_example.csv")
+config <- read_study_config(system.file("extdata/study_config_example.csv", package = "MockData"))
 
 # Validate configuration
 validate_study_config(config)
@@ -689,7 +690,7 @@ errors <- validate_dates(
   max_date = as.Date("2017-03-31")
 )
 
-print(errors)
+# The errors list will contain any validation issues found
 ```
 
 ## Best practices
@@ -765,7 +766,7 @@ See [parking-lot.md](../parking-lot.md) for:
 - **Recurrent events** (v0.4.0): Multiple events per subject
 - **Time-varying covariates** (v0.5.0): Variables that change over time
 
-## See also
+## Next steps
 
 - [User guide](user-guide.html) - Comprehensive feature documentation
 - [DemPoRT example](demport-example.html) - Applied survival analysis workflow

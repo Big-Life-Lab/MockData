@@ -8,3 +8,17 @@
 ^CODE_OF_CONDUCT\.md$
 ^CONTRIBUTING\.md$
 ^NEWS\.md$
+^\.tmp$
+^ARCHITECTURE\.md$
+^CONFIGURATION-V0\.2-IMPLEMENTATION\.md$
+^DOCUMENTATION-AUDIT\.md$
+^MOCKDATA-POSITIONING\.md$
+^PHASE-4-DRY-FUNCTIONS-REVIEW\.md$
+^SURVIVAL-ANALYSIS-NOTES\.md$
+^parking-lot\.md$
+^check_output.*\.txt$
+^R_CMD_CHECK_FIXES\.md$
+^CRITICAL_ISSUE_create_mock_data\.md$
+^docs$
+^_pkgdown\.yml$
+^development$

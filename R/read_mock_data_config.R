@@ -1,4 +1,4 @@
-#' Read MockData configuration file
+#' Read and validate MockData configuration file defining variable specifications for mock data generation
 #'
 #' @description
 #' Reads a mock_data_config.csv file containing variable definitions for
@@ -87,7 +87,7 @@ read_mock_data_config <- function(config_path, validate = TRUE) {
   return(config)
 }
 
-#' Validate MockData configuration
+#' Validate MockData configuration against schema requirements including required columns and unique identifiers
 #'
 #' @description
 #' Validates a mock_data_config data frame against schema requirements.

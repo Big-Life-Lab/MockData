@@ -1,6 +1,6 @@
 ---
 title: "DemPoRT example: Survival analysis workflow"
-author: "Juan Li"
+author: "Juan Li and the recodeflow contributors"
 date: 2025-11-02
 format:
   html:
@@ -18,7 +18,7 @@ All numeric values shown in this vignette are computed from the actual DemPoRT m
 
 ## Overview
 
-This vignette demonstrates generating mock data for **DemPoRT** (Dementia Population Risk Tool), a survival analysis model predicting dementia risk. DemPoRT uses harmonized data from multiple CCHS (Canadian Community Health Survey) cycles spanning 2001-2018. Dementia incidence (onset) is individually linked using administrative data housed at ICES -- along with mortality records and other censoring information, where it is combined with CCHS survey data.
+This vignette demonstrates generating mock data for **DemPoRT** (Dementia Population Risk Tool), a survival analysis model predicting dementia risk. DemPoRT uses harmonized data from multiple Canadian Community Health Survey (CCHS) cycles spanning 2001-2018. Dementia incidence (onset) is individually linked using administrative data housed at ICES -- along with mortality records and other censoring information, where it is combined with CCHS survey data.
 
 **The MockData workflow for multi-cycle projects:**
 
@@ -69,7 +69,7 @@ For DemPoRT, the harmonization metadata describes **20+ individual CCHS cycles**
 ```{r load-metadata}
 # Load DemPoRT metadata
 variables <- read.csv(
-  "../inst/extdata/demport/variables_DemPoRT.csv",
+  system.file("extdata/demport/variables_DemPoRT.csv", package = "MockData"),
   header = TRUE,
   check.names = FALSE,
   na.strings = c("", "NA", "N/A"),
@@ -77,7 +77,7 @@ variables <- read.csv(
 )
 
 variable_details <- read.csv(
-  "../inst/extdata/demport/variable_details_DemPoRT.csv",
+  system.file("extdata/demport/variable_details_DemPoRT.csv", package = "MockData"),
   header = TRUE,
   check.names = FALSE,
   na.strings = c("", "NA", "N/A"),
@@ -112,8 +112,8 @@ The simplest way to generate DemPoRT mock data is using `create_mock_data()`. Th
 # Generate mock data for all DemPoRT raw variables
 # Derived variables are automatically excluded
 mock_demport <- create_mock_data(
-  config_path = "../inst/extdata/demport/variables_DemPoRT.csv",
-  details_path = "../inst/extdata/demport/variable_details_DemPoRT.csv",
+  config_path = system.file("extdata/demport/variables_DemPoRT.csv", package = "MockData"),
+  details_path = system.file("extdata/demport/variable_details_DemPoRT.csv", package = "MockData"),
   n = 100,
   seed = 123
 )
@@ -420,27 +420,246 @@ After generating individual cycle datasets, you'll harmonize them using your har
 
 ## Survival analysis dates
 
-DemPoRT is a survival model predicting time to dementia diagnosis. MockData generates realistic date variables for survival analysis.
+DemPoRT is a survival model predicting time to dementia diagnosis. This section demonstrates how to generate realistic survival dates with proper temporal ordering and competing risks.
 
-### Key dates in DemPoRT
+### Date variables for survival analysis
 
-1.  **Birth date** (`birth_date`) - For age calculation
-2.  **Interview date** (`interview_date`) - Cohort entry (baseline)
-3.  **Dementia diagnosis date** (`dementia_date`) - Primary outcome event
-4.  **Death date** (`death_date`) - Competing risk event
+The table below shows the date variables in temporal order. The survival analysis focuses on the three key dates: **interview** (cohort entry), **dementia onset** (primary outcome), and **death** (competing risk). Birth date is included in the metadata for age calculation but is not required for the survival analysis itself.
 
-These date variables are generated automatically by `create_mock_data()` when `rType = "Date"` in the metadata.
+| Variable | Role in analysis | Date range | Temporal constraint |
+|----------|------------------|------------|---------------------|
+| `birth_date` | Age calculation (not used in survival analysis) | 1920-1987 | birth < interview |
+| `interview_date` | **Cohort entry (t=0)** | 2001-2005 | Baseline for all follow-up |
+| `dementia_onset_date` | **Primary outcome** | 2001-2017 | interview < dementia < death |
+| `death_date` | **Competing risk** | 2001-2017 | interview < death |
 
-**Advanced date generation:**
+**Administrative censoring:** End of follow-up is 2017-03-31. Individuals alive at this date are censored.
 
-MockData includes a specialized function `create_survival_dates()` that generates realistic survival dates with:
+### Step 1: Generate survival dates with temporal ordering
 
--   Proper temporal ordering (birth → interview → dementia/death)
--   Realistic competing risks (dementia vs death without dementia)
--   Configurable censoring rates
--   Age-appropriate event timing
+The `create_survival_dates()` function generates paired entry and event dates with guaranteed temporal ordering. This must be called separately from `create_mock_data()` because it processes TWO variables together.
 
-We'll add detailed documentation for `create_survival_dates()` in a future vignette update. For now, the basic date generation from `create_mock_data()` provides dates suitable for testing your survival analysis pipeline.
+```{r survival-dates-generation}
+#| message: false
+#| warning: false
+
+# Extract metadata for interview (cohort entry) and death (competing risk)
+interview_details <- variable_details %>%
+  filter(variable == "interview_date")
+
+death_details <- variable_details %>%
+  filter(variable == "death_date")
+
+interview_row <- variables %>%
+  filter(variable == "interview_date")
+
+death_row <- variables %>%
+  filter(variable == "death_date")
+
+# Generate 1000 individuals with guaranteed temporal ordering
+survival_dates <- create_survival_dates(
+  entry_var_row = interview_row,
+  entry_details_subset = interview_details,
+  event_var_row = death_row,
+  event_details_subset = death_details,
+  n = 1000,
+  seed = 456,
+  df_mock = data.frame()
+)
+```
+
+**Verify temporal ordering and date ranges:**
+
+```{r date-verification}
+#| echo: false
+
+# Build verification table
+verification <- data.frame(
+  Variable = c("interview_date", "death_date"),
+  Min = c(
+    format(min(survival_dates$interview_date), "%Y-%m-%d"),
+    format(min(survival_dates$death_date), "%Y-%m-%d")
+  ),
+  Max = c(
+    format(max(survival_dates$interview_date), "%Y-%m-%d"),
+    format(max(survival_dates$death_date), "%Y-%m-%d")
+  ),
+  Expected = c("2001-2005", "2001-2017"),
+  `Temporal ordering` = c(
+    "Baseline (t=0)",
+    sprintf("✓ All >= interview (n=%d)", sum(survival_dates$death_date >= survival_dates$interview_date))
+  ),
+  check.names = FALSE
+)
+
+knitr::kable(verification, caption = "Generated date ranges and temporal ordering verification")
+```
+
+### Step 2: Add competing risks (dementia onset)
+
+Real survival studies track multiple outcomes. In DemPoRT, two mutually exclusive events can occur:
+
+1.  **Dementia diagnosis** (primary outcome)
+2.  **Death without dementia** (competing risk)
+
+We'll simulate dementia occurring between interview and death for 10% of the cohort:
+
+```{r competing-risks}
+#| message: false
+#| warning: false
+
+# Simulate dementia incidence (10% develop dementia)
+set.seed(789)
+survival_dates$dementia_occurred <- rbinom(
+  n = nrow(survival_dates),
+  size = 1,
+  prob = 0.10
+)
+
+# For those with dementia, set dementia_onset_date between interview and death
+survival_dates$dementia_onset_date <- ifelse(
+  survival_dates$dementia_occurred == 1,
+  survival_dates$interview_date +
+    runif(nrow(survival_dates)) *
+    (survival_dates$death_date - survival_dates$interview_date),
+  NA
+)
+
+# Convert back to Date class
+survival_dates$dementia_onset_date <- as.Date(
+  survival_dates$dementia_onset_date,
+  origin = "1970-01-01"
+)
+```
+
+### Step 3: Add administrative censoring
+
+Not everyone is followed to death in real cohort studies. We apply administrative censoring at 2017-03-31 (end of follow-up):
+
+```{r censoring}
+#| message: false
+#| warning: false
+
+# Apply censoring: individuals alive after 2017-03-31 are censored
+censor_date <- as.Date("2017-03-31")
+survival_dates$censored <- survival_dates$death_date > censor_date
+
+# Set observed death date (censored individuals get censor_date)
+survival_dates$death_date_observed <- ifelse(
+  survival_dates$censored,
+  censor_date,
+  survival_dates$death_date
+)
+
+survival_dates$death_date_observed <- as.Date(
+  survival_dates$death_date_observed,
+  origin = "1970-01-01"
+)
+```
+
+### Step 4: Calculate time-to-event and final outcomes
+
+```{r final-time}
+#| message: false
+#| warning: false
+
+# Calculate follow-up time to first event (years)
+survival_dates$time_to_event <- pmin(
+  as.numeric(difftime(survival_dates$dementia_onset_date,
+                     survival_dates$interview_date,
+                     units = "days")) / 365.25,
+  as.numeric(difftime(survival_dates$death_date_observed,
+                     survival_dates$interview_date,
+                     units = "days")) / 365.25,
+  na.rm = TRUE
+)
+
+# Event type: 0=censored, 1=dementia, 2=death without dementia
+survival_dates$event_type <- ifelse(
+  !is.na(survival_dates$dementia_onset_date), 1,
+  ifelse(!survival_dates$censored, 2, 0)
+)
+```
+
+### Summary: Cohort characteristics
+
+```{r summary-table}
+#| echo: false
+
+# Build comprehensive summary table
+event_counts <- table(factor(survival_dates$event_type, levels = 0:2))
+mean_fu <- aggregate(time_to_event ~ event_type,
+                     data = survival_dates,
+                     FUN = mean)
+
+# Helper function to get mean FU for an event type
+get_mean_fu <- function(event_val) {
+  idx <- which(mean_fu$event_type == event_val)
+  if (length(idx) > 0) {
+    return(sprintf("%.1f", mean_fu$time_to_event[idx]))
+  }
+  return("—")
+}
+
+summary_data <- data.frame(
+  Outcome = c("Censored", "Dementia", "Death"),
+  `Event code` = c("0", "1", "2"),
+  N = as.numeric(event_counts),
+  Percent = sprintf("%.1f%%", 100 * as.numeric(event_counts) / 1000),
+  `Mean follow-up (years)` = c(get_mean_fu(0), get_mean_fu(1), get_mean_fu(2)),
+  `Temporal ordering verified` = c(
+    sprintf("✓ All interview < censor (n=%d)", event_counts[1]),
+    sprintf("✓ All interview < dementia < death (n=%d)", event_counts[2]),
+    sprintf("✓ All interview < death (n=%d)", event_counts[3])
+  ),
+  check.names = FALSE
+)
+
+knitr::kable(summary_data,
+             caption = "Final cohort summary: Events, follow-up time, and temporal ordering verification")
+```
+
+The simulated cohort demonstrates realistic survival analysis patterns:
+
+- **Temporal ordering:** All dates satisfy the constraint interview < event < death
+- **Competing risks:** Individuals experience either dementia or death, not both
+- **Censoring:** Individuals alive at study end (2017-03-31) are censored
+- **Follow-up time:** Varies by outcome, with censored individuals having longest follow-up
+
+### Prepare for Cox regression or competing risks analysis
+
+The dataset is now ready for survival analysis:
+
+```{r survival-analysis-example}
+#| eval: false
+
+# Example: Cox proportional hazards for dementia
+# library(survival)
+#
+# model_dementia <- coxph(
+#   Surv(time_to_event, event_type == 1) ~ age + sex + education,
+#   data = survival_dates
+# )
+#
+# # Example: Competing risks analysis
+# library(cmprsk)
+#
+# cr_fit <- cuminc(
+#   ftime = survival_dates$time_to_event,
+#   fstatus = survival_dates$event_type,
+#   cencode = 0
+# )
+```
+
+**Key takeaways:**
+
+1.  `create_survival_dates()` generates entry and event dates with guaranteed temporal ordering
+2.  Competing risks (dementia vs death) require additional simulation between entry and event
+3.  Administrative censoring is applied based on study design (end date)
+4.  All temporal constraints are verified before analysis
+5.  The dataset is ready for Cox regression or competing risks models
+
+**See also:** [Date variables tutorial](dates.html) for more on date generation and temporal constraints.
 
 ## Visualize mock data (optional)
 

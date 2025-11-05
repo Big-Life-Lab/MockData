@@ -1,6 +1,6 @@
 ---
 title: "Configuration reference"
-author: "MockData Team"
+author: "Juan Li and the recodeflow contributors"
 date: 2025-11-01
 format:
   html:
@@ -9,6 +9,12 @@ format:
     css: styles.css
 editor: visual
 ---
+
+::: callout-note
+## About this vignette
+
+This reference document provides the complete configuration schema specification. For step-by-step tutorials, see [Generating datasets from configuration files](tutorial-config-files.html).
+:::
 
 ## Overview
 

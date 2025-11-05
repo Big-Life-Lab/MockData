@@ -1,6 +1,6 @@
 ---
 title: "Generating datasets from configuration files"
-author: "MockData Team"
+author: "Juan Li and the recodeflow contributors"
 date: 2025-11-01
 format:
   html:
@@ -20,6 +20,12 @@ if (file.exists("../DESCRIPTION")) {
   library(MockData)
 }
 ```
+
+::: callout-note
+## About this vignette
+
+This tutorial demonstrates the metadata-driven approach to batch mock data generation. All examples use executable code with real metadata files.
+:::
 
 ## Why configuration files?
 
@@ -127,8 +133,13 @@ config <- data.frame(
   position = 1,
   stringsAsFactors = FALSE
 )
+```
 
-print(config)
+**Configuration table** (`r nrow(config)` row):
+
+```{r}
+#| echo: false
+knitr::kable(config)
 ```
 
 **Key columns:**
@@ -157,8 +168,13 @@ details <- data.frame(
   catLabelLong = c("Smokes daily", "Smokes occasionally", "Never smoked"),
   stringsAsFactors = FALSE
 )
+```
 
-print(details)
+**Details table** (`r nrow(details)` rows):
+
+```{r}
+#| echo: false
+knitr::kable(details)
 ```
 
 **Key columns:**
@@ -286,8 +302,13 @@ config_multi <- data.frame(
   position = c(1, 2),
   stringsAsFactors = FALSE
 )
+```
 
-print(config_multi)
+**Multi-variable configuration** (`r nrow(config_multi)` rows):
+
+```{r}
+#| echo: false
+knitr::kable(config_multi)
 ```
 
 ### Step 2: Add age to details
@@ -324,8 +345,13 @@ age_details <- data.frame(
 
 # Combine
 details_multi <- rbind(smoking_details, age_details)
+```
 
-print(details_multi)
+**Combined details table** (`r nrow(details_multi)` rows):
+
+```{r}
+#| echo: false
+knitr::kable(details_multi)
 ```
 
 **Note**: Added `rType` column to specify output types (factor for smoking, integer for age).
@@ -364,15 +390,24 @@ head(mock_data_multi, 10)
 
 ### Step 4: Verify the results
 
+**Smoking distribution:**
+
 ```{r}
-# Check smoking distribution
-print("Smoking distribution:")
-print(prop.table(table(mock_data_multi$smoking)))
+#| echo: false
+knitr::kable(as.data.frame(prop.table(table(mock_data_multi$smoking))),
+             col.names = c("Category", "Proportion"))
+```
 
-# Check age summary
-print("\nAge summary:")
-summary(mock_data_multi$age)
+**Age summary:**
 
+```{r}
+#| echo: false
+age_summary <- summary(mock_data_multi$age)
+knitr::kable(data.frame(Statistic = names(age_summary), Value = as.numeric(age_summary)))
+```
+
+```{r}
+#| echo: false
 # Check data types
 smoking_class <- class(mock_data_multi$smoking)
 age_type <- typeof(mock_data_multi$age)

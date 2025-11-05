@@ -32,11 +32,11 @@
 #' - Generates dates uniformly distributed between start and end
 #' - Applies missing codes with `apply_missing_codes()`
 #' - Adds garbage using `make_garbage()` if garbage rows present
-#' - Supports fallback mode: uniform distribution [2000-01-01, 2025-12-31] when details_subset is NULL
+#' - Supports fallback mode: uniform distribution `[2000-01-01, 2025-12-31]` when details_subset is NULL
 #'
 #' **v0.1 format (LEGACY):**
 #' - Uses `get_variable_details_for_raw()` to find variable specifications
-#' - Parses SAS date format from recStart: "[01JAN2001, 31MAR2017]"
+#' - Parses SAS date format from recStart: `"[01JAN2001, 31MAR2017]"`
 #' - Supports "uniform", "gompertz", or "exponential" distribution
 #' - Handles prop_NA and prop_invalid parameters
 #'

@@ -193,12 +193,14 @@ create_mock_data <- function(config_path,
             source_format = source_format,
             df_mock = df_mock
           ),
-          "survival" = create_survival_dates(
-            var_row = var_row,
-            details_subset = details_subset,
-            n = n,
-            seed = NULL
-          ),
+          "survival" = {
+            # NOTE: Survival dates require manual generation outside create_mock_data()
+            # because they need TWO variables (entry + event) processed together.
+            # See create_survival_dates() documentation and dates vignette for examples.
+            warning("Survival variable type must be generated manually with create_survival_dates(): ", var_name,
+                    "\n  Reason: Requires paired entry+event variables, not compatible with single-variable loop.")
+            NULL
+          },
           "character" = {
             warning("Character variable type not yet implemented: ", var_name)
             NULL

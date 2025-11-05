@@ -93,7 +93,34 @@ This package is part of the recodeflow ecosystem. See [CONTRIBUTING.md](CONTRIBU
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-## Related projects
+## The recodeflow universe
 
-- [**chmsflow**](https://github.com/Big-Life-Lab/chmsflow): CHMS harmonization workflows
-- [**cchsflow**](https://github.com/Big-Life-Lab/cchsflow): CCHS harmonization workflows
+MockData is part of the **recodeflow universe** — a metadata-driven approach to variable recoding and harmonization. The core philosophy is to define variable transformations once in metadata files, then reuse those definitions for harmonization, documentation, and mock data generation.
+
+**Design principles:**
+
+- **Metadata-driven**: Variable definitions and recode rules live in structured metadata (CSV files)
+- **Reusable**: Same metadata drives harmonization code, documentation, and testing data
+- **Survey-focused**: Built for health surveys (CCHS, CHMS) but applicable to any categorical/continuous data
+- **Open and reproducible**: Transparent recode logic that anyone can inspect and verify
+
+**Related packages:**
+
+- [**cchsflow**](https://github.com/Big-Life-Lab/cchsflow): Harmonization workflows for Canadian Community Health Survey (CCHS)
+- [**chmsflow**](https://github.com/Big-Life-Lab/chmsflow): Harmonization workflows for Canadian Health Measures Survey (CHMS)
+- [**recodeflow**](https://github.com/Big-Life-Lab/recodeflow): Core metadata specifications and utilities
+
+## Data sources and acknowledgements
+
+The example metadata in this package is derived from:
+
+- **Canadian Community Health Survey (CCHS)** — Statistics Canada
+- **Canadian Health Measures Survey (CHMS)** — Statistics Canada
+
+**Statistics Canada Open License:**
+
+The use of CCHS and CHMS metadata examples in this package falls under Statistics Canada's Open License, which permits use, reproduction, and distribution of Statistics Canada data products. We acknowledge Statistics Canada as the source of the survey designs and variable definitions that informed our example metadata files.
+
+**Important:** This package generates **mock data only**. It does not contain, distribute, or provide access to any actual Statistics Canada microdata. Real CCHS and CHMS data are available through Statistics Canada's Research Data Centres (RDCs) and Public Use Microdata Files (PUMFs) under appropriate data access agreements.
+
+For more information: [Statistics Canada Open License](https://www.statcan.gc.ca/en/reference/licence)

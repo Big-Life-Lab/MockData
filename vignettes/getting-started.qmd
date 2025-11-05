@@ -1,6 +1,6 @@
 ---
 title: "Getting started with MockData"
-author: "MockData Team"
+author: "Juan Li and the recodeflow contributors"
 date: 2025-10-30
 format:
   html:
@@ -20,6 +20,12 @@ if (file.exists("../DESCRIPTION")) {
   library(MockData)
 }
 ```
+
+::: callout-note
+## About this vignette
+
+This introductory tutorial teaches core MockData concepts through progressive examples. All code runs during vignette build to ensure accuracy.
+:::
 
 ## What is MockData?
 
@@ -83,11 +89,20 @@ variable_details <- data.frame(
   rType = c("factor", "factor", "factor", "factor", "factor", "factor", "factor",
             "integer", "integer", "integer")
 )
+```
 
-print("Variables:")
-print(variables)
-print("\nVariable details:")
-print(variable_details)
+**Variables table** (`r nrow(variables)` rows):
+
+```{r}
+#| echo: false
+knitr::kable(variables)
+```
+
+**Variable details table** (`r nrow(variable_details)` rows):
+
+```{r}
+#| echo: false
+knitr::kable(variable_details)
 ```
 
 ### Step 2: Generate a categorical variable with custom proportions
@@ -234,23 +249,27 @@ identical(result1$SMK_01, result2$SMK_01)
 
 MockData generates **raw variables** (direct survey measurements). Derived variables should be calculated from the generated data using harmonization workflows.
 
-**Example - calculating BMI:**
+**Conceptual workflow:**
 
 ```{r}
 #| eval: false
-# 1. Generate raw variables (height, weight)
+# 1. Generate mock raw variables
 mock_data <- create_mock_data(
-  config = config,
+  config = config,        # Includes height_raw, weight_raw
   details = details,
   n = 1000
 )
 
-# 2. Calculate derived variable (BMI) using harmonization
-mock_data$bmi <- rec_with_table(
-  data = mock_data,
-  variable = "bmi",
-  variable_details = bmi_details
-)
+# 2. Apply harmonization to create derived variables
+# (Requires cchsflow or recodeflow package)
+# library(cchsflow)
+# mock_data <- rec_with_table(
+#   data = mock_data,
+#   variables = variables,
+#   variable_details = variable_details,
+#   database_name = "cchs2001"
+# )
+# Now mock_data includes derived variables like BMI_der, age categories, etc.
 ```
 
 **Why this approach:**
@@ -258,11 +277,12 @@ mock_data$bmi <- rec_with_table(
 -   Mirrors real data processing (derived variables computed during harmonization)
 -   Allows testing harmonization logic with mock data
 -   Keeps raw and derived variables separate
+-   Tests the complete workflow: generate → harmonize → analyze
 
 **Common derived variables:**
 
--   BMI from height and weight
--   Age categories from age
+-   BMI categories from height and weight
+-   Age categories from continuous age
 -   Income quintiles from income
 -   Health risk scores from multiple indicators
 
