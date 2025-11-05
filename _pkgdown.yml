@@ -4,7 +4,9 @@ template:
 
 reference:
 - title: Main generation functions
-  desc: Generate mock variables
+  desc: >
+    Generate categorical, continuous, date, and survival variables. Use `create_mock_data()`
+    for batch generation or individual functions for fine-grained control.
   contents:
   - create_cat_var
   - create_con_var
@@ -13,7 +15,9 @@ reference:
   - create_mock_data
 
 - title: Configuration
-  desc: Read and validate configuration files
+  desc: >
+    Read and validate v0.2 configuration files. Import existing recodeflow metadata
+    or create new configurations for mock data generation workflows.
   contents:
   - read_mock_data_config
   - read_mock_data_config_details
@@ -22,7 +26,9 @@ reference:
   - import_from_recodeflow
 
 - title: Helper functions
-  desc: Utilities for generation
+  desc: >
+    Utilities for metadata processing, proportions, type coercion, and data quality.
+    Support main generation functions or use directly for custom workflows.
   contents:
   - get_variable_details
   - extract_proportions
@@ -40,7 +46,9 @@ reference:
   - get_raw_variables
 
 - title: Parsers
-  desc: Parse recodeflow notation
+  desc: >
+    Parse recodeflow notation for variable specifications and range syntax.
+    Extract structured information from metadata for mock data generation.
   contents:
   - parse_range_notation
   - parse_variable_start
