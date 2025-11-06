@@ -1,5 +1,5 @@
 ---
-title: "Example of generating mock data using CCHS files based on variable and variable-details sheets"
+title: "CCHS example"
 author: "Juan Li and the recodeflow contributors"
 date: 2025-07-02
 format:

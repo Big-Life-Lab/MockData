@@ -61,25 +61,33 @@ reference:
   - parse_variable_start
 
 articles:
-- title: Get started
-  navbar: ~
+- title: Tutorials
+  desc: Learning-oriented step-by-step guides
+  navbar: Tutorials
   contents:
   - getting-started
+  - tutorial-config-files
+  - tutorial-dates
+  - tutorial-missing-data
+  - tutorial-garbage-data
 
-- title: Examples
+- title: How-to guides
+  desc: Task-oriented examples with real data
+  navbar: How-to guides
   contents:
   - cchs-example
   - chms-example
   - demport-example
 
-- title: Tutorials
+- title: Explanation
+  desc: Understanding concepts and design
+  navbar: Explanation
   contents:
   - dates
-  - tutorial-dates
-  - tutorial-config-files
-  - missing-data-tutorial-outline
   - advanced-topics
 
 - title: Reference
+  desc: Technical specifications
+  navbar: Reference
   contents:
   - reference-config

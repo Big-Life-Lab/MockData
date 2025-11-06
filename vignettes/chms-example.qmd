@@ -1,5 +1,5 @@
 ---
-title: "Example of generating mock data using CHMS files based on variable and variable-details sheets"
+title: "CHMS example"
 author: "Juan Li and the recodeflow contributors"
 date: 2025-10-21
 format:
