@@ -28,4 +28,6 @@ Suggests:
     stringr,
     lubridate,
     quarto,
-    devtools
+    devtools,
+    pkgdown,
+    roxygen2

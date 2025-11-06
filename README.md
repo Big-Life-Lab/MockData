@@ -124,3 +124,76 @@ The use of CCHS and CHMS metadata examples in this package falls under Statistic
 **Important:** This package generates **mock data only**. It does not contain, distribute, or provide access to any actual Statistics Canada microdata. Real CCHS and CHMS data are available through Statistics Canada's Research Data Centres (RDCs) and Public Use Microdata Files (PUMFs) under appropriate data access agreements.
 
 For more information: [Statistics Canada Open License](https://www.statcan.gc.ca/en/reference/licence)
+
+## Development environment setup
+
+This package uses [renv](https://rstudio.github.io/renv/) for reproducible package development environments.
+
+### For new contributors
+
+After cloning the repository:
+
+```r
+# Restore the package environment (installs all dependencies)
+renv::restore()
+
+# Install the MockData package itself into the renv library
+# (Required for building documentation and running tests)
+devtools::install(upgrade = 'never')
+
+# Load the package for development
+devtools::load_all()
+```
+
+### R version compatibility
+
+- **Supported**: R 4.3.x - 4.4.x
+- **Lockfile baseline**: R 4.4.2 (institutional environments typically run 1-2 versions behind current)
+- The renv lockfile works across this version range - minor R version differences are handled automatically
+
+### Daily development workflow
+
+```r
+# Install new packages as normal
+install.packages("packagename")
+
+# After adding dependencies to DESCRIPTION:
+devtools::install_dev_deps()  # Install updated dependencies
+renv::snapshot()              # Update lockfile
+# Commit the updated renv.lock file
+
+# Check environment status anytime:
+renv::status()
+```
+
+### Building documentation and site
+
+```r
+# Generate function documentation
+devtools::document()
+
+# Install the package (required before building site)
+devtools::install(upgrade = 'never')
+
+# Build pkgdown site (requires Quarto installed)
+pkgdown::build_site()
+
+# Run tests
+devtools::test()
+```
+
+### Troubleshooting
+
+```r
+# If packages seem out of sync:
+renv::status()
+
+# To update package versions:
+renv::update()
+renv::snapshot()
+
+# To restore to lockfile state:
+renv::restore()
+```
+
+For more details, see [CONTRIBUTING.md](CONTRIBUTING.md).
