@@ -1,0 +1,71 @@
+on:
+  push:
+    branches: [master, create-date-var]
+  pull_request:
+    branches: [master]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+name: pkgdown
+
+permissions:
+  contents: write
+
+jobs:
+  pkgdown:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Install renv
+        run: Rscript -e "install.packages('renv', repos = 'https://cloud.r-project.org')"
+
+      - name: Restore R packages
+        run: Rscript -e "renv::restore(prompt = FALSE)"
+
+      - name: Get renv library path
+        id: renv-path
+        run: |
+          RENV_LIB=$(Rscript -e "cat(renv::paths\$library())")
+          echo "path=$RENV_LIB" >> $GITHUB_OUTPUT
+
+      - name: Build pkgdown site
+        run: Rscript -e 'pkgdown::build_site(new_process = FALSE)'
+        env:
+          R_LIBS_USER: ${{ steps.renv-path.outputs.path }}
+
+      - name: Determine deployment path
+        id: deploy-path
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+            echo "target_path=." >> $GITHUB_OUTPUT
+            echo "Deploying to root (master branch)"
+          elif [[ "${{ github.ref }}" == "refs/heads/create-date-var" ]]; then
+            echo "target_path=dev" >> $GITHUB_OUTPUT
+            echo "Deploying to /dev (create-date-var branch)"
+          else
+            echo "target_path=preview/${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "Deploying to /preview/${{ github.ref_name }}"
+          fi
+
+      - name: Deploy to GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs
+          branch: gh-pages
+          target-folder: ${{ steps.deploy-path.outputs.target_path }}
+          clean: false
