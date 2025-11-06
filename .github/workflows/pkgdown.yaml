@@ -1,8 +1,8 @@
 on:
   push:
-    branches: [master, create-date-var]
+    branches: [main, create-date-var]
   pull_request:
-    branches: [master]
+    branches: [main]
   release:
     types: [published]
   workflow_dispatch:
@@ -50,9 +50,9 @@ jobs:
       - name: Determine deployment path
         id: deploy-path
         run: |
-          if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "target_path=." >> $GITHUB_OUTPUT
-            echo "Deploying to root (master branch)"
+            echo "Deploying to root (main branch)"
           elif [[ "${{ github.ref }}" == "refs/heads/create-date-var" ]]; then
             echo "target_path=dev" >> $GITHUB_OUTPUT
             echo "Deploying to /dev (create-date-var branch)"
