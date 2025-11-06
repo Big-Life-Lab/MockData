@@ -2,6 +2,13 @@ url: https://big-life-lab.github.io/MockData/
 template:
   bootstrap: 5
 
+footer:
+  structure:
+    left: developed_by
+    right: built_with
+  components:
+    developed_by: <p>Developed by Juan Li and recodeflow contributors.</p>
+
 reference:
 - title: Main generation functions
   desc: >

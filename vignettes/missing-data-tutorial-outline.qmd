@@ -44,6 +44,7 @@ Explain how to generate realistic missing data in mock health survey datasets an
 ### 1.1 Why missing data codes matter
 
 **Content**:
+
 - Missing data is NOT just "NA" in health surveys
 - Different types of missingness have different statistical implications
 - Improper handling leads to biased estimates
@@ -53,6 +54,7 @@ Explain how to generate realistic missing data in mock health survey datasets an
 ### 1.2 The three types of missing data codes
 
 **Content**:
+
 - **Valid skip (996, NA::a)**: Not asked due to skip logic
   - Example: "Number of cigarettes per day" skipped if non-smoker
   - Statistical treatment: Exclude from denominator
@@ -71,6 +73,7 @@ Explain how to generate realistic missing data in mock health survey datasets an
 ### 1.3 Real-world example from CCHS
 
 **Content**:
+
 - Use actual CCHS variable (like alcohol consumption)
 - Show variable_details from chmsflow/cchsflow
 - Demonstrate how missing codes appear in metadata
@@ -83,6 +86,7 @@ Explain how to generate realistic missing data in mock health survey datasets an
 ### 2.1 Method 1: Explicit proportions (recommended)
 
 **Content**:
+
 - Use `proportions` parameter to specify ALL categories including missing codes
 - Gives full control over distribution
 - Best for teaching/demonstrating proper analysis
@@ -107,6 +111,7 @@ create_cat_var(
 ### 2.2 Method 2: The prop_NA shortcut
 
 **Content**:
+
 - Use `prop_NA` parameter for quick missing data generation
 - MockData uniformly distributes across all NA codes in metadata
 - Less control but faster for testing
@@ -137,6 +142,7 @@ create_con_var(
 ### 2.3 Method 3: Metadata-driven proportions
 
 **Content**:
+
 - If variable_details has `proportion` column, MockData uses it automatically
 - Good for generating data matching real survey distributions
 - Requires properly formatted metadata
@@ -159,6 +165,7 @@ create_cat_var(
 ### 3.1 Calculating response rates
 
 **Content**:
+
 - Response rate = (Valid responses) / (Valid responses + DK/RF/NS)
 - Exclude valid skip (6) from denominator
 - Include 7,8,9 in denominator
@@ -172,6 +179,7 @@ response_rate <- sum(data$var %in% c("1", "2")) /
 ### 3.2 Calculating prevalence correctly
 
 **Content**:
+
 - Prevalence = (Outcome present) / (All asked excluding valid skip)
 - Numerator: Only valid "yes" responses
 - Denominator: Valid responses + DK/RF/NS (exclude valid skip)
@@ -191,6 +199,7 @@ correct_prev <- sum(data$smoker == "1") /
 ### 3.3 Handling valid skip in analysis
 
 **Content**:
+
 - Why valid skip (6) should be excluded
 - Example: Skip patterns in surveys (e.g., children don't get pregnancy questions)
 - Statistical justification
@@ -231,6 +240,7 @@ analysis_data <- data %>%
 ### 5.1 Example: Smoking prevalence with realistic missing data
 
 **Content**:
+
 - Generate 10,000 observations with realistic proportions
 - Calculate crude prevalence
 - Calculate age-standardized prevalence
@@ -240,6 +250,7 @@ analysis_data <- data %>%
 ### 5.2 Example: Alcohol consumption with skip logic
 
 **Content**:
+
 - Generate data with valid skip for non-drinkers
 - Analyze drinking frequency among drinkers only
 - Handle conditional questions properly
@@ -247,6 +258,7 @@ analysis_data <- data %>%
 ### 5.3 Example: Sensitivity analysis with missing data
 
 **Content**:
+
 - Best case scenario (all DK/RF/NS = negative)
 - Worst case scenario (all DK/RF/NS = positive)
 - Show impact on confidence intervals
@@ -258,6 +270,7 @@ analysis_data <- data %>%
 ### 6.1 Missing data patterns in longitudinal data
 
 **Content**:
+
 - How missing codes evolve across survey cycles
 - Handling panel attrition
 - Multiple imputation considerations
@@ -265,6 +278,7 @@ analysis_data <- data %>%
 ### 6.2 Weighting and missing data
 
 **Content**:
+
 - How survey weights interact with missing data
 - When to apply weights in mock data
 - Non-response adjustments
@@ -272,6 +286,7 @@ analysis_data <- data %>%
 ### 6.3 Custom missing code schemes
 
 **Content**:
+
 - Creating project-specific missing codes
 - Documenting custom schemes in metadata
 - Ensuring compatibility with MockData
