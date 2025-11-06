@@ -23,6 +23,7 @@
 #' @param event_distribution character. Distribution for time-to-event: "uniform", "gompertz", "exponential"
 #' @param prop_censored numeric. Proportion of records to censor (0-1)
 #' @param prop_NA numeric. Proportion of missing values (0-1)
+#' @param prop_invalid numeric. Optional. Proportion of temporal violations (entry > event) (0 to 1). If NULL, no invalid dates generated.
 #'
 #' @return data.frame with entry_date, event_date, and optionally event_status columns, or NULL if:
 #'   - Variables already exist in df_mock
@@ -33,12 +34,13 @@
 #' - Extracts date ranges from entry_details_subset and event_details_subset
 #' - Generates entry dates uniformly distributed
 #' - Calculates event dates to ensure entry < event
+#' - Supports garbage data via `catLabel::garbage` in event_details_subset
 #' - Supports fallback mode: reasonable defaults when details_subset is NULL
 #'
 #' **v0.1 format (LEGACY):**
 #' - Accepts explicit date ranges and follow-up parameters
 #' - Supports multiple event distributions (uniform, gompertz, exponential)
-#' - Handles censoring and missing values via parameters
+#' - Handles censoring, missing values, and temporal violations via parameters
 #'
 #' The function auto-detects which format based on parameter names.
 #'
@@ -77,6 +79,22 @@
 #'   seed = 123
 #' )
 #'
+#' # v0.2 with garbage (catLabel::garbage in config_details)
+#' # In mock_data_config_details.csv:
+#' # variable,recEnd,catLabel,proportion
+#' # death_date,followup_min,,
+#' # death_date,followup_max,,
+#' # death_date,garbage,garbage,0.03
+#' event_details_with_garbage <- get_variable_details(details, variable_name = "death_date")
+#' surv_data_garbage <- create_survival_dates(
+#'   entry_var_row = entry_row,
+#'   entry_details_subset = entry_details,
+#'   event_var_row = event_row,
+#'   event_details_subset = event_details_with_garbage,
+#'   n = 1000,
+#'   seed = 123
+#' )
+#'
 #' # v0.1 format (legacy) - Basic mortality study
 #' surv_data <- create_survival_dates(
 #'   entry_var = "study_entry",
@@ -103,6 +121,19 @@
 #'   event_distribution = "exponential",
 #'   prop_censored = 0.3
 #' )
+#'
+#' # v0.1 with temporal violations for validation testing
+#' surv_data <- create_survival_dates(
+#'   entry_var = "interview_date",
+#'   event_var = "death_date",
+#'   entry_start = as.Date("2015-01-01"),
+#'   entry_end = as.Date("2016-12-31"),
+#'   followup_min = 30,
+#'   followup_max = 3650,
+#'   length = 1000,
+#'   df_mock = data.frame(),
+#'   prop_invalid = 0.03  # 3% temporal violations
+#' )
 #' }
 #'
 #' @family generators
@@ -117,7 +148,8 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
                                    length = NULL,
                                    event_distribution = "uniform",
                                    prop_censored = 0,
-                                   prop_NA = NULL) {
+                                   prop_NA = NULL,
+                                   prop_invalid = NULL) {
 
   # Auto-detect format based on parameters
   use_v02 <- !is.null(entry_var_row) && is.data.frame(entry_var_row) && nrow(entry_var_row) == 1 &&
@@ -204,6 +236,34 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
       event = event_dates,
       stringsAsFactors = FALSE
     )
+
+    # Apply garbage if specified in event_details_subset (catLabel::garbage)
+    if (!is.null(event_details_subset) && nrow(event_details_subset) > 0) {
+      # Check for garbage rows
+      has_garbage <- any(!is.na(event_details_subset$catLabel) &
+                        event_details_subset$catLabel == "garbage")
+
+      if (has_garbage) {
+        garbage_row <- event_details_subset[!is.na(event_details_subset$catLabel) &
+                                           event_details_subset$catLabel == "garbage", ]
+
+        if (nrow(garbage_row) > 0 && !is.na(garbage_row$proportion[1])) {
+          prop_invalid <- garbage_row$proportion[1]
+
+          if (prop_invalid > 0) {
+            n_invalid <- floor(n * prop_invalid)
+            invalid_indices <- sample(1:n, n_invalid, replace = FALSE)
+
+            # Swap entry and event dates to create temporal violations
+            for (idx in invalid_indices) {
+              temp <- result$entry[idx]
+              result$entry[idx] <- result$event[idx]
+              result$event[idx] <- temp
+            }
+          }
+        }
+      }
+    }
 
     # Rename columns to variable names
     names(result)[1] <- entry_var_name
@@ -304,6 +364,19 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
       # Set both dates to NA for missing records
       result$entry[na_indices] <- NA
       result$event[na_indices] <- NA
+    }
+
+    # Add temporal violations if requested (entry > event)
+    if (!is.null(prop_invalid) && prop_invalid > 0) {
+      n_invalid <- floor(length * prop_invalid)
+      invalid_indices <- sample(1:length, n_invalid, replace = FALSE)
+
+      # Swap entry and event dates to create temporal violations
+      for (idx in invalid_indices) {
+        temp <- result$entry[idx]
+        result$entry[idx] <- result$event[idx]
+        result$event[idx] <- temp
+      }
     }
 
     # Rename columns to user-specified names

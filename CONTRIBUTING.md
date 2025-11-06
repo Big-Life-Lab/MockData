@@ -131,6 +131,52 @@ covr::package_coverage()
 - If adding new test data, document its purpose
 - Keep test data small and focused
 
+### Building Documentation
+
+#### Prerequisites for documentation builds
+
+1. **Install Quarto**: Download from https://quarto.org/docs/get-started/ or use Homebrew:
+```bash
+brew install quarto
+```
+
+2. **Ensure pkgdown and roxygen2 are available**:
+```r
+# These are in Suggests, install if needed
+renv::install(c("pkgdown", "roxygen2"))
+```
+
+3. **Configure PATH for IDE users** (Positron/RStudio):
+
+If you encounter "System command 'quarto' failed" errors, add Quarto to your PATH in `~/.Renviron`:
+```
+PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH}"
+```
+
+Then restart your R session.
+
+#### Building the pkgdown site
+
+```r
+# 1. Regenerate .Rd files from roxygen comments (after editing R documentation)
+roxygen2::roxygenize()
+
+# 2. Build the pkgdown site
+pkgdown::build_site()
+
+# 3. Preview locally
+browseURL("docs/index.html")
+```
+
+**Important**: Always run `roxygen2::roxygenize()` before `pkgdown::build_site()` if you've modified roxygen documentation in R files.
+
+#### Rendering individual vignettes
+
+```bash
+# From project root
+quarto render vignettes/getting-started.qmd --to html
+```
+
 ### Validation Tools
 
 Before submitting, run the validation tools:

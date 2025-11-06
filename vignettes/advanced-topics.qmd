@@ -1,6 +1,6 @@
 ---
 title: "Advanced topics"
-author: "MockData Team"
+author: "Juan Li and the recodeflow contributors"
 date: 2025-10-30
 format:
   html:
@@ -21,6 +21,12 @@ if (file.exists("../DESCRIPTION")) {
   library(MockData)
 }
 ```
+
+::: callout-note
+## About this vignette
+
+This guide covers advanced technical topics for MockData power users. Read the [Getting started](getting-started.html) guide before this document.
+:::
 
 ## Overview
 
@@ -198,10 +204,9 @@ var_details %>% filter(variable == "problem_var") %>% select(recStart, recEnd)
 ``` r
 # Verify NA codes exist in metadata
 na_codes <- get_variable_categories(variable_details, include_na = TRUE)
-print(na_codes)
-
-# If empty, no NA codes available
 ```
+
+If `na_codes` is empty, no NA codes are available in the metadata. Add NA codes (typically 996-999) to `variable_details` with appropriate `recStart`/`recEnd` values.
 
 ### Getting help
 

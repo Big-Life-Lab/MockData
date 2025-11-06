@@ -23,8 +23,8 @@
 #'
 #' @details
 #' Tries three matching strategies in order:
-#' 1. Database-prefixed format: "cycle::var_raw"
-#' 2. Bracket format: "[var_raw]" with databaseStart filtering
+#' 1. Database-prefixed format: `"cycle::var_raw"`
+#' 2. Bracket format: `"[var_raw]"` with databaseStart filtering
 #' 3. Plain format: exact match on variableStart with cycle filtering
 #'
 #' @keywords internal
@@ -84,7 +84,7 @@ get_variable_details_for_raw <- function(var_raw, cycle, variable_details, varia
 #' @details
 #' Handles recodeflow notation:
 #' - Simple categories: "1", "2", "3"
-#' - Integer ranges: "[7,9]" → c("7", "8", "9")
+#' - Integer ranges: `"[7,9]"` → c("7", "8", "9")
 #' - Continuous ranges: "[18.5,25)" (kept as single value)
 #' - Special codes: "copy", "else" (EXCLUDED from v0.1 generation)
 #' - Missing codes: Identified by "NA" in recEnd

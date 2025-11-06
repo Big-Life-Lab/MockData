@@ -30,7 +30,7 @@
 #' - Generates population based on specified distribution (uniform, normal, exponential)
 #' - Applies missing codes with `apply_missing_codes()`
 #' - Adds garbage using `make_garbage()` if garbage rows present
-#' - Supports fallback mode: uniform [0, 100] when details_subset is NULL
+#' - Supports fallback mode: uniform `[0, 100]` when details_subset is NULL
 #'
 #' **v0.1 format (LEGACY):**
 #' - Uses `get_variable_details_for_raw()` to find variable specifications

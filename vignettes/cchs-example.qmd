@@ -1,6 +1,6 @@
 ---
-title: "Example of generating mock data using CCHS files based on variable and variable-details sheets"
-author: "Juan Li"
+title: "CCHS example"
+author: "Juan Li and the recodeflow contributors"
 date: 2025-07-02
 format:
   html:
@@ -34,7 +34,7 @@ Load the CCHS harmonization metadata files that define variables and their detai
 ```{r load-metadata}
 # CCHS sample variables
 variables <- read.csv(
-  "../inst/extdata/cchs/variables_cchsflow_sample.csv",
+  system.file("extdata/cchs/variables_cchsflow_sample.csv", package = "MockData"),
   header = TRUE,
   check.names = FALSE,
   na.strings = c("", "NA", "N/A"),
@@ -43,7 +43,7 @@ variables <- read.csv(
 
 # CCHS sample variable details
 variable_details <- read.csv(
-  "../inst/extdata/cchs/variable_details_cchsflow_sample.csv",
+  system.file("extdata/cchs/variable_details_cchsflow_sample.csv", package = "MockData"),
   header = TRUE,
   check.names = FALSE,
   na.strings = c("", "NA", "N/A"),
@@ -79,7 +79,7 @@ The sample metadata includes 20 harmonized variables. For `r example_cycle`, the
 
 ```{r show-cycle-vars}
 #| echo: false
-print(head(cycle_vars[, c("variable", "variable_raw", "variableType", "label")], 10))
+knitr::kable(head(cycle_vars[, c("variable", "variable_raw", "variableType", "label")], 10))
 ```
 
 ## Get raw variables to generate
@@ -103,7 +103,7 @@ This cycle requires `r nrow(raw_vars)` unique raw variables: `r nrow(raw_cat)` c
 
 ```{r show-raw-vars}
 #| echo: false
-print(raw_vars)
+knitr::kable(raw_vars)
 ```
 
 ## Generate mock data for one cycle
@@ -196,7 +196,7 @@ str(df_mock)
 
 ```{r show-first-rows}
 #| echo: false
-print(head(df_mock, 5))
+knitr::kable(head(df_mock, 5))
 ```
 
 ```{r check-missing}
@@ -216,7 +216,7 @@ This example demonstrated generating mock CCHS data for testing cchsflow harmoni
 -   Uses reproducible seeds
 -   Can be used to test harmonization functions before accessing real CCHS data
 
-**Next steps:**
+## Next steps
 
 -   Test your cchsflow harmonization pipeline on this mock data
 -   Generate mock data for additional cycles as needed

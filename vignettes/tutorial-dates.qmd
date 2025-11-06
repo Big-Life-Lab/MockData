@@ -1,6 +1,6 @@
 ---
 title: "Working with date variables"
-author: "MockData Team"
+author: "Juan Li and the recodeflow contributors"
 date: 2025-11-01
 format:
   html:
@@ -20,6 +20,12 @@ if (file.exists("../DESCRIPTION")) {
   library(MockData)
 }
 ```
+
+::: callout-note
+## About this vignette
+
+This tutorial introduces temporal data generation concepts. For complete working examples, see the [DemPoRT example](demport-example.html).
+:::
 
 ## Overview
 
@@ -536,6 +542,19 @@ The DemPoRT example is the primary and most detailed demonstration of date varia
 | **Derived dates** | Calculate from anchor date | E.g., follow-up = baseline + interval |
 | **Garbage dates** | `corrupt_future`, `corrupt_past` | For data quality testing |
 | **Temporal ordering** | Validate after generation | Ensure logical date sequences |
+
+## What you learned
+
+In this tutorial, you learned:
+
+- **Date configuration basics:** How to specify date ranges and distributions in configuration files
+- **Common temporal patterns:** Cohort accrual, event dates with censoring, multiple time points, and missing events
+- **Distribution options:** Uniform, Gompertz, and exponential distributions for realistic temporal patterns
+- **Data quality testing:** How to generate corrupt future/past dates for validation pipeline testing
+- **Derived temporal variables:** Calculating age, follow-up time, calendar periods, and time-to-event indicators
+- **Best practices:** Starting with index dates, using realistic ranges, documenting assumptions, and validating temporal logic
+
+For complete production-ready examples with survival analysis, see the [DemPoRT example](demport-example.html).
 
 ## Next steps
 
