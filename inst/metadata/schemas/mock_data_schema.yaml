@@ -1,0 +1,1222 @@
+# MockData schema: Schema definitions for mock data configuration files
+#
+# Purpose: Single source of truth for MockData configuration structure.
+# Defines schemas for variable definitions (mock_data_config.csv) and
+# distribution parameters (mock_data_config_details.csv), aligned with
+# recodeflow/cchsflow patterns.
+#
+# This file consolidates all schema specifications. Separate datasets
+# catalog (datasets_catalog.yaml) catalogs specific mock datasets using
+# Dublin Core metadata.
+
+name: MockData_Configuration_Schema
+version: 0.2.0
+date: 2025-11-01
+status: active
+
+description: >
+  Comprehensive schema definitions for MockData configuration files. Defines
+  structure for metadata-driven mock data generation aligned with recodeflow/
+  cchsflow patterns. Supports two-file configuration: variable definitions
+  (config) and distribution details (details).
+
+# Core principles
+
+principles:
+  metadata_driven:
+    description: >
+      Configuration uses existing research specifications (variables.csv,
+      variable_details.csv patterns) rather than requiring duplicate
+      specifications in code.
+
+  raw_survey_data:
+    description: >
+      Generates realistic raw survey data with numeric missing codes
+      (7=Don't know, 8=Refusal, 9=Not stated), not recoded/harmonized
+      data (NA::a, NA::b from haven). Allows testing of complete data
+      cleaning and harmonization pipelines.
+
+  contamination_model:
+    description: >
+      Two-step generation: (1) population distribution (valid + missing
+      sum to 1.0), (2) contamination replaces some valid values with
+      implausible values. Matches real-world data quality issues.
+
+  recodeflow_alignment:
+    description: >
+      File structure and naming align with recodeflow/cchsflow patterns:
+      catalog.yaml + config.csv + config_details.csv. Supports same
+      metadata columns (role, section, subject, labelLong, etc.).
+
+# Shared specifications across all MockData configuration files
+
+shared_specifications:
+
+  csv_format:
+    encoding: UTF-8
+    delimiter: ","
+    quote_char: "\""
+    header: true
+    na_string: ""
+    comment_char: "#"
+    notes: >
+      All CSV files MUST be generated programmatically using data.frame
+      operations and write.csv() in R. Manual editing discouraged to
+      avoid column misalignment and quoting errors.
+
+  missing_data_standards:
+    description: >
+      Missing data values must be explicitly specified in configuration files.
+      Common conventions include numeric codes (7, 8, 9 in Canadian health surveys;
+      96, 97, 98, 99 in other contexts; -7, -8, -9 in some databases) or special
+      values (NA, NULL, ""). MockData supports any numeric missing codes specified
+      in the details file.
+
+    raw_vs_recoded:
+      raw_codes:
+        description: >
+          MockData generates RAW missing codes as specified in details file
+          (e.g., 7="Don't know", 8="Refusal", 9="Not stated"). These are numeric
+          values in the generated dataset.
+        examples:
+          - "7, 8, 9 (common in Canadian health surveys: CCHS, CHMS)"
+          - "96, 97, 98, 99 (common in US surveys)"
+          - "-7, -8, -9 (common in administrative databases)"
+
+      recoded_codes:
+        description: >
+          MockData does NOT generate recoded/harmonized missing codes (e.g.,
+          NA::a, NA::b, NA::c from haven package). Recoded data is the OUTPUT
+          of harmonization pipelines, not the INPUT for testing those pipelines.
+
+    configurable_codes:
+      notes: >
+        Users specify missing codes in mock_data_config_details.csv via recEnd
+        column. Any numeric value can serve as a missing code. The examples above
+        (7/8/9) are common but not required.
+
+  contamination_standards:
+    description: >
+      Two-step generation model: (1) Population distribution (valid + missing
+      proportions sum to 1.0), (2) Contamination replaces some valid values
+      (corrupt_* proportions applied to valid subset only).
+
+    contamination_types:
+      corrupt_low:
+        description: "Implausible low values (below valid range)"
+        example: "BMI = -1, Age = 5"
+        applies_to: [continuous, integer]
+        proportion_base: "Applied to VALID values only"
+
+      corrupt_high:
+        description: "Implausible high values (above valid range)"
+        example: "BMI = 200, Age = 127"
+        applies_to: [continuous, integer]
+        proportion_base: "Applied to VALID values only"
+
+      corrupt_future:
+        description: "Impossible future dates"
+        example: "death_date = 2099-01-01"
+        applies_to: [date, survival]
+        proportion_base: "Applied to VALID values only"
+
+    contamination_model:
+      step1_population:
+        description: >
+          Generate from population distribution. Extract valid and missing
+          proportions (must sum to 1.0). Sample category assignment, generate
+          numeric values for valid category, assign raw codes to missing
+          categories.
+        example:
+          valid: 0.95
+          DK_7: 0.03
+          NS_9: 0.02
+          sum: 1.0
+
+      step2_contamination:
+        description: >
+          Apply contamination. Extract corrupt_* proportions. Identify valid
+          indices. Sample from valid to corrupt. Replace with values from
+          contamination ranges. Ensure no overlap (use setdiff for sequential).
+        example:
+          corrupt_low: 0.02  # Replace 2% of valid values
+          corrupt_high: 0.01  # Replace 1% of valid values
+
+      final_distribution:
+        description: >
+          After applying contamination model to population distribution
+        example:
+          valid_clean: "~93% (95% * 0.97)"
+          corrupt_low: "~2% (95% * 0.02)"
+          corrupt_high: "~1% (95% * 0.01)"
+          DK_7: "3%"
+          NS_9: "2%"
+
+    implementation_notes: >
+      Contamination proportions are SEPARATE from population proportions.
+      They are excluded from the 1.0 sum validation and applied after
+      population generation. This matches real-world data cleaning workflows
+      where outliers and errors contaminate otherwise valid measurements.
+
+  validation_patterns:
+    proportion_sum:
+      rule: "valid + missing proportions sum to 1.0 (±0.001 tolerance)"
+      applies_to: "mock_data_config_details.csv"
+      contamination_handling: "corrupt_* rows excluded from sum"
+      auto_normalize: "If sum ≠ 1.0, auto-normalize with warning"
+
+    required_parameters:
+      normal:
+        required: [mean, sd]
+        optional: [range_min, range_max]
+      gompertz:
+        required: [rate, shape]
+        optional: [followup_range]
+      exponential:
+        required: [rate]
+        optional: [followup_range]
+      poisson:
+        required: [rate]
+        optional: [range_min, range_max]
+      uniform:
+        required: [range_min, range_max]
+        optional: []
+
+    recEnd_validation:
+      mode: "flexible"
+      description: >
+        Validate based on variable type, but warn rather than error on
+        unknown recEnd values. Allow extensibility for future needs.
+
+  role_patterns:
+    syntax: "comma_separated"
+    example: "predictor, enabled, table1"
+
+    standard_roles:
+      generation_control:
+        enabled:
+          description: "Generate this variable in dataset"
+          required_for_generation: true
+
+        metadata:
+          description: "Study-level parameter (not generated as column)"
+          mutually_exclusive_with: [enabled]
+
+      variable_function:
+        predictor:
+          description: "Independent variable / covariate"
+          compatible_with: [enabled, table1, confounder]
+
+        outcome:
+          description: "Dependent variable / endpoint"
+          compatible_with: [enabled]
+
+        confounder:
+          description: "Confounding variable for causal analysis"
+          compatible_with: [enabled, predictor]
+
+        exposure:
+          description: "Treatment or exposure variable"
+          compatible_with: [enabled]
+
+      table_roles:
+        table1:
+          description: "Include in Table 1 (baseline characteristics)"
+          compatible_with: [enabled, predictor]
+
+        table2:
+          description: "Include in Table 2 (secondary characteristics)"
+          compatible_with: [enabled]
+
+      model_roles:
+        model1_predictor:
+          description: "Predictor for model 1"
+          compatible_with: [enabled, predictor]
+
+        model1_outcome:
+          description: "Outcome for model 1"
+          compatible_with: [enabled, outcome]
+
+    constraints:
+      - at_least_one_role: true
+      - whitespace_trimmed: true
+
+    parsing:
+      method: "strsplit(config$role, ',\\\\s*')"
+      example_code: |
+        # Check if variable has "enabled" role
+        has_enabled <- grepl("\\benabled\\b", config$role)
+
+        # Filter to table1 variables
+        table1_vars <- config[grepl("\\btable1\\b", config$role), ]
+
+    extensibility: >
+      Roles are extensible. Users can define custom roles (e.g., sensitivity_analysis,
+      table3) for project-specific filtering. The only required role for generation
+      is "enabled".
+
+  recEnd_standardized_values:
+    description: >
+      Comprehensive specification of standardized recEnd values used in
+      mock_data_config_details.csv. Organized by variable type and purpose.
+
+    categorical_categories:
+      description: "Category values for categorical variables"
+      notes: >
+        Can be numeric (1, 2, 3), character ("yes", "no"), or any value.
+        Defined per-variable in mock_data_config_details.csv recEnd column.
+        These are valid categories, not missing codes.
+      examples:
+        numeric: ["1", "2", "3", "4"]
+        character: ["never", "former", "current"]
+        mixed: ["0", "1", "unknown"]
+
+    missing_codes:
+      description: "Raw survey missing data codes (dataset-specific)"
+      notes: >
+        Missing codes are defined in mock_data_config_details.csv for each
+        dataset. Common conventions vary by survey organization and country.
+        Any numeric value can serve as a missing code.
+
+      common_patterns:
+        canadian_health_surveys:
+          description: "CCHS, CHMS, and related surveys"
+          codes:
+            7: "Don't know"
+            8: "Refusal"
+            9: "Not stated"
+
+        us_surveys:
+          description: "Some US survey conventions"
+          codes:
+            96: "Valid skip"
+            97: "Don't know"
+            98: "Refusal"
+            99: "Not stated"
+
+        negative_codes:
+          description: "Administrative databases"
+          codes:
+            -7: "Don't know"
+            -8: "Refusal"
+            -9: "Not stated"
+
+      usage: >
+        Specify missing codes in mock_data_config_details.csv using recEnd
+        column. Each dataset can have its own missing code convention.
+
+    continuous_parameters:
+      distribution:
+        description: "Distribution type"
+        example_value: "normal"
+        allowed_values: [normal, uniform, exponential, poisson]
+
+      mean:
+        description: "Mean parameter for normal distribution"
+        example_value: 27
+
+      sd:
+        description: "Standard deviation for normal distribution"
+        example_value: 5
+
+      rate:
+        description: "Rate parameter for exponential/poisson"
+        example_value: 0.01
+
+      valid:
+        description: "Valid value specification with range"
+        has_proportion: true
+        has_range: true
+
+    survival_parameters:
+      distribution:
+        description: "Survival distribution type"
+        allowed_values: [gompertz, exponential, uniform]
+
+      rate:
+        description: "Rate parameter for gompertz/exponential"
+        example_value: 0.01
+
+      shape:
+        description: "Shape parameter for gompertz"
+        example_value: 0.1
+
+      followup_range:
+        description: "Follow-up time range in days"
+        has_range: true
+
+      censored:
+        description: "Censoring specification"
+        has_proportion: true
+
+    date_parameters:
+      date_start:
+        description: "Start date for date range"
+        has_date: true
+
+      date_end:
+        description: "End date for date range"
+        has_date: true
+
+    contamination_parameters:
+      corrupt_low:
+        description: "Implausible low values"
+        has_proportion: true
+        has_range: true
+        applies_to: [continuous, integer]
+        notes: "Proportion of VALID values to replace (not population proportion)"
+
+      corrupt_high:
+        description: "Implausible high values"
+        has_proportion: true
+        has_range: true
+        applies_to: [continuous, integer]
+        notes: "Proportion of VALID values to replace"
+
+      corrupt_future:
+        description: "Impossible future dates"
+        has_proportion: true
+        has_date: true
+        applies_to: [date, survival]
+        notes: "Dates beyond reasonable future"
+
+    validation:
+      mode: flexible
+      description: >
+        Validate based on variable type, but warn rather than error on
+        unknown recEnd values. Allows extensibility for future parameter
+        types without schema updates.
+
+# Schema definitions
+
+schemas:
+
+  mock_data_config:
+    target_csv: inst/extdata/mock_data_config.csv
+    generator_script: inst/extdata/generate_mock_data_config.R
+
+    purpose: >
+      Variable-level definitions for mock data generation. One row per
+      variable, defining high-level properties (role, type, label,
+      position) without distribution-specific parameters.
+
+    structure: wide_format
+    row_type: one_per_variable
+
+    relationship_to_details: >
+      Primary key (uid) links to mock_data_config_details.csv via uid.
+      Variable names can change, but uid remains stable. Each variable in
+      config may have multiple detail rows specifying distribution parameters,
+      category proportions, and contamination.
+
+    columns:
+      uid:
+        type: character
+        required: true
+        unique: true
+        description: >
+          Unique identifier for this variable definition. Stable across
+          variable name changes. Format: v_ + sequential number or descriptive
+          ID (e.g., "v_001", "v_age_baseline", "v_bmi").
+        pattern: "^v_[a-z0-9_]+$"
+        examples:
+          - "v_001"
+          - "v_age_baseline"
+          - "v_bmi"
+          - "v_smoking_status"
+
+      variable:
+        type: character
+        required: true
+        unique: true
+        description: >
+          Variable name used in generated data. Can change if variable is
+          renamed, but uid remains constant for linking to details.
+        pattern: "^[a-zA-Z][a-zA-Z0-9_]*$"
+        constraints:
+          - max_length: 64
+          - no_duplicates: true
+
+      role:
+        type: character
+        required: true
+        pattern: "comma_separated"
+        description: >
+          Multi-valued roles for the variable. Comma-separated list indicating
+          how the variable should be used. See shared_specifications.role_patterns
+          for complete taxonomy.
+
+      label:
+        type: character
+        required: false
+        description: "Short label for tables (≤20 characters)"
+
+      labelLong:
+        type: character
+        required: false
+        description: "Descriptive label for documentation"
+
+      section:
+        type: character
+        required: false
+        description: "Primary grouping for Table 1 (e.g., Demographics, Health)"
+
+      subject:
+        type: character
+        required: false
+        description: "Secondary grouping within section (e.g., Age, BMI)"
+
+      variableType:
+        type: character
+        required: true
+        allowed_values: [categorical, continuous, date, survival, character, integer]
+        description: "Data type for generation"
+
+      units:
+        type: character
+        required: false
+        description: "Measurement units (e.g., years, kg/m2, mmHg)"
+
+      position:
+        type: integer
+        required: true
+        description: "Sort order for generation (10, 20, 30...)"
+        constraints:
+          - must_be_positive: true
+          - recommended_increment: 10
+
+      source_database:
+        type: character
+        required: false
+        description: >
+          Database identifier(s) from which this variable was imported.
+          When importing from recodeflow metadata, this is extracted from
+          the databaseStart field based on the database filter parameter.
+          Multiple databases can be comma-separated.
+        examples:
+          - "cchs2001_p"
+          - "cchs2015_2016_p, cchs2017_2018_p"
+          - "cycle1"
+
+      source_spec:
+        type: character
+        required: false
+        description: >
+          Source specification file from which this variable was imported.
+          Typically the filename of the recodeflow variables.csv file used
+          for import. Helps track provenance of variable definitions.
+        examples:
+          - "variables_cchsflow_sample.csv"
+          - "variables_DemPoRT.csv"
+          - "variables.csv"
+
+      version:
+        type: character
+        required: false
+        pattern: "semantic_version"
+        description: "Configuration version (e.g., 2.0.0)"
+
+      last_updated:
+        type: date
+        required: false
+        format: "YYYY-MM-DD"
+        description: "Date last modified"
+
+      notes:
+        type: character
+        required: false
+        description: "Documentation and implementation notes"
+
+      seed:
+        type: integer
+        required: false
+        description: "Random seed for reproducibility (variable-level)"
+
+    special_variables:
+      metadata_variables:
+        description: >
+          Variables with role="metadata" store study-level parameters and are
+          NOT generated as columns in the dataset. Instead, they are extracted
+          by get_study_metadata() and used to control generation.
+
+        common_metadata_variables:
+          - study_name (character)
+          - study_design (character: open_cohort, fixed_followup)
+          - accrual_start (date)
+          - accrual_end (date)
+          - max_followup_date (date)
+          - sample_size (integer)
+
+        storage:
+          variable: "Variable name (e.g., study_name)"
+          role: "metadata"
+          variableType: "character, date, or integer"
+          labelLong: "Stored value as string"
+
+      survival_variables:
+        description: >
+          Variables with variableType="survival" generate TWO columns in the
+          dataset: the event date column ({variable}) and a status indicator
+          column ({variable}_status). Status = 1 for observed events, 0 for censored.
+
+        generated_columns:
+          event_date: "{variable} (e.g., death_date)"
+          status: "{variable}_status (e.g., death_date_status)"
+
+    validation:
+      - "uid column must be unique (no duplicates)"
+      - "variable column must be unique (no duplicates)"
+      - "role must contain at least one value"
+      - "variableType must be one of allowed_values"
+      - "position must be positive integer"
+      - "If role contains 'metadata', variable stores study-level parameter"
+
+  mock_data_config_details:
+    target_csv: inst/extdata/mock_data_config_details.csv
+    generator_script: inst/extdata/generate_mock_data_config_details.R
+
+    purpose: >
+      Distribution parameters and proportions for mock data generation.
+      Multiple rows per variable, one row per category or parameter
+      specification. Supports category-specific proportions, distribution
+      parameters, and contamination specifications.
+
+    structure: long_format
+    row_type: multiple_per_variable
+
+    relationship_to_config: >
+      Foreign key (uid) links to mock_data_config.csv via uid. All uids
+      in details MUST exist in config. Variables in config without detail
+      rows fall back to uniform distributions.
+
+    columns:
+      uid:
+        type: character
+        required: true
+        foreign_key: mock_data_config.uid
+        description: >
+          Links to mock_data_config.csv via uid (variable-level). Stable across
+          variable name changes. Each detail row belongs to a variable defined
+          in config. All detail rows for the same variable share the same uid.
+        pattern: "^v_[a-z0-9_]+$"
+        examples:
+          - "v_001"
+          - "v_age_baseline"
+
+      uid_detail:
+        type: character
+        required: true
+        unique: true
+        description: >
+          Unique identifier for this specific detail row (row-level). Each row
+          in mock_data_config_details.csv gets its own uid_detail for precise
+          tracking and reference. Format: d_ + sequential number.
+        pattern: "^d_[0-9]+$"
+        examples:
+          - "d_001"
+          - "d_002"
+          - "d_003"
+
+      variable:
+        type: character
+        required: true
+        description: >
+          Variable name for reference (denormalized from config for
+          readability). Primary link is via uid, but variable name included
+          to make details file human-readable.
+
+      dummyVariable:
+        type: character
+        required: false
+        description: >
+          Dummy variable identifier from recodeflow variable_details.csv.
+          Used to track the specific category/parameter specification from
+          the source metadata. Typically follows pattern: {variable}_{type}_{value}.
+        examples:
+          - "ADL_01_cat2_1"
+          - "ADL_01_cat2_2"
+          - "ADL_01_cat2_NA::a"
+          - "BMI_cont_valid"
+
+      recEnd:
+        type: character
+        required: true
+        description: >
+          Category value or parameter name. See shared_specifications.recEnd_standardized_values
+          for complete listing organized by variable type.
+
+      catLabel:
+        type: character
+        required: false
+        description: "Short category label (≤20 characters)"
+
+      catLabelLong:
+        type: character
+        required: false
+        description: >
+          Long category label for documentation. When importing from recodeflow
+          variable_details.csv, this is copied from the catLabelLong field.
+          Can be left empty and populated later with table1 metadata.
+
+      units:
+        type: character
+        required: false
+        description: >
+          Measurement units for this specific parameter. May differ from the
+          variable-level units in mock_data_config.csv for continuous variables
+          with different parameter specifications.
+
+      proportion:
+        type: numeric
+        required: false
+        range: [0, 1]
+        description: >
+          Proportion for this category (0-1). Population proportions
+          (valid + missing) must sum to 1.0. Contamination proportions
+          (corrupt_*) are separate and applied after population generation.
+
+      value:
+        type: numeric
+        required: false
+        description: "Numeric parameter value (for mean, sd, rate, shape, etc.)"
+
+      range_min:
+        type: numeric
+        required: false
+        description: "Minimum value for range (continuous, integer, contamination)"
+
+      range_max:
+        type: numeric
+        required: false
+        description: "Maximum value for range (continuous, integer, contamination)"
+
+      date_start:
+        type: date
+        required: false
+        format: "YYYY-MM-DD"
+        description: "Start date for date ranges"
+
+      date_end:
+        type: date
+        required: false
+        format: "YYYY-MM-DD"
+        description: "End date for date ranges"
+
+      notes:
+        type: character
+        required: false
+        description: "Implementation notes for this parameter"
+
+    validation:
+      - "All uids must exist in mock_data_config.csv"
+      - "All uid_detail values must be unique (no duplicates)"
+      - "Proportion values must be in range [0, 1]"
+      - "Population proportions (valid + missing) sum to 1.0 ±0.001"
+      - "Contamination proportions (corrupt_*) excluded from sum"
+      - "Auto-normalize proportions with warning if sum ≠ 1.0"
+      - "Required parameters present for each distribution type"
+      - "range_min < range_max (if both specified)"
+      - "date_start < date_end (if both specified)"
+
+  mock_data_catalog:
+    target_csv: "inst/examples/demport/mock_cchs*.csv"
+
+    purpose: >
+      Schema for the actual generated mock data files (the output CSV files).
+      These are the mock datasets created by MockData, cataloged in
+      datasets_catalog.yaml. Each file contains one row per participant with
+      all generated variables as columns.
+
+    structure: wide_format
+    row_type: one_per_participant
+
+    relationship_to_config: >
+      Generated from mock_data_config.csv and mock_data_config_details.csv.
+      Each column in the output corresponds to a variable defined in config.
+      Only variables with role="enabled" are included by default.
+
+    required_columns:
+      uid:
+        type: character
+        required: true
+        unique: true
+        description: >
+          Unique identifier for each participant. Format: dataset_id +
+          sequential number (e.g., "cchs2015_00001", "chms3_00001").
+          Allows linking across multiple generated files and tracking
+          individual records.
+        pattern: "^[a-z0-9_]+_[0-9]{5,}$"
+        examples:
+          - "cchs2015_00001"
+          - "chms3_00042"
+          - "demport_10234"
+
+    variable_columns:
+      description: >
+        All other columns are generated variables from mock_data_config.csv.
+        Column names match the 'variable' field from config. Data types and
+        values follow the specifications in mock_data_config_details.csv.
+
+      categorical_variables:
+        type: numeric
+        description: >
+          Categorical variables are numeric codes (1, 2, 3, ...) plus
+          missing codes (7="Don't know", 8="Refusal", 9="Not stated" or
+          other configured codes).
+
+      continuous_variables:
+        type: numeric
+        description: >
+          Continuous variables are numeric values within specified ranges,
+          plus missing codes (7, 8, 9) and potentially contaminated values
+          (implausible but numeric).
+
+      date_variables:
+        type: character
+        format: "YYYY-MM-DD"
+        description: >
+          Date variables in ISO 8601 format, plus missing code 9 for
+          "Not stated" dates.
+
+      survival_variables:
+        type: numeric
+        description: >
+          Time-to-event in days, possibly censored. Missing code 9 for
+          "Not stated".
+
+      character_variables:
+        type: character
+        description: >
+          Free text or categorical text values. Rarely used in mock data.
+
+    validation:
+      - "uid column present and unique"
+      - "No duplicate UIDs within dataset"
+      - "All variable columns correspond to enabled variables in config"
+      - "Categorical variables contain only specified categories + missing codes"
+      - "Continuous variables respect range constraints (except contamination)"
+      - "Date variables in YYYY-MM-DD format"
+      - "No NA values (use numeric missing codes instead)"
+
+# Workflow integration
+
+workflow:
+
+  generation_process:
+    step1:
+      action: "Read configuration files"
+      functions:
+        - read_mock_data_config(config_path)
+        - read_mock_data_config_details(details_path)
+      validation: "Automatic validation on read (validate = TRUE)"
+
+    step2:
+      action: "Extract study metadata"
+      function: get_study_metadata(config)
+      notes: "Extract rows where role contains 'metadata'"
+
+    step3:
+      action: "Generate variables in position order"
+      function: generate_from_config(config_path, details_path, n)
+      notes: "Loop through enabled variables, call type-specific generators"
+
+    step4:
+      action: "Type-specific generation"
+      functions:
+        - generate_categorical_variable(df_mock, var_row, n, details)
+        - generate_continuous_variable(df_mock, var_row, n, details)
+        - generate_survival_variable(df_mock, var_row, n, details)
+        - generate_date_variable(df_mock, var_row, n, details)
+        - generate_integer_variable(df_mock, var_row, n, details)
+        - generate_character_variable(df_mock, var_row, n, details)
+      notes: "Details parameter passed to access proportions and parameters"
+
+    step5:
+      action: "Return complete dataset"
+      output: "data.frame with all enabled variables"
+
+  contamination_workflow:
+    population_generation:
+      description: >
+        Step 1: Generate from population distribution. Extract valid and
+        missing proportions (must sum to 1.0). Sample category assignment,
+        generate numeric values for valid category, assign raw codes (7, 8, 9)
+        to missing categories.
+
+    contamination_application:
+      description: >
+        Step 2: Apply contamination. Extract corrupt_* proportions. Identify
+        valid indices. Sample from valid to corrupt. Replace with values from
+        contamination ranges. Ensure no overlap (use setdiff for sequential).
+
+    final_distribution:
+      example: >
+        Population: 95% valid + 3% DK + 2% NS = 100%
+        Contamination: 2% corrupt_low + 1% corrupt_high (of valid)
+        Final: ~93% valid, ~2% corrupt_low, ~1% corrupt_high, 3% DK, 2% NS
+
+# Versioning and compatibility
+
+versioning:
+  current_version: "0.2.0"
+  previous_version: "0.1.0 (study_config_unified format)"
+  breaking_changes:
+    - "Separated variable definitions from distribution details (two files)"
+    - "Multi-valued comma-separated roles (replaced boolean enabled)"
+    - "Raw missing codes (configurable, e.g. 7, 8, 9) instead of NA"
+    - "Contamination model (corrupt_* rows)"
+    - "Added uid columns for stable variable identifiers"
+
+  migration_from_v01:
+    status: "Not supported (clean break)"
+    notes: >
+      v0.1 (study_config_unified) has been deprecated and removed.
+      No migration path provided. Users must create new v0.2 configurations
+      from scratch using generator scripts.
+
+# Source of truth and synchronization
+
+source_of_truth:
+  standalone_mode:
+    version: "0.2.0 (current)"
+    description: >
+      MockData configuration files (mock_data_config.csv + mock_data_config_details.csv)
+      are the source of truth. Users create these files manually or using generator
+      scripts. Good for custom mock data and testing-specific scenarios.
+
+  import_mode:
+    version: "0.3.0+ (planned)"
+    description: >
+      MockData can import metadata from recodeflow packages (cchsflow, chmsflow, etc.)
+      and convert to mock_data_config format. The recodeflow metadata becomes the
+      source of truth, with MockData configurations derived from it.
+
+    planned_features:
+      - "import_from_cchsflow() - Convert cchsflow variables.csv to mock_data_config.csv"
+      - "import_from_chmsflow() - Convert chmsflow variables.csv to mock_data_config.csv"
+      - "sync_with_source() - Check for updates in source metadata and re-import"
+      - "Track source and version in config (source='cchsflow', version='2.1.0')"
+
+    synchronization_strategy:
+      - "Source metadata (cchsflow) tracks variable definitions"
+      - "MockData adds generation-specific parameters (proportions, contamination)"
+      - "Periodic sync checks for variable additions/removals in source"
+      - "User can override imported parameters for testing needs"
+
+  future_considerations:
+    note: >
+      Recodeflow universe metadata may require refactoring to support bidirectional
+      synchronization. This is acceptable and will be coordinated across packages.
+
+# References and alignment
+
+alignment:
+  recodeflow:
+    file_structure: "catalog.yaml + config.csv + config_details.csv"
+    metadata_columns: "role, section, subject, labelLong, position"
+    details_pattern: "recEnd column for parameter names"
+    folder_structure: "inst/metadata/schemas/ for YAML, inst/extdata/ for CSV"
+
+  cchsflow:
+    pattern: "variables.csv + variable_details.csv structure"
+    example_files:
+      - inst/extdata/variables.csv
+      - inst/extdata/variable_details.csv
+
+  health_surveys:
+    raw_codes: "7, 8, 9 (Canadian health survey standards)"
+    target_surveys: [CCHS, CHMS, DemPoRT, HUIPoRT, HTNPoRT]
+
+# Dataset catalog integration (Dublin Core metadata schema)
+
+dataset_catalog:
+  purpose: >
+    MockData is a LIBRARY for generating mock data, not a repository of datasets.
+    Generated datasets are cataloged using Dublin Core metadata aligned with
+    recodeflow patterns. This section defines the schema for cataloging
+    MockData-generated datasets.
+
+  catalog_structure:
+    description: >
+      Dataset catalog follows Dublin Core metadata standards for describing
+      mock datasets. Each catalog entry describes a specific mock dataset
+      (e.g., "CCHS 2015-2016 mock") with source survey information, generation
+      parameters, and file locations.
+
+    alignment: >
+      Follows recodeflow pbc_metadata.yaml pattern. Future integration will
+      register MockData datasets in recodeflow's unified dataset registry.
+
+  dataset_type_classification:
+    mock_data:
+      description: "Synthetic data generated by MockData for testing"
+      purpose: "Testing harmonization workflows, package development, education"
+      characteristics:
+        - Realistic distributions matching source surveys
+        - Configurable contamination for data quality testing
+        - Reproducible with seed control
+
+    development_data:
+      description: "Real data subsets for development environments"
+      purpose: "Algorithm development, code testing"
+
+    production_data:
+      description: "Full datasets for analysis"
+      purpose: "Research outputs, publications"
+
+  catalog_metadata_fields:
+    title:
+      description: "Dataset title"
+      required: true
+      example: "CCHS 2001 Iteration Mock Dataset"
+
+    source_survey:
+      description: "Source survey information"
+      required: true
+      fields:
+        name:
+          description: "Full survey name"
+          example: "Canadian Community Health Survey (CCHS)"
+        cycle:
+          description: "Survey cycle or year"
+          example: "2001"
+        iteration:
+          description: "Iteration type (i=iteration, p=provincial, s=special)"
+          example: "i"
+        abbreviation:
+          description: "Short survey identifier"
+          example: "CCHS 2001"
+
+    description:
+      description: "Detailed description of the dataset"
+      required: true
+      example: >
+        Mock data generated to replicate the structure and distributions of
+        CCHS 2001 iteration. Used for testing cchsflow harmonisation workflows
+        and recodeflow transformations.
+
+    creator:
+      description: "Dataset creators and affiliations"
+      required: true
+      type: "list"
+      fields:
+        name:
+          description: "Creator name"
+          example: "Big Life Lab"
+        affiliation:
+          description: "Institutional affiliation"
+          example: "University of Ottawa"
+
+    date:
+      description: "Temporal information"
+      required: true
+      fields:
+        issued:
+          description: "Date dataset was generated"
+          format: "YYYY-MM-DD"
+          example: "2025-11-01"
+        coverage:
+          description: "Time period covered by source data"
+          example: "2001"
+
+    subject:
+      description: "Keywords and topics"
+      required: false
+      type: "list"
+      examples:
+        - "Canadian Community Health Survey"
+        - "health survey"
+        - "mock data"
+        - "testing data"
+
+    type:
+      description: "Resource type"
+      required: true
+      allowed_values: ["Mock Dataset", "Development Dataset", "Production Dataset"]
+      example: "Mock Dataset"
+
+    format:
+      description: "File format"
+      required: true
+      example: "CSV"
+
+    file_location:
+      description: "Path to dataset file (relative to package root)"
+      required: true
+      example: "inst/examples/demport/mock_cchs2001_i.csv"
+
+    identifier:
+      description: "Unique identifiers for the dataset"
+      required: true
+      type: "list"
+      fields:
+        type:
+          description: "Identifier type"
+          example: "dataset_id"
+        value:
+          description: "Identifier value"
+          example: "cchs_2001_i"
+
+    relation:
+      description: "Relationships to other resources"
+      required: false
+      type: "list"
+      fields:
+        type:
+          description: "Relationship type (Dublin Core)"
+          allowed_values: ["IsPartOf", "IsDerivedFrom", "Requires", "References"]
+        identifier:
+          description: "Related resource identifier"
+
+    rights:
+      description: "Usage rights and license"
+      required: true
+      example: "Open Source"
+
+    technical_details:
+      description: "MockData-specific technical information"
+      required: false
+      fields:
+        n_rows:
+          description: "Number of rows (or 'variable' if configurable)"
+          example: "variable"
+        generation_method:
+          description: "Generation approach"
+          example: "metadata-driven"
+        metadata_source:
+          description: "Source metadata files"
+          example: "cchsflow variables.csv and variable_details.csv"
+        contamination_model:
+          description: "Data quality model used"
+          example: "two-step (distribution + corruption)"
+        reproducible:
+          description: "Whether generation is reproducible"
+          type: "boolean"
+          example: true
+
+  catalog_storage:
+    mockdata_examples:
+      description: "Minimal example datasets included in MockData package"
+      location: "inst/examples/"
+      purpose: "Vignettes, testing, demonstration"
+      scope: "Small illustrative examples only"
+      catalog_format: "Embedded in mock_data_schema.yaml"
+
+    recodeflow_registry:
+      description: "Comprehensive dataset catalog (planned v0.3+)"
+      location: "recodeflow package dataset registry"
+      purpose: "Unified discovery of all datasets in ecosystem"
+      scope: "Mock, development, and production datasets"
+      status: "Future integration"
+      catalog_format: "Separate YAML following Dublin Core standards"
+
+  example_catalog_entry:
+    note: >
+      Example of a complete Dublin Core catalog entry for a MockData-generated
+      dataset. This demonstrates the schema structure.
+
+    dataset_id: "cchs_2001_i_mock"
+    dataset_type: "mock_data"
+
+    title: "CCHS 2001 Iteration Mock Dataset"
+
+    source_survey:
+      name: "Canadian Community Health Survey (CCHS)"
+      cycle: "2001"
+      iteration: "i"
+      abbreviation: "CCHS 2001"
+
+    description: >
+      Mock data generated to replicate the structure and distributions of
+      CCHS 2001 iteration. Used for testing cchsflow harmonisation workflows
+      and recodeflow transformations.
+
+    creator:
+      - name: "Big Life Lab"
+        affiliation: "University of Ottawa"
+
+    date:
+      issued: "2025-11-01"
+      coverage: "2001"
+
+    subject:
+      - "Canadian Community Health Survey"
+      - "health survey"
+      - "mock data"
+      - "testing data"
+
+    type: "Mock Dataset"
+
+    format: "CSV"
+
+    file_location: "inst/examples/demport/mock_cchs2001_i.csv"
+
+    identifier:
+      - type: "dataset_id"
+        value: "cchs_2001_i"
+
+    relation:
+      - type: "IsPartOf"
+        identifier: "MockData"
+      - type: "IsDerivedFrom"
+        identifier: "cchsflow"
+
+    rights: "Open Source"
+
+    technical_details:
+      n_rows: "variable"
+      generation_method: "metadata-driven"
+      metadata_source: "cchsflow variables.csv and variable_details.csv"
+      contamination_model: "two-step (distribution + corruption)"
+      reproducible: true
+
+  usage_notes: >
+    MockData focuses on GENERATION capabilities, not dataset storage.
+    Users generate their own mock datasets as needed. Minimal examples
+    are included for demonstration only. Future integration with recodeflow
+    dataset registry will provide comprehensive cataloging across the ecosystem.
+
+# Package information
+
+package:
+  name: MockData
+  version: 0.2.0
+  repository: https://github.com/Big-Life-Lab/mock-data
+  documentation: https://big-life-lab.github.io/mock-data
+
+  key_functions:
+    - read_mock_data_config()
+    - read_mock_data_config_details()
+    - validate_mock_data_config()
+    - validate_mock_data_config_details()
+    - generate_from_config()
+    - get_study_metadata()
+    - get_enabled_variables()
+    - get_variables_by_role()
+
+# Status and maintenance
+
+schema_status:
+  status: active
+  created: 2025-11-01
+  last_updated: 2025-11-01
+  maintainer: Big Life Lab
+  review_frequency: annual
+
+  changelog:
+    0.2.0:
+      date: 2025-11-01
+      changes:
+        - Consolidated all schema specifications into single file
+        - Merged standalone mock_data_config.yaml and mock_data_config_details.yaml
+        - Integrated datasets_catalog.yaml schema (Dublin Core metadata fields)
+        - Added comprehensive recEnd_standardized_values documentation
+        - Enhanced contamination_model specifications with step-by-step examples
+        - Expanded role_patterns with complete taxonomy
+        - Added special_variables documentation (metadata, survival)
+        - Added dataset_catalog integration section with recodeflow registry reference
+        - Removed verbose code examples (belong in vignettes)
+        - Removed harmonized data priority rules (not applicable to raw mock data)
+        - Made missing codes dataset-agnostic (examples of common patterns, not prescriptive)
+        - Clarified categorical categories can be numeric, character, or mixed values
+        - Single source of truth for all MockData configuration structure

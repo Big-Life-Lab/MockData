@@ -1,94 +1,140 @@
-# MockData 0.2.0 (Development)
+# MockData 0.2.0
 
-## Major Changes
+## Major changes
 
-### New Features
+### New configuration format (v0.2)
 
-* **Full recodeflow schema notation support** (#package-repatriation)
-  - Added `parse_variable_start()` to handle all variableStart notation formats
-  - Added `parse_range_notation()` to parse recStart/recFrom value ranges
-  - Support for database-prefixed format: `cycle1::var1, cycle2::var2`
-  - Support for bracket format: `[varname]`
-  - Support for mixed format: `cycle1::var1, [var2]` (DEFAULT pattern)
-  - Support for range notation: `[7,9]`, `[18.5,25)`, `(0,100]`, `[30,inf)`
-  - Support for special values: `copy`, `else`, `NA::a`
+- **Breaking change**: New configuration schema with `uid`/`uid_detail` system
+- Replaces v0.1 `cat`/`catLabel` columns with unified metadata structure
+- Adds `rType` field for explicit R type coercion (factor, integer, double, Date)
+- Adds `proportion` field for direct distribution control
+- Adds date-specific fields: `date_start`, `date_end`, `distribution`
 
-* **Helper functions for metadata extraction**
-  - `get_cycle_variables()`: Filter metadata by cycle
-  - `get_raw_variables()`: Get unique raw variables to generate
-  - `get_variable_details_for_raw()`: Retrieve category specifications
-  - `get_variable_categories()`: Extract valid category codes
+**Backward compatibility**: v0.1 format still supported via dual interface. Both formats work side-by-side.
 
-* **Three comprehensive vignettes**
-  - CCHS example workflow
-  - CHMS example workflow
-  - DemPoRT example workflow
+### Date variable generation
 
-### Package Infrastructure
+- New `create_date_var()` function for date variables
+- Multiple distribution options: uniform, gompertz, exponential
+- Support for survival analysis patterns
+- SAS date format parsing
+- Three source formats: analysis (R Date), csv (ISO strings), sas (numeric)
 
-* Converted to proper R package structure
-  - Added DESCRIPTION, NAMESPACE, LICENSE
-  - Generated documentation for all exported functions
-  - Added 224 comprehensive tests (100% passing)
-  - Created proper package-level documentation
+### Survival analysis support
 
-* **Reorganized data files**
-  - `inst/extdata/`: Example metadata worksheets by survey (CCHS, CHMS, DemPoRT)
-  - `inst/examples/`: Generated mock data examples
-  - `inst/metadata/`: Recodeflow schema documentation
+- New `create_survival_dates()` function for cohort studies
+- Generates paired entry and event dates with guaranteed temporal ordering
+- Supports censoring and multiple event distributions
+- **Note**: Must be called manually (not compatible with `create_mock_data()` batch generation)
 
-* **Validation tools** moved to `mockdata-tools/` at package root
-  - `validate-metadata.R`: Check metadata quality
-  - `test-all-cycles.R`: Test coverage across cycles
-  - `create-comparison.R`: Compare generation approaches
+### Data quality testing (garbage data)
 
-### Refactoring
+- New `prop_invalid` parameter across all generators
+- Generates intentionally invalid data for testing validation pipelines
+- Supports garbage types: `corrupt_future`, `corrupt_past`, `corrupt_range`
+- Critical for testing data cleaning workflows
 
-* Split generator functions into dedicated files
-  - `create_cat_var()` → `R/create_cat_var.R`
-  - `create_con_var()` → `R/create_con_var.R`
-  - Removed `R/mockdata-generators.R`
-  - **Original logic preserved** - only reorganized for maintainability
+### Batch generation
 
-* Standardized file naming conventions
-  - Consistent use of underscores in inst/extdata/
-  - Removed spaces from filenames
+- New `create_mock_data()` function for batch generation from CSV configuration
+- New `read_mock_data_config()` and `read_mock_data_config_details()` readers
+- Processes multiple variables in single call
+- Fallback mode when details not provided
 
-### Terminology
+### Type coercion
 
-* Deprecated "PHIAT-YLL" terminology in favour of "CCHS"
-  - PHIAT-YLL is a project using CCHS data, not a distinct survey type
-  - Renamed files: `phiatyll_variables.csv` → `cchs_variables.csv`
-  - Updated all documentation and examples
+- Explicit `rType` field controls R type conversion
+- Proper factor handling with levels
+- Integer vs double distinction for age/count variables
+- Makes generated data match real survey data types
 
-### Testing & Validation
+## New functions
 
-* 224 tests covering parsers, helpers, and generators
-* 99.4% coverage across all CHMS cycles
-* Battle-tested on Rafidul's chmsflow repository
+- `create_date_var()` - Date variable generation
+- `create_survival_dates()` - Paired survival dates with temporal ordering
+- `create_mock_data()` - Batch generation orchestrator
+- `read_mock_data_config()` - Configuration file reader
+- `read_mock_data_config_details()` - Details file reader
+- `determine_proportions()` - Unified proportion determination
+- `import_from_recodeflow()` - Helper to adapt recodeflow metadata
 
-## Bug Fixes
+## Function updates
 
-* Fixed stats package imports (rnorm, runif) to eliminate R CMD check NOTEs
-* Removed unused stringr dependency from Imports (moved to Suggests)
+- `create_cat_var()`: Add rType support, proportion parameter, uid-based filtering
+- `create_con_var()`: Add rType support, proportion parameter for missing codes
+- Consolidate helpers in `mockdata_helpers.R`, `config_helpers.R`, `scalar_helpers.R`
 
 ## Documentation
 
-* Updated README.md with current package structure
-* All vignettes use proper `system.file()` paths
-* Added package-level documentation (`?MockData`)
-* Consistent authorship attribution across all vignettes
+### New vignettes
+
+- `getting-started.qmd` - Comprehensive introduction
+- `tutorial-dates.qmd` - Date configuration patterns
+- `tutorial-config-files.qmd` - Batch generation workflow
+- `reference-config.qmd` - Complete v0.2 schema documentation
+- `advanced-topics.qmd` - Technical implementation details
+
+### Updated vignettes
+
+- `cchs-example.qmd` - Modernized to v0.2 with inline R
+- `chms-example.qmd` - Modernized to v0.2 with inline R
+- `demport-example.qmd` - Modernized to v0.2 with inline R
+- `dates.qmd` - Aligned with v0.2 date configuration
+- All vignettes use modern inline R approach
+
+### Metadata updates
+
+- `mock_data_schema.yaml` - LinkML-style schema documentation (1,222 lines)
+- `metadata_registry.yaml` - Document v0.2 format
+- Renamed CCHS/CHMS sample files for consistency
+- Updated DemPoRT metadata with v0.2 format
+- Removed deprecated ICES metadata (moved to recodeflow)
+
+## Package infrastructure
+
+- Added `_pkgdown.yml` for documentation website
+- Updated NAMESPACE with new imports (stats::rexp, utils::read.csv, etc.)
+- Updated DESCRIPTION with new dependencies
+
+## Breaking changes
+
+**Configuration format changes:**
+- Variable details now require `uid` and `uid_detail` columns
+- `rType` field required for proper type coercion
+- New date fields: `date_start`, `date_end`, `distribution`
+
+**Migration path:**
+- v0.1 format still works (backward compatibility maintained)
+- Dual interface auto-detects format based on parameters
+- v0.2 recommended for new projects
+
+**Deprecation timeline:**
+- v0.2.0 (current): Both formats supported
+- v0.3.0 (planned 2026-Q1): Deprecation warnings for v0.1
+- v0.4.0 (planned 2026-Q3): v0.1 format removed
+
+**File changes:**
+- Renamed `R/mockdata-helpers.R` → `R/mockdata_helpers.R`
+- ICES metadata removed (maintained in recodeflow package)
+
+## Bug fixes
+
+- Fixed 'else' handling in `recEnd` rules (issue #5)
+- Fixed create_survival_dates() compatibility with create_mock_data()
+- Fixed Roxygen documentation link syntax errors
+
+## Known issues
+
+- Survival variable type must be generated manually with `create_survival_dates()`
+- Cannot be used in `create_mock_data()` batch generation (requires paired variables)
+
+## Supersedes
+
+- PR #5 (issue-5-fix-else): 'else' handling fix included
+- Incorporates CHMS updates from documentation-restructure branch
 
 ---
 
-# MockData 0.1.0 (Initial Development)
+# MockData 0.1.0
 
-## Initial Features
-
-* Basic categorical variable generation (`create_cat_var()`)
-* Basic continuous variable generation (`create_con_var()`)
-* Support for tagged NA values
-* Reproducible generation with seeds
-* Example data from DemPoRT project
-
-**Note**: Version 0.1.0 was Juan Li's original development version before package formalization.
+Initial release with basic categorical and continuous variable generation.

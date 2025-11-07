@@ -1,0 +1,4 @@
+"uid","variable","role","label","labelLong","section","subject","variableType","units","position","source_database","source_spec","version","last_updated","notes","seed"
+"v_003","index_date","enabled","Index date","Cohort entry date","Study design","Dates","date","YYYY-MM-DD",5,"cchs2001_p","variables_cchsflow_sample.csv",,"2025-11-01","Entry date for cohort, uniformly distributed between start and end dates",
+"v_001","ADL_01","enabled, intermediate, outcome_sec, table1_master","Help preparing meals","Needs help - preparing meals","Health status","ADL","Categorical","N/A",10,"cchs2001_p","variables_cchsflow_sample.csv",,"2025-11-01","",
+"v_009","ALW_2A1","enabled, intermediate","DailyConsumptionSunday","Number of drinks on Sunday","Health behaviour","Alcohol","Continuous","drinks",90,"cchs2001_p","variables_cchsflow_sample.csv",,"2025-11-01","",

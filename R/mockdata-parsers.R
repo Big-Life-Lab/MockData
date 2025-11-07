@@ -11,8 +11,8 @@
 #'
 #' This function parses the `variableStart` field from variable_details metadata
 #' and extracts the raw variable name for a specific database/cycle. It supports
-#' recodeflow-standard formats: database-prefixed ("database::varname"),
-#' bracket ("[varname]"), mixed, and plain formats.
+#' recodeflow-standard formats: database-prefixed (`"database::varname"`),
+#' bracket (`"[varname]"`), mixed, and plain formats.
 #'
 #' @param variable_start Character string from variableStart field. Can contain
 #'   multiple database specifications separated by commas (e.g., "cycle1::age, cycle2::AGE").
@@ -23,13 +23,13 @@
 #' @details
 #' The function implements recodeflow-standard parsing strategies:
 #' \enumerate{
-#'   \item Database-prefixed format: "database::varname" - for database-specific names
-#'   \item Bracket format (whole string): "[varname]" - for database-agnostic names
-#'   \item Bracket format (segment): "database1::var1, [var2]" - [var2] is DEFAULT for other databases
-#'   \item Plain format: "varname" - uses value as-is
+#'   \item Database-prefixed format: `"database::varname"` - for database-specific names
+#'   \item Bracket format (whole string): `"[varname]"` - for database-agnostic names
+#'   \item Bracket format (segment): `"database1::var1, [var2]"` - `[var2]` is DEFAULT for other databases
+#'   \item Plain format: `"varname"` - uses value as-is
 #' }
 #'
-#' **Important**: [variable] represents the DEFAULT for all databases not explicitly
+#' **Important**: `[variable]` represents the DEFAULT for all databases not explicitly
 #' referenced with database:: notation. This reduces repetition when only one or a
 #' few databases use different variable names.
 #'
@@ -56,6 +56,7 @@
 #' parse_variable_start("cycle2::age", "cycle1")
 #' # Returns: NULL
 #'
+#' @family parsing-utilities
 #' @export
 parse_variable_start <- function(variable_start, cycle) {
   # Basic validation
@@ -170,6 +171,7 @@ parse_variable_start <- function(variable_start, cycle) {
 #' parse_range_notation("else")    # Returns: list(type="special", value="else")
 #'
 #' @note Adapted from cchsflow v4.0.0 (2025-07-27) - universal across recodeflow projects
+#' @family parsing-utilities
 #' @export
 parse_range_notation <- function(range_string, range_type = "auto", expand_integers = TRUE) {
   # Handle NULL, NA, or empty inputs

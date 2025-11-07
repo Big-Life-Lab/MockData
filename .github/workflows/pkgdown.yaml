@@ -1,0 +1,75 @@
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+name: pkgdown
+
+permissions:
+  contents: write
+
+jobs:
+  pkgdown:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Install roxygen2
+        run: Rscript -e "install.packages('roxygen2')"
+
+      - name: Generate documentation
+        run: Rscript -e "roxygen2::roxygenize()"
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::pkgdown, local::.
+          needs: website
+
+      - name: Test render single vignette
+        run: quarto render vignettes/getting-started.qmd --to html
+        continue-on-error: true
+
+      - name: Build pkgdown site
+        run: |
+          options(rlib_message_verbosity = "verbose")
+          pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE, quiet = FALSE)
+        shell: Rscript {0}
+
+      - name: Determine deployment path
+        id: deploy-path
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "target_path=." >> $GITHUB_OUTPUT
+            echo "Deploying to root (main branch)"
+          elif [[ "${{ github.ref }}" == "refs/heads/create-date-var" ]]; then
+            echo "target_path=dev" >> $GITHUB_OUTPUT
+            echo "Deploying to /dev (create-date-var branch)"
+          else
+            echo "target_path=preview/${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "Deploying to /preview/${{ github.ref_name }}"
+          fi
+
+      - name: Deploy to GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs
+          branch: gh-pages
+          target-folder: ${{ steps.deploy-path.outputs.target_path }}
+          clean: false
