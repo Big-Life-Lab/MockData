@@ -1,3 +1,5 @@
+^renv$
+^renv\.lock$
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^\.DS_Store$
@@ -8,3 +10,19 @@
 ^CODE_OF_CONDUCT\.md$
 ^CONTRIBUTING\.md$
 ^NEWS\.md$
+^\.tmp$
+^check_output.*\.txt$
+^R_CMD_CHECK_FIXES\.md$
+^CRITICAL_ISSUE_create_mock_data\.md$
+^PKGDOWN_FIX_SUMMARY\.md$
+^PKGDOWN_SETUP\.md$
+^SURVIVAL_SECTION_IMPLEMENTED\.md$
+^PR_REVIEW_STATUS\.md$
+^PR_REVIEW_RESPONSE\.md$
+^PR_DESCRIPTION_ADDENDUM\.md$
+^REVIEWER_QUICKSTART\.md$
+^LOCAL_TESTING_GUIDE\.md$
+^docs$
+^_pkgdown\.yml$
+^development$
+^\.claude$

@@ -1,0 +1,686 @@
+---
+title: "Generating datasets from configuration files"
+format: html
+vignette: >
+  %\VignetteIndexEntry{Generating datasets from configuration files}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+# Load package - works in both local dev and pkgdown build
+if (file.exists("../DESCRIPTION")) {
+  devtools::load_all("../", quiet = TRUE)
+} else {
+  library(MockData)
+}
+```
+
+<div style="padding: 1em; background-color: #e3f2fd; border-left: 4px solid #2196F3; margin-bottom: 1em;">
+**About this vignette:** This tutorial demonstrates the metadata-driven approach to batch mock data generation. All examples use executable code with real metadata files.
+</div>
+
+## Why configuration files?
+
+MockData takes a **metadata-driven approach** that differs from other synthetic data packages:
+
+**Most synthetic data packages**: Specify distributions directly in code
+
+```r
+# Typical approach in other packages
+synthetic_data <- generate_data(
+  age = normal(mean = 55, sd = 15),
+  smoking = categorical(probs = c(0.3, 0.5, 0.2))
+)
+```
+
+**MockData**: Define data structure in metadata files, reuse for both harmonization and mock data generation
+
+```r
+# MockData approach
+mock_data <- create_mock_data(
+  config_path = "variables.csv",
+  details_path = "variable_details.csv",
+  n = 1000
+)
+```
+
+**Benefits of the metadata-driven approach:**
+
+-   **Reuse existing recodeflow metadata** - No need to duplicate variable definitions
+-   **Single source of truth** - Variable structure defined once, used everywhere
+-   **Consistency with harmonization** - Mock data matches real data structure exactly
+-   **Easy to maintain** - Update metadata once, affects both harmonization and mock data
+-   **Version control friendly** - Metadata files work well with git
+
+**When to use configuration files:**
+
+-   Many variables to generate (5+)
+-   Existing recodeflow metadata from harmonization projects
+-   Need to match published descriptive statistics ("Table 1")
+-   Reproducible workflows with version-controlled metadata
+
+**Alternative approach**: For learning or working with just a few variables, see [Getting started](getting-started.html) for the variable-by-variable approach.
+
+## Setup
+
+```{r}
+#| warning: false
+#| message: false
+library(dplyr)
+library(MockData)
+```
+
+## Quick reference: Configuration columns
+
+This tutorial will show you how to use these columns step-by-step. Here's a quick reference for later:
+
+**Configuration file (`variables.csv`):**
+
+| Column | Required | Description | Examples |
+|--------|----------|-------------|----------|
+| `uid` | Yes | Unique identifier for variable definition | "smoking_v1", "age_v1" |
+| `variable` | Yes | Variable name (output column name) | "smoking", "age", "birth_date" |
+| `role` | Yes | "enabled" to generate; for dates use "baseline-date", "index-date" | "enabled", "baseline-date" |
+| `variableType` | Yes | "categorical" or "continuous" (dates use "continuous") | "categorical", "continuous" |
+| `variableLabel` | No | Human-readable description | "Smoking status", "Age in years" |
+| `position` | Yes | Generation order (1 = first, 2 = second, etc.) | 1, 2, 3 |
+
+**Details file (`variable_details.csv`):**
+
+| Column | Required | Description | Examples |
+|--------|----------|-------------|----------|
+| `uid` | Yes | Must match config uid | "smoking_v1" |
+| `uid_detail` | Yes | Unique identifier for this row | "smoking_v1_d1" |
+| `variable` | Yes | Must match config variable | "smoking" |
+| `recStart` | Yes | Input value or range | "1", "[18,100]", "[1950-01-01, 2000-12-31]" |
+| `recEnd` | Yes | Output transformation | "copy", "1", "999", "corrupt_high" |
+| `catLabel` | No | Short category label | "Daily smoker", "Missing" |
+| `catLabelLong` | No | Long category description | "Smokes daily" |
+| `proportion` | No | Proportion for this category (must sum to 1.0) | 0.28, 0.05 |
+| `rType` | No | R data type for output | "integer", "factor", "Date", "double" |
+
+**Common `recEnd` values:**
+
+- `"copy"` - Pass through value from recStart (use for ranges like "[18,100]")
+- Same as recStart - Output specific value (e.g., "1", "2", "999")
+- `"corrupt_high"` / `"corrupt_low"` - Generate garbage data in specified range
+- `"mean"` / `"sd"` - Specify normal distribution parameters (advanced)
+
+## Your first configuration file
+
+Let's start with the simplest possible example: a single categorical variable. This shows the basic pattern you'll use for all variables.
+
+### Step 1: Create config for one variable
+
+The configuration file lists which variables to generate:
+
+```{r}
+# Start with just smoking status
+config <- data.frame(
+  uid = "smoking_v1",
+  variable = "smoking",
+  role = "enabled",
+  variableType = "categorical",
+  variableLabel = "Smoking status",
+  position = 1,
+  stringsAsFactors = FALSE
+)
+```
+
+**Configuration table** (`r nrow(config)` row):
+
+```{r}
+#| echo: false
+knitr::kable(config)
+```
+
+**Key columns:**
+
+-   `uid`: Unique identifier for this variable definition
+-   `variable`: Variable name (becomes column name in output)
+-   `role`: Set to "enabled" to generate this variable (for dates, use role like "baseline-date")
+-   `variableType`: "categorical" or "continuous" (dates use "continuous" + role for recodeflow compatibility)
+-   `position`: Order in which variables are generated (1 = first, 2 = second, etc.)
+
+**Note on `stringsAsFactors = FALSE`:** This R parameter prevents automatic conversion of character columns to factors when creating data frames. Always set this to FALSE to preserve the exact data types you specify.
+
+### Step 2: Define the categories
+
+The details file specifies what values this variable can have:
+
+```{r}
+# Define the three categories
+details <- data.frame(
+  uid = c("smoking_v1", "smoking_v1", "smoking_v1"),
+  uid_detail = c("smoking_v1_d1", "smoking_v1_d2", "smoking_v1_d3"),
+  variable = c("smoking", "smoking", "smoking"),
+  recStart = c("1", "2", "3"),
+  recEnd = c("1", "2", "3"),
+  catLabel = c("Daily smoker", "Occasional smoker", "Never smoked"),
+  catLabelLong = c("Smokes daily", "Smokes occasionally", "Never smoked"),
+  stringsAsFactors = FALSE
+)
+```
+
+**Details table** (`r nrow(details)` rows):
+
+```{r}
+#| echo: false
+knitr::kable(details)
+```
+
+**Key columns:**
+
+-   `uid`: Must match the uid in config file
+-   `uid_detail`: Unique identifier for this detail row
+-   `variable`: Must match the variable name in config
+-   `recStart`: The input value or range
+    -   For categorical: Category codes like "1", "2", "3"
+    -   For continuous: Ranges like "[18, 100]" or missing codes like "999"
+    -   For dates: Date ranges like "[1950-01-01, 2000-12-31]"
+-   `recEnd`: The output transformation
+    -   "copy" = pass through the value from recStart
+    -   Same as recStart = output the specific value (e.g., "1", "999")
+    -   "corrupt_high" / "corrupt_low" = generate garbage data
+-   `catLabel`: Short label for this category
+-   `proportion`: Optional proportion for this category (must sum to 1.0 within each variable)
+-   `rType`: Optional R data type for output (e.g., "integer", "factor", "Date")
+
+### Step 3: Generate your first mock dataset
+
+```{r}
+# create_mock_data() reads CSV files, so we need to save our data.frames first
+temp_config <- tempfile(fileext = ".csv")
+temp_details <- tempfile(fileext = ".csv")
+write.csv(config, temp_config, row.names = FALSE)
+write.csv(details, temp_details, row.names = FALSE)
+
+# Generate 100 observations
+mock_data <- create_mock_data(
+  config_path = temp_config,    # Path to configuration CSV
+  details_path = temp_details,  # Path to variable details CSV
+  n = 100,                      # Number of observations to generate
+  seed = 123,                   # Random seed for reproducibility
+  verbose = FALSE               # Suppress progress messages
+)
+
+# Clean up temp files
+unlink(c(temp_config, temp_details))
+
+# View the data
+head(mock_data, 10)
+table(mock_data$smoking)
+```
+
+**`create_mock_data()` parameters:**
+
+-   `config_path`: Path to CSV file listing which variables to generate
+-   `details_path`: Path to CSV file specifying variable structure (categories, ranges, proportions)
+-   `n`: Number of observations (rows) to generate
+-   `seed`: Random seed for reproducibility - same seed always produces identical data
+-   `verbose`: Set to FALSE to suppress informational messages during generation (useful for cleaner output in reports)
+-   `validate`: Optional, defaults to TRUE - validates metadata before generation
+
+**What happened:**
+
+-   MockData read both files to understand the variable structure
+-   Generated 100 random values from {1, 2, 3} with uniform distribution
+-   Returned a data frame with one column: `smoking`
+
+## Controlling proportions: The "Table 1" use case
+
+Research papers typically include a "Table 1" with descriptive statistics. MockData lets you generate data that matches these published statistics.
+
+**Example scenario**: A paper reports smoking prevalence in their cohort:
+
+-   Daily smokers: 28%
+-   Occasional smokers: 18%
+-   Never smokers: 54%
+
+Let's generate mock data that matches these proportions:
+
+```{r}
+# Add proportion column to match published statistics
+details_with_props <- data.frame(
+  uid = c("smoking_v1", "smoking_v1", "smoking_v1"),
+  uid_detail = c("smoking_v1_d1", "smoking_v1_d2", "smoking_v1_d3"),
+  variable = c("smoking", "smoking", "smoking"),
+  recStart = c("1", "2", "3"),
+  recEnd = c("1", "2", "3"),
+  catLabel = c("Daily smoker", "Occasional smoker", "Never smoked"),
+  catLabelLong = c("Smokes daily", "Smokes occasionally", "Never smoked"),
+  proportion = c(0.28, 0.18, 0.54),  # Match published prevalence
+  stringsAsFactors = FALSE
+)
+
+# Save to temporary files
+temp_config <- tempfile(fileext = ".csv")
+temp_details <- tempfile(fileext = ".csv")
+write.csv(config, temp_config, row.names = FALSE)
+write.csv(details_with_props, temp_details, row.names = FALSE)
+
+# Generate data matching these proportions
+mock_data_table1 <- create_mock_data(
+  config_path = temp_config,
+  details_path = temp_details,
+  n = 1000,  # Larger sample for better proportion match
+  seed = 123,
+  verbose = FALSE
+)
+
+# Clean up
+unlink(c(temp_config, temp_details))
+
+# Verify proportions
+prop.table(table(mock_data_table1$smoking))
+```
+
+**Key insight:** Proportions must sum to 1.0 for each variable. MockData samples according to these proportions, making it easy to match published descriptive statistics.
+
+## Adding a second variable
+
+Now let's expand our config to include age alongside smoking:
+
+### Step 1: Update config file
+
+```{r}
+# Add age to config
+config_multi <- data.frame(
+  uid = c("smoking_v1", "age_v1"),
+  variable = c("smoking", "age"),
+  role = c("enabled", "enabled"),
+  variableType = c("categorical", "continuous"),
+  variableLabel = c("Smoking status", "Age in years"),
+  position = c(1, 2),
+  stringsAsFactors = FALSE
+)
+```
+
+**Multi-variable configuration** (`r nrow(config_multi)` rows):
+
+```{r}
+#| echo: false
+knitr::kable(config_multi)
+```
+
+### Step 2: Add age to details
+
+```{r}
+# Add age details (range + missing code)
+# Build smoking details first
+smoking_details <- data.frame(
+  uid = rep("smoking_v1", 3),
+  uid_detail = c("smoking_v1_d1", "smoking_v1_d2", "smoking_v1_d3"),
+  variable = rep("smoking", 3),
+  recStart = c("1", "2", "3"),
+  recEnd = c("1", "2", "3"),
+  catLabel = c("Daily smoker", "Occasional smoker", "Never smoked"),
+  catLabelLong = c("Smokes daily", "Smokes occasionally", "Never smoked"),
+  proportion = c(0.28, 0.18, 0.54),
+  rType = rep("factor", 3),
+  stringsAsFactors = FALSE
+)
+
+# Build age details
+age_details <- data.frame(
+  uid = rep("age_v1", 2),
+  uid_detail = c("age_v1_d1", "age_v1_d2"),
+  variable = rep("age", 2),
+  recStart = c("[18, 100]", "999"),
+  recEnd = c("copy", "999"),
+  catLabel = c("Age in years", "Missing"),
+  catLabelLong = c("Age in years", "Not stated"),
+  proportion = c(0.95, 0.05),
+  rType = rep("integer", 2),
+  stringsAsFactors = FALSE
+)
+
+# Combine
+details_multi <- rbind(smoking_details, age_details)
+```
+
+**Combined details table** (`r nrow(details_multi)` rows):
+
+```{r}
+#| echo: false
+knitr::kable(details_multi)
+```
+
+**Note**: Added `rType` column to specify output types (factor for smoking, integer for age).
+
+### Step 3: Generate multi-variable dataset
+
+```{r}
+# Save to temporary files
+temp_config <- tempfile(fileext = ".csv")
+temp_details <- tempfile(fileext = ".csv")
+write.csv(config_multi, temp_config, row.names = FALSE)
+write.csv(details_multi, temp_details, row.names = FALSE)
+
+# Generate 1000 observations
+mock_data_multi <- create_mock_data(
+  config_path = temp_config,
+  details_path = temp_details,
+  n = 1000,
+  seed = 123,
+  verbose = FALSE
+)
+
+# Clean up
+unlink(c(temp_config, temp_details))
+
+# View first 10 rows
+head(mock_data_multi, 10)
+```
+
+**What happened:**
+
+-   MockData generated 2 variables in one call
+-   `smoking`: Factor with 3 levels, distributed according to proportions
+-   `age`: Integer values between 18-100, with 5% missing (code 999)
+-   Both variables respect the specified `rType`
+
+### Step 4: Verify the results
+
+**Smoking distribution:**
+
+```{r}
+#| echo: false
+knitr::kable(as.data.frame(prop.table(table(mock_data_multi$smoking))),
+             col.names = c("Category", "Proportion"))
+```
+
+**Age summary:**
+
+```{r}
+#| echo: false
+age_summary <- summary(mock_data_multi$age)
+knitr::kable(data.frame(Statistic = names(age_summary), Value = as.numeric(age_summary)))
+```
+
+```{r}
+#| echo: false
+# Check data types
+smoking_class <- class(mock_data_multi$smoking)
+age_type <- typeof(mock_data_multi$age)
+
+# Check missing data
+smoking_na <- sum(is.na(mock_data_multi$smoking))
+age_missing <- sum(mock_data_multi$age == 999, na.rm = TRUE)
+```
+
+**Data types:**
+
+- Smoking: `r smoking_class`
+- Age: `r age_type`
+
+**Missing values:**
+
+- Smoking: `r smoking_na` / 1000
+- Age: `r age_missing` / 1000
+
+**Expected results:**
+
+-   Smoking: ~28% daily, ~18% occasional, ~54% never (close to specified proportions)
+-   Age: Integer values between 18-100, approximately 5% coded as 999
+-   Smoking is a factor, age is integer
+
+## Working with date variables
+
+Date variables follow a special pattern for compatibility with recodeflow metadata:
+
+-   `variableType = "continuous"` (dates are stored as numbers in recodeflow)
+-   `role` contains "date" (e.g., "index-date", "baseline-date")
+-   `rType = "Date"` in details (specifies R Date class)
+
+Let's add a birth date variable to our dataset:
+
+```{r}
+# Add birth_date to config
+config_with_date <- rbind(
+  config_multi,
+  data.frame(
+    uid = "birth_date_v1",
+    variable = "birth_date",
+    role = "baseline-date",  # Role identifies this as a date
+    variableType = "continuous",  # Dates are continuous in recodeflow
+    variableLabel = "Date of birth",
+    position = 3,
+    stringsAsFactors = FALSE
+  )
+)
+
+# Build date details
+date_details <- data.frame(
+  uid = rep("birth_date_v1", 1),
+  uid_detail = c("birth_date_v1_d1"),
+  variable = rep("birth_date", 1),
+  recStart = c("[1950-01-01, 2000-12-31]"),  # Date range
+  recEnd = c("copy"),
+  catLabel = c("Birth date"),
+  catLabelLong = c("Date of birth"),
+  proportion = c(1.0),
+  rType = rep("Date", 1),  # Output as R Date class
+  stringsAsFactors = FALSE
+)
+
+# Combine all details
+details_with_date <- rbind(details_multi, date_details)
+
+# Save and generate
+temp_config <- tempfile(fileext = ".csv")
+temp_details <- tempfile(fileext = ".csv")
+write.csv(config_with_date, temp_config, row.names = FALSE)
+write.csv(details_with_date, temp_details, row.names = FALSE)
+
+mock_data_with_date <- create_mock_data(
+  config_path = temp_config,
+  details_path = temp_details,
+  n = 100,
+  seed = 123,
+  verbose = FALSE
+)
+
+unlink(c(temp_config, temp_details))
+
+# View results
+head(mock_data_with_date, 10)
+```
+
+**What happened:**
+
+-   MockData detected the date variable by checking `role` for "date"
+-   Generated random dates between 1950-01-01 and 2000-12-31
+-   Applied `rType = "Date"` to return R Date objects (not numbers)
+
+```{r}
+#| echo: false
+# Verify date properties
+cols_list <- paste(names(mock_data_with_date), collapse = ", ")
+
+if ("birth_date" %in% names(mock_data_with_date)) {
+  date_class <- class(mock_data_with_date$birth_date)
+  date_min <- as.character(min(mock_data_with_date$birth_date))
+  date_max <- as.character(max(mock_data_with_date$birth_date))
+  has_birth_date <- TRUE
+} else {
+  has_birth_date <- FALSE
+}
+```
+
+**Verification:**
+
+- Columns: `r cols_list`
+- `r if(has_birth_date) paste0("Date class: ", date_class, ", Date range: ", date_min, " to ", date_max) else "Note: birth_date column not found in output"`
+
+**Key insight:** This pattern maintains compatibility with recodeflow (where dates are `variableType = "continuous"`) while allowing MockData to generate proper Date objects using `rType`.
+
+## Adding data quality issues (garbage data)
+
+Real datasets have garbage values (data entry errors, out-of-range values). MockData can simulate these for testing data validation pipelines.
+
+```{r}
+# Add garbage rows to details
+details_with_garbage <- rbind(
+  details_multi,
+  data.frame(
+    uid = "age_v1",
+    uid_detail = "age_v1_d3",
+    variable = "age",
+    recStart = "[200, 300]",
+    recEnd = "corrupt_high",
+    catLabel = "Data entry error",
+    catLabelLong = "Impossible age value",
+    proportion = 0.02,
+    rType = "integer",
+    stringsAsFactors = FALSE
+  )
+)
+
+# Note: proportions will be automatically normalized to sum to 1.0
+
+# Save to temporary files
+temp_config <- tempfile(fileext = ".csv")
+temp_details <- tempfile(fileext = ".csv")
+write.csv(config_multi, temp_config, row.names = FALSE)
+write.csv(details_with_garbage, temp_details, row.names = FALSE)
+
+# Regenerate with garbage
+mock_data_dirty <- create_mock_data(
+  config_path = temp_config,
+  details_path = temp_details,
+  n = 1000,
+  seed = 123,
+  verbose = FALSE
+)
+
+# Clean up
+unlink(c(temp_config, temp_details))
+
+# Find garbage values
+garbage_count <- sum(mock_data_dirty$age > 100 & mock_data_dirty$age < 999, na.rm = TRUE)
+example_garbage <- head(mock_data_dirty$age[mock_data_dirty$age > 100 & mock_data_dirty$age < 999], 5)
+```
+
+**Garbage data summary:**
+
+- Garbage values found: `r garbage_count` / 1000
+- Example garbage ages: `r paste(example_garbage, collapse = ", ")`
+
+**What happened:**
+
+-   Added `corrupt_high` specification with range [200, 300]
+-   MockData adjusted proportions so all rows sum to 1.0
+-   Generated ~2% garbage values for testing data cleaning pipelines
+
+**Common garbage types:**
+
+-   `corrupt_low`: Values below valid range
+-   `corrupt_high`: Values above valid range
+-   `corrupt_future`: Dates in the future (for date variables)
+-   `corrupt_past`: Dates too far in the past (for date variables)
+
+See [Garbage data documentation](cchs-example.html#garbage-data) for complete specifications.
+
+## Working with existing recodeflow metadata
+
+For real projects, you'll reuse existing harmonization metadata. MockData works with the same files used by recodeflow:
+
+```{r}
+# Load DemPoRT example configuration (from recodeflow)
+config_file <- system.file(
+  "extdata/demport/variables_DemPoRT.csv",
+  package = "MockData"
+)
+details_file <- system.file(
+  "extdata/demport/variable_details_DemPoRT.csv",
+  package = "MockData"
+)
+
+# Read configuration
+demport_config <- read.csv(config_file, stringsAsFactors = FALSE, check.names = FALSE)
+demport_details <- read.csv(details_file, stringsAsFactors = FALSE, check.names = FALSE)
+
+# See what variables are available
+first_10_vars <- head(demport_config$variable, 10)
+n_vars <- nrow(demport_config)
+n_details <- nrow(demport_details)
+```
+
+**DemPoRT variables (first 10):**
+
+`r paste(first_10_vars, collapse = ", ")`
+
+- Total variables: `r n_vars`
+- Details rows: `r n_details`
+
+**Key insight:** These are the same metadata files used for harmonization. By reusing them for mock data generation, you ensure consistency between mock and real data structures.
+
+**Typical workflow:**
+
+1.  Define variables and harmonization rules in recodeflow
+2.  Use the same metadata to generate mock data for testing
+3.  Develop analysis pipelines with mock data
+4.  Apply to real data once pipelines are validated
+
+## Saving and loading configurations
+
+For reproducible workflows, save your configurations as CSV files. This makes them version-controllable and shareable:
+
+```{r}
+#| eval: false
+
+# Save configuration to CSV
+write.csv(config_multi, "my_mock_data_config.csv", row.names = FALSE)
+write.csv(details_multi, "my_mock_data_config_details.csv", row.names = FALSE)
+
+# Later, load and regenerate identical data
+# Same seed produces identical mock data
+mock_data <- create_mock_data(
+  config_path = "my_mock_data_config.csv",
+  details_path = "my_mock_data_config_details.csv",
+  n = 1000,
+  seed = 123
+)
+```
+
+**Benefits of saving to CSV:**
+
+-   Version control with git
+-   Share configurations with collaborators
+-   Audit trail for what mock data was generated
+-   Easy to update and maintain
+
+## What you learned
+
+In this tutorial, you learned:
+
+-   **Why metadata-driven**: MockData's unique approach reuses harmonization metadata
+-   **Seeding configs**: Start simple (one variable) then build complexity
+-   **Table 1 matching**: Use proportions to match published descriptive statistics
+-   **Multi-variable generation**: Batch generation with `create_mock_data()`
+-   **Data quality simulation**: Add missing codes and garbage values
+-   **Recodeflow integration**: Reuse existing harmonization metadata
+-   **Reproducibility**: Save configurations and use seeds for identical results
+
+## Next steps
+
+**Core concepts:**
+
+-   [Getting started](getting-started.html) - Variable-by-variable approach for learning
+-   [Missing data](missing-data.html) - Detailed missing data patterns
+-   [Date variables](dates.html) - Working with dates and survival times
+
+**Real-world examples:**
+
+-   [CCHS example](cchs-example.html) - Canadian Community Health Survey workflow
+-   [CHMS example](chms-example.html) - Canadian Health Measures Survey workflow
+-   [DemPoRT example](demport-example.html) - Survival analysis with competing risks
+
+**Advanced:**
+
+-   [Configuration reference](reference-config.html) - Complete configuration specification
+-   [Advanced topics](advanced-topics.html) - Performance and integration
