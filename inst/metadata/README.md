@@ -1,19 +1,16 @@
 # Metadata Documentation for MockData
 
-**Last updated**: 2025-10-18
+**Last updated**: 2025-11-01
 
-This directory contains metadata schema documentation for recodeflow-based harmonization projects. These schemas define the structure, validation rules, and conventions used across all recodeflow projects (CCHS, CHMS, and any other study using recodeflow for data harmonization).
+This directory contains metadata schema documentation and recodeflow standards referenced by MockData.
 
 ## Purpose
 
-MockData is a **generic** tool for generating mock data from recodeflow metadata. It works with any study that uses:
-- `variables.csv` - harmonized variable definitions
-- `variable_details.csv` - variable recoding specifications
-- Recodeflow conventions (variableStart formats, range notation, etc.)
+MockData is a **library for generating synthetic datasets** for testing recodeflow-based harmonization workflows. This directory contains:
+1. **MockData configuration schemas** - Define the structure of MockData config files
+2. **Recodeflow standards** - Document conventions used by recodeflow projects that MockData can read
 
-These YAML files document the recodeflow conventions that MockData relies on.
-
-## Directory Structure
+## Directory structure
 
 ```
 inst/metadata/
@@ -21,62 +18,51 @@ inst/metadata/
 ├── documentation/                     # Recodeflow standards (from cchsflow)
 │   ├── database_metadata.yaml        # Dublin Core database-level metadata schema
 │   └── metadata_registry.yaml        # Central registry of shared specifications
-└── schemas/                           # Data structure schemas (from cchsflow)
-    ├── variables.yaml                # Schema for variables.csv
-    ├── variable_details.yaml         # Schema for variable-details.csv
-    ├── templates.yaml                # Template specifications
-    └── missing_priority_rules.yaml   # Missing data handling rules
+└── schemas/                           # Data structure schemas
+    └── mock_data_schema.yaml         # MockData configuration schema (comprehensive)
 ```
 
-## Key Files
+## Key files
+
+### schemas/mock_data_schema.yaml
+
+**Single source of truth** for all MockData configuration and schema specifications.
+
+Comprehensive schema for MockData configuration system:
+- Structure for mock_data_config.csv (variable definitions)
+- Structure for mock_data_config_details.csv (distribution parameters)
+- Structure for generated mock data files (mock_data_catalog)
+- Contamination model specifications with step-by-step examples
+- Role patterns and recEnd standardized values
+- Dataset catalog schema with Dublin Core metadata fields
+- Dataset-agnostic missing code conventions (examples of common patterns)
+- Integration with recodeflow ecosystem
+
+**Note:** MockData is a library for GENERATING mock data, not storing datasets.
+Minimal examples are included for demonstration only. Future integration with
+recodeflow dataset registry will provide comprehensive dataset cataloging.
 
 ### documentation/database_metadata.yaml
 
-Defines Dublin Core-compliant database-level metadata:
+Defines Dublin Core-compliant database-level metadata standards:
 - Dataset titles, descriptions, creators
 - Coverage (temporal, spatial, population)
 - Rights and access information
 - Keywords and subject classification
 
-**Applies to**: Any recodeflow project documenting datasets
+**Source**: Recodeflow ecosystem standards (from cchsflow)
+**Relevance to MockData**: Used for cataloging generated mock datasets
 
 ### documentation/metadata_registry.yaml
 
-Central registry of shared specifications used across all recodeflow schema files:
+Central registry of shared specifications used across recodeflow schema files:
 - CSV format specifications
 - Tier system (core, optional, versioning, extension)
 - Validation patterns (variable names, dates, etc.)
-- **Transformation patterns for variableStart field**
+- Transformation patterns for variableStart field
 
-**Applies to**: All recodeflow projects (CCHS, CHMS, etc.)
-
-### schemas/variables.yaml
-
-Schema for `variables.csv` used in any recodeflow project:
-- Field definitions (variable, label, variableType, databaseStart, variableStart)
-- Validation rules and constraints
-- Examples and usage notes
-- Tier classification (core vs optional fields)
-
-**Applies to**: Any project using recodeflow for harmonization
-
-### schemas/variable_details.yaml
-
-Schema for `variable_details.csv`:
-- Field definitions (variable, database, recodes, catLabel)
-- Recoding specifications
-- Missing data handling
-- Category label requirements
-
-**Applies to**: Any project using recodeflow for harmonization
-
-### schemas/templates.yaml
-
-Template specifications for reusable variable patterns.
-
-### schemas/missing_priority_rules.yaml
-
-Rules for handling missing data priority across different missing value codes.
+**Source**: Recodeflow ecosystem standards (from cchsflow)
+**Relevance to MockData**: Documents conventions that MockData parsers rely on when reading recodeflow metadata
 
 ## Recodeflow Conventions Used by MockData
 
@@ -267,20 +253,16 @@ valid_databases <- c("your", "database", "names")
 
 ## Relationship to cchsflow and recodeflow
 
-These schema files are **recodeflow conventions** sourced from cchsflow:
+**From recodeflow ecosystem (reference documentation)**:
+- `documentation/database_metadata.yaml` - Dublin Core standard for dataset cataloging
+- `documentation/metadata_registry.yaml` - Shared specifications (CSV format, validation patterns, variableStart transformations)
 
-**From cchsflow (unchanged)**:
-- `documentation/database_metadata.yaml` - Dublin Core standard (recodeflow)
-- `documentation/metadata_registry.yaml` - Shared specifications (recodeflow)
-- `schemas/variables.yaml` - Core variable schema (recodeflow)
-- `schemas/variable_details.yaml` - Variable details schema (recodeflow)
-- `schemas/templates.yaml` - Template specifications (recodeflow)
-- `schemas/missing_priority_rules.yaml` - Missing data rules (recodeflow)
-
-**MockData adds**:
+**MockData-specific**:
+- `schemas/mock_data_schema.yaml` - Complete MockData configuration schema
 - Generic functions that work with any recodeflow metadata
 - Study-agnostic parsers and generators
-- This documentation emphasizing universal applicability
+- Dataset generation library (not a dataset repository)
+- Parsers for recodeflow conventions (variableStart formats, range notation)
 
 ## Key Principle: Study-Agnostic Design
 
@@ -326,18 +308,18 @@ MockData currently returns NULL for these (future enhancement could add generic 
 
 ## References
 
-- **cchsflow metadata**: Source of these recodeflow schemas
 - **recodeflow**: Framework for data harmonization (in development)
+- **cchsflow**: CCHS harmonization package (source of recodeflow conventions)
 - **Dublin Core standard**: https://www.dublincore.org/specifications/dublin-core/
 - **DCAT vocabulary**: https://www.w3.org/TR/vocab-dcat-2/
 
 ## Maintenance
 
-These schema files should be updated when:
-- Recodeflow conventions change (sync with cchsflow)
-- New variableStart patterns are introduced
-- New range notation patterns are added
-- Field definitions change in recodeflow standards
+**MockData schema** (`mock_data_schema.yaml`):
+- Updated when MockData configuration structure changes
+- Maintained by MockData development team
 
-**Schema source**: cchsflow/inst/metadata/ (recodeflow conventions)
-**Maintainer**: MockData development team
+**Recodeflow standards** (`documentation/*.yaml`):
+- Updated when syncing with recodeflow ecosystem changes
+- Source: cchsflow/inst/metadata/ (recodeflow conventions)
+- Sync when variableStart patterns, range notation, or validation rules change

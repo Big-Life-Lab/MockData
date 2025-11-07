@@ -5,12 +5,14 @@
 .Rhistory
 .RData
 .Ruserdata
+.Renviron
 
 # macOS
 .DS_Store
 
 # Generated documentation
 man/*.Rd
+docs/
 
 # Quarto/HTML output
 Generate_mock_data.html

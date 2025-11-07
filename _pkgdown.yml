@@ -1,0 +1,96 @@
+url: https://big-life-lab.github.io/MockData/
+template:
+  bootstrap: 5
+  includes:
+    in_header: |
+      <link rel="stylesheet" href="extra.css">
+
+footer:
+  structure:
+    left: developed_by
+    right: built_with
+  components:
+    developed_by: <p>Developed by Juan Li and recodeflow contributors.</p>
+
+reference:
+- title: Main generation functions
+  desc: >
+    Generate categorical, continuous, date, and survival variables. Use `create_mock_data()`
+    for batch generation or individual functions for fine-grained control.
+  contents:
+  - create_cat_var
+  - create_con_var
+  - create_date_var
+  - create_survival_dates
+  - create_mock_data
+
+- title: Configuration
+  desc: >
+    Read and validate v0.2 configuration files. Import existing recodeflow metadata
+    or create new configurations for mock data generation workflows.
+  contents:
+  - read_mock_data_config
+  - read_mock_data_config_details
+  - validate_mock_data_config
+  - validate_mock_data_config_details
+  - import_from_recodeflow
+
+- title: Helper functions
+  desc: >
+    Utilities for metadata processing, proportions, type coercion, and data quality.
+    Support main generation functions or use directly for custom workflows.
+  contents:
+  - get_variable_details
+  - extract_proportions
+  - extract_distribution_params
+  - sample_with_proportions
+  - apply_missing_codes
+  - apply_rtype_defaults
+  - determine_proportions
+  - has_garbage
+  - make_garbage
+  - generate_garbage_values
+  - get_variables_by_role
+  - get_enabled_variables
+  - get_cycle_variables
+  - get_raw_variables
+
+- title: Parsers
+  desc: >
+    Parse recodeflow notation for variable specifications and range syntax.
+    Extract structured information from metadata for mock data generation.
+  contents:
+  - parse_range_notation
+  - parse_variable_start
+
+articles:
+- title: Tutorials
+  desc: Learning-oriented step-by-step guides
+  navbar: Tutorials
+  contents:
+  - getting-started
+  - tutorial-config-files
+  - tutorial-dates
+  - tutorial-missing-data
+  - tutorial-garbage-data
+
+- title: How-to guides
+  desc: Task-oriented examples with real data
+  navbar: How-to guides
+  contents:
+  - cchs-example
+  - chms-example
+  - demport-example
+
+- title: Explanation
+  desc: Understanding concepts and design
+  navbar: Explanation
+  contents:
+  - dates
+  - advanced-topics
+
+- title: Reference
+  desc: Technical specifications
+  navbar: Reference
+  contents:
+  - reference-config

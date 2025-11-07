@@ -154,12 +154,27 @@ schema_registry:
       file: "metadata_registry.yaml"
       full_path: "inst/metadata/documentation/metadata_registry.yaml"
       purpose: "Central registry for shared specifications and schema definitions."
-      
+
     database_metadata:
-      file: "database_metadata.yaml" 
+      file: "database_metadata.yaml"
       full_path: "inst/metadata/documentation/database_metadata.yaml"
       purpose: "Database-specific metadata and configuration."
-      
+
+    study_config:
+      file: "study_config.yaml"
+      full_path: "inst/metadata/schemas/study_config.yaml"
+      purpose: "Study configuration schema for MockData survival analysis data generation."
+      target_csv: "study_config.csv"
+      status: "active"
+      version: "1.0.0"
+      notes: |
+        Defines parameters for generating mock survival data including:
+        - Study design (open_cohort vs fixed_followup)
+        - Time windows (accrual, follow-up, calendar cutoffs)
+        - Event parameters (death, primary/competing outcomes)
+        - Data quality settings (censoring, missing values, invalid dates)
+        Example configuration: inst/extdata/study_config_example.csv
+
   cross_validation_requirements:
     variable_consistency: "variable_details.variable must exist in variables.variable"
     database_consistency: "databaseStart values must match between schemas"

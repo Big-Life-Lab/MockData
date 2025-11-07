@@ -1,46 +1,44 @@
 ---
-title: "Example of generating mock data using CCHS files based on variable and variable-details sheets"
-author: "Juan Li"
-date: 2025-07-02
-format: 
-  html:
-    toc: true
-    html-math-method: katex
-    css: styles.css
-editor: visual
+title: "CCHS example"
+format: html
+vignette: >
+  %\VignetteIndexEntry{CCHS example}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
 ---
 
-Some resources:
+<div style="padding: 1em; background-color: #e3f2fd; border-left: 4px solid #2196F3; margin-bottom: 1em;">
+**About this vignette:** All numeric values shown in this vignette are computed from the actual CCHS sample metadata files. Code is hidden by default for readability, but you can view the source `.qmd` file to see how values are calculated.
+</div>
 
-<https://kgoldfeld.github.io/simstudy/>
+## Overview
 
-```{r}
-#| warning: false
+This example demonstrates generating mock Canadian Community Health Survey (CCHS) data using cchsflow metadata. The generated mock data can be used to test harmonization workflows before accessing real CCHS data.
+
+```{r setup}
 #| message: false
-
-library(dplyr)       # Data manipulation
-library(stringr)     # Working with strings
-
-# Load MockData package functions
-devtools::load_all("../", quiet = TRUE)
-
+library(MockData)
+library(dplyr)
+library(stringr)
 ```
 
-## Read in variable and variable_details sheet
+## Load metadata
 
-```{r}
-# CCHS sample variables (use relative path for vignette building)
+Load the CCHS harmonization metadata files that define variables and their details across cycles.
+
+```{r load-metadata}
+# CCHS sample variables
 variables <- read.csv(
-  "../inst/extdata/cchs/cchsflow_sample_variables.csv",
+  system.file("extdata/cchs/variables_cchsflow_sample.csv", package = "MockData"),
   header = TRUE,
   check.names = FALSE,
   na.strings = c("", "NA", "N/A"),
   stringsAsFactors = FALSE
 )
 
-# CCHS sample variable details from cchsflow
+# CCHS sample variable details
 variable_details <- read.csv(
-  "../inst/extdata/cchs/cchsflow_sample_variable_details.csv",
+  system.file("extdata/cchs/variable_details_cchsflow_sample.csv", package = "MockData"),
   header = TRUE,
   check.names = FALSE,
   na.strings = c("", "NA", "N/A"),
@@ -48,58 +46,66 @@ variable_details <- read.csv(
 )
 ```
 
-## Get required cycles
+The CCHS sample metadata includes `r nrow(variables)` harmonized variables with `r nrow(variable_details)` detail rows.
 
-```{r}
+## Extract available cycles
+
+```{r extract-cycles}
+#| echo: false
 # Extract unique cycle names from databaseStart column
 cycles <- sort(unique(unlist(str_split(paste(variables$databaseStart, collapse = ","), ","))))
 cycles <- str_trim(cycles[str_detect(cycles, "cchs")])
-print("Available CCHS cycles:")
-print(cycles)
 ```
+
+The sample metadata includes `r length(cycles)` CCHS cycles: `r paste(cycles, collapse = ", ")`.
 
 ## Understanding the metadata
 
-The sample metadata includes 20 harmonized variables. Let's examine how they're structured for one cycle:
-
-```{r}
+```{r examine-cycle}
+#| echo: false
 # Pick the first cycle to explore
 example_cycle <- cycles[1]
-cat("Examining cycle:", example_cycle, "\n\n")
 
 # Get all harmonized variables available in this cycle
 cycle_vars <- get_cycle_variables(example_cycle, variables, variable_details)
+```
 
-cat("Total harmonized variables in", example_cycle, ":", nrow(cycle_vars), "\n")
-cat("Sample of variables:\n")
-print(head(cycle_vars[, c("variable", "variable_raw", "variableType", "label")], 10))
+The sample metadata includes 20 harmonized variables. For `r example_cycle`, there are `r nrow(cycle_vars)` harmonized variables available:
+
+```{r show-cycle-vars}
+#| echo: false
+knitr::kable(head(cycle_vars[, c("variable", "variable_raw", "variableType", "label")], 10))
 ```
 
 ## Get raw variables to generate
 
-For mock data generation, we need to create the **raw source variables** (before harmonization), not the harmonized variables:
+For mock data generation, we need to create the **raw source variables** (before harmonization), not the harmonized variables.
 
-```{r}
+```{r get-raw-variables}
 # Get unique raw variables needed for this cycle (excludes derived variables)
 raw_vars <- get_raw_variables(example_cycle, variables, variable_details,
                                include_derived = FALSE)
+```
 
-cat("\nUnique raw variables to generate:", nrow(raw_vars), "\n")
-print(raw_vars)
-
+```{r compute-raw-stats}
+#| echo: false
 # Separate by type for easier processing
 raw_cat <- raw_vars[raw_vars$variableType == "Categorical", ]
 raw_con <- raw_vars[raw_vars$variableType == "Continuous", ]
+```
 
-cat("\n- Categorical:", nrow(raw_cat), "variables")
-cat("\n- Continuous:", nrow(raw_con), "variables\n")
+This cycle requires `r nrow(raw_vars)` unique raw variables: `r nrow(raw_cat)` categorical and `r nrow(raw_con)` continuous.
+
+```{r show-raw-vars}
+#| echo: false
+knitr::kable(raw_vars)
 ```
 
 ## Generate mock data for one cycle
 
-Now let's generate mock data for a single cycle using the modern helper-driven approach:
+Now let's generate mock data for a single cycle.
 
-```{r}
+```{r configure-generation}
 # Configuration
 n_records <- 100
 target_cycle <- example_cycle
@@ -107,22 +113,21 @@ seed <- 12345
 
 # Initialize data frame
 df_mock <- data.frame(id = 1:n_records)
-
-cat("Generating", n_records, "mock records for", target_cycle, "\n\n")
 ```
+
+We'll generate `r n_records` mock records for `r target_cycle`.
 
 ### Generate categorical variables
 
-```{r}
+```{r generate-categorical}
+#| echo: false
 # Get raw categorical variables for this cycle
 raw_cat_vars <- get_raw_variables(target_cycle, variables, variable_details,
                                    include_derived = FALSE)
 raw_cat_vars <- raw_cat_vars[raw_cat_vars$variableType == "Categorical", ]
 
-cat("Generating", nrow(raw_cat_vars), "categorical variables:\n")
 for (i in 1:nrow(raw_cat_vars)) {
   var_raw <- raw_cat_vars$variable_raw[i]
-  cat("  -", var_raw, "\n")
 
   result <- create_cat_var(
     var_raw = var_raw,
@@ -138,22 +143,21 @@ for (i in 1:nrow(raw_cat_vars)) {
     df_mock <- cbind(df_mock, result)
   }
 }
-
-cat("\nCategorical variables generated. Data frame now has", ncol(df_mock), "columns\n")
 ```
+
+Generated `r nrow(raw_cat_vars)` categorical variables. Data frame now has `r ncol(df_mock)` columns.
 
 ### Generate continuous variables
 
-```{r}
+```{r generate-continuous}
+#| echo: false
 # Get raw continuous variables for this cycle
 raw_con_vars <- get_raw_variables(target_cycle, variables, variable_details,
                                    include_derived = FALSE)
 raw_con_vars <- raw_con_vars[raw_con_vars$variableType == "Continuous", ]
 
-cat("Generating", nrow(raw_con_vars), "continuous variables:\n")
 for (i in 1:nrow(raw_con_vars)) {
   var_raw <- raw_con_vars$variable_raw[i]
-  cat("  -", var_raw, "\n")
 
   result <- create_con_var(
     var_raw = var_raw,
@@ -170,59 +174,45 @@ for (i in 1:nrow(raw_con_vars)) {
     df_mock <- cbind(df_mock, result)
   }
 }
-
-cat("\nContinuous variables generated. Data frame now has", ncol(df_mock), "columns\n")
 ```
+
+Generated `r nrow(raw_con_vars)` continuous variables. Final data frame has `r ncol(df_mock)` columns.
 
 ### Examine the result
 
-```{r}
-# Show structure
-cat("\nMock data structure:\n")
+**Mock data structure:**
+
+```{r examine-result}
+#| echo: false
 str(df_mock)
+```
 
-# Show first few rows
-cat("\nFirst 10 rows:\n")
-print(head(df_mock, 10))
+**First 5 rows:**
 
-# Check for missing values
-cat("\nMissing value summary:\n")
+```{r show-first-rows}
+#| echo: false
+knitr::kable(head(df_mock, 5))
+```
+
+```{r check-missing}
+#| echo: false
 na_counts <- colSums(is.na(df_mock))
-print(na_counts[na_counts > 0])
+has_missing <- any(na_counts > 0)
 ```
 
-## 2. Generate mock data of derived variables
+**Missing values:** `r if(has_missing) paste(sum(na_counts > 0), "variables have missing values") else "No missing values"`
 
-```{r}
+## Summary
 
-```
+This example demonstrated generating mock CCHS data for testing cchsflow harmonization workflows. The generated data:
 
-## 3. Optional: further manipulate data
+-   Respects category ranges from variable_details
+-   Includes appropriate missing values
+-   Uses reproducible seeds
+-   Can be used to test harmonization functions before accessing real CCHS data
 
-### Add missing data
+## Next steps
 
-```{r}
-
-```
-
-### Add spoiled data
-
-```{r}
-
-```
-
-## 4. Add info from Table 1
-
-```{r}
-
-```
-
-## 5. Add info from correlation matrix
-
-```{r}
-
-```
-
-```{r}
-
-```
+-   Test your cchsflow harmonization pipeline on this mock data
+-   Generate mock data for additional cycles as needed
+-   Calculate derived variables after harmonization (not during mock data generation)

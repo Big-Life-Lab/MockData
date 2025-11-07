@@ -4,17 +4,48 @@ Generate mock testing data from recodeflow metadata (variables.csv and variable-
 
 ## Overview
 
-MockData creates realistic mock data for testing harmonisation workflows across recodeflow projects (CHMS, CCHS, etc.). It reads variable specifications from metadata files and generates appropriate categorical and continuous variables with correct value ranges, tagged NAs, and reproducible seeds.
+MockData is a tool for generating metadata-driven mock datasets to support testing and development of harmonisation workflows across recodeflow projects such as CHMSFlow and CCHSFlow.
+
+### What is mock data?
+
+In this package, "mock data" refers to metadata-driven simulated data created solely for software testing and workflow validation. Mock data are generated from variable specifications (e.g., `variables.csv`, `variable_details.csv`) and contain **no real person-level data** or identifiable information.
+
+**Key distinctions**:
+
+- **Mock data** (this package): Generated from metadata only. Mimics variable structure and ranges but not real-world statistical relationships. Used for testing pipelines, not analysis.
+- **Synthetic data**: Preserves statistical properties and relationships from real datasets through generative models. May be used for research when properly validated.
+- **Dummy data**: Placeholder or minimal test data, often hardcoded or randomly generated without metadata constraints.
+
+MockData creates data that *looks* realistic (appropriate variable types, value ranges, category labels, tagged NAs) but has **no relationship to any actual population**. Joint distributions and correlations may differ significantly from real-world data.
+
+### Use cases
+
+**Appropriate uses**:
+
+- Workflow testing and data pipeline validation
+- Data harmonisation logic checks (cchsflow, chmsflow)
+- Developing analysis scripts before data access
+- Creating reproducible examples for documentation
+- Training new analysts on survey data structure
+
+**Not appropriate for**:
+
+- Population inference or epidemiological modelling
+- Predictive algorithm training
+- Statistical analysis or research publication
+- Any use requiring realistic joint distributions or correlations
+
+### Privacy and ethics
+
+Generated mock data contain **no personal information or individual-level identifiers**. All data are created synthetically from metadata specifications, ensuring negligible risk of re-identification. This approach supports responsible, ethical, and reproducible public-health software development.
 
 ## Features
 
-- **Metadata-driven**: Uses existing `variables.csv` and `variable-details.csv` - no duplicate specifications needed
-- **Recodeflow-standard**: Supports all recodeflow notation formats (database-prefixed, bracket, mixed)
-- **Temporal variables**: Date generation with realistic distributions (uniform, Gompertz, exponential)
-- **Data quality testing**: Generate invalid/out-of-range values to test validation pipelines (`prop_invalid`)
-- **Metadata validation**: Tools to check metadata quality
+- **Metadata-driven**: Uses existing `variables.csv` and `variable-details.csv` from recodeflow package - no duplicate specifications needed
 - **Universal**: Works across CHMS, CCHS, and future recodeflow projects
-- **Test availability**: 250 tests covering parsers, helpers, and generators
+- **Recodeflow-standard**: Supports all recodeflow notation formats (database-prefixed, bracket, mixed)
+- **Data quality testing**: Generate invalid/out-of-range values to test validation pipelines (`prop_invalid`)
+- **Validation**: Tools to check metadata quality
 
 ## Installation
 
@@ -30,16 +61,18 @@ devtools::install_local("~/github/mock-data")
 
 ## Quick start
 
+**Note**: These steps generate mock data for development and testing only—not for modelling or analysis. Data are created with reproducible seeds for consistent test results.
+
 ```r
 library(MockData)
 
 # Load metadata (CHMS example with sample data)
 variables <- read.csv(
-  system.file("extdata/chms/chmsflow_sample_variables.csv", package = "MockData"),
+  system.file("extdata/chms/variables_chmsflow_sample.csv", package = "MockData"),
   stringsAsFactors = FALSE
 )
 variable_details <- read.csv(
-  system.file("extdata/chms/chmsflow_sample_variable_details.csv", package = "MockData"),
+  system.file("extdata/chms/variable_details_chmsflow_sample.csv", package = "MockData"),
   stringsAsFactors = FALSE
 )
 
@@ -67,62 +100,14 @@ if (!is.null(result)) {
 }
 ```
 
-## Validation tools
-
-Located in `mockdata-tools/`:
-
-```bash
-# Validate metadata quality
-Rscript mockdata-tools/validate-metadata.R
-
-# Test all cycles
-Rscript mockdata-tools/test-all-cycles.R
-
-# Compare different approaches
-Rscript mockdata-tools/create-comparison.R
-```
-
-See `mockdata-tools/README.md` for detailed documentation.
-
-## Architecture
-
-### Core modules
-
-1. **Parsers** (`R/mockdata-parsers.R`):
-   - `parse_variable_start()`: Extracts raw variable names from variableStart
-   - `parse_range_notation()`: Handles range syntax like `[7,9]`, `[18.5,25)`, `else`
-
-2. **Helpers** (`R/mockdata-helpers.R`):
-   - `get_cycle_variables()`: Filters metadata by cycle
-   - `get_raw_variables()`: Returns unique raw variables with harmonisation groupings
-   - `get_variable_details_for_raw()`: Retrieves category specifications
-   - `get_variable_categories()`: Extracts valid category codes
-
-3. **Generators**:
-   - `create_cat_var()` (`R/create_cat_var.R`): Generates categorical variables with tagged NA support
-   - `create_con_var()` (`R/create_con_var.R`): Generates continuous variables with realistic distributions
-   - `create_date_var()` (`R/create_date_var.R`): Generates date variables with temporal distributions
-
 ## Documentation
 
 **Vignettes**:
+
 - [Date variables and temporal data](vignettes/dates.qmd) - Date generation, distributions, and survival analysis prep
 - [CCHS example](vignettes/cchs-example.qmd) - CCHS workflow demonstration
 - [CHMS example](vignettes/chms-example.qmd) - CHMS workflow demonstration
 - [DemPoRT example](vignettes/demport-example.qmd) - Survival analysis workflow
-
-**Additional resources**:
-- [parking-lot.md](parking-lot.md) - Future features and planned enhancements
-
-## Testing
-
-```r
-# Run all tests
-devtools::test()
-
-# Run specific test file
-testthat::test_file("tests/testthat/test-mockdata.R")
-```
 
 ## Contributing
 
@@ -132,7 +117,107 @@ This package is part of the recodeflow ecosystem. See [CONTRIBUTING.md](CONTRIBU
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-## Related Projects
+## The recodeflow universe
 
-- [**chmsflow**](https://github.com/Big-Life-Lab/chmsflow): CHMS harmonisation workflows
-- [**cchsflow**](https://github.com/Big-Life-Lab/cchsflow): CCHS harmonisation workflows
+MockData is part of the **recodeflow universe** — a metadata-driven approach to variable recoding and harmonization. The core philosophy is to define variable transformations once in metadata files, then reuse those definitions for harmonization, documentation, and mock data generation.
+
+**Design principles:**
+
+- **Metadata-driven**: Variable definitions and recode rules live in structured metadata (CSV files)
+- **Reusable**: Same metadata drives harmonization code, documentation, and testing data
+- **Survey-focused**: Built for health surveys (CCHS, CHMS) but applicable to any categorical/continuous data
+- **Open and reproducible**: Transparent recode logic that anyone can inspect and verify
+
+**Related packages:**
+
+- [**cchsflow**](https://github.com/Big-Life-Lab/cchsflow): Harmonization workflows for Canadian Community Health Survey (CCHS)
+- [**chmsflow**](https://github.com/Big-Life-Lab/chmsflow): Harmonization workflows for Canadian Health Measures Survey (CHMS)
+- [**recodeflow**](https://github.com/Big-Life-Lab/recodeflow): Core metadata specifications and utilities
+
+## Data sources and acknowledgements
+
+The example metadata in this package is derived from:
+
+- **Canadian Community Health Survey (CCHS)** — Statistics Canada
+- **Canadian Health Measures Survey (CHMS)** — Statistics Canada
+
+**Statistics Canada Open License:**
+
+The use of CCHS and CHMS metadata examples in this package falls under Statistics Canada's Open License, which permits use, reproduction, and distribution of Statistics Canada data products. We acknowledge Statistics Canada as the source of the survey designs and variable definitions that informed our example metadata files.
+
+**Important:** This package generates **mock data only**. It does not contain, distribute, or provide access to any actual Statistics Canada microdata. Real CCHS and CHMS data are available through Statistics Canada's Research Data Centres (RDCs) and Public Use Microdata Files (PUMFs) under appropriate data access agreements.
+
+For more information: [Statistics Canada Open License](https://www.statcan.gc.ca/en/reference/licence)
+
+## Development environment setup
+
+This package uses [renv](https://rstudio.github.io/renv/) for reproducible package development environments.
+
+### For new contributors
+
+After cloning the repository:
+
+```r
+# Restore the package environment (installs all dependencies)
+renv::restore()
+
+# Install the MockData package itself into the renv library
+# (Required for building documentation and running tests)
+devtools::install(upgrade = 'never')
+
+# Load the package for development
+devtools::load_all()
+```
+
+### R version compatibility
+
+- **Supported**: R 4.3.x - 4.4.x
+- **Lockfile baseline**: R 4.4.2 (institutional environments typically run 1-2 versions behind current)
+- The renv lockfile works across this version range - minor R version differences are handled automatically
+
+### Daily development workflow
+
+```r
+# Install new packages as normal
+install.packages("packagename")
+
+# After adding dependencies to DESCRIPTION:
+devtools::install_dev_deps()  # Install updated dependencies
+renv::snapshot()              # Update lockfile
+# Commit the updated renv.lock file
+
+# Check environment status anytime:
+renv::status()
+```
+
+### Building documentation and site
+
+```r
+# Generate function documentation
+devtools::document()
+
+# Install the package (required before building site)
+devtools::install(upgrade = 'never')
+
+# Build pkgdown site (requires Quarto installed)
+pkgdown::build_site()
+
+# Run tests
+devtools::test()
+```
+
+### Troubleshooting
+
+```r
+# If packages seem out of sync:
+renv::status()
+
+# To update package versions:
+renv::update()
+renv::snapshot()
+
+# To restore to lockfile state:
+renv::restore()
+```
+
+For more details, see [CONTRIBUTING.md](CONTRIBUTING.md).
