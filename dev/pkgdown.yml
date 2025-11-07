@@ -1,0 +1,19 @@
+pandoc: 3.1.11
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  advanced-topics: advanced-topics.html
+  cchs-example: cchs-example.html
+  chms-example: chms-example.html
+  dates: dates.html
+  demport-example: demport-example.html
+  getting-started: getting-started.html
+  reference-config: reference-config.html
+  tutorial-config-files: tutorial-config-files.html
+  tutorial-dates: tutorial-dates.html
+  tutorial-garbage-data: tutorial-garbage-data.html
+  tutorial-missing-data: tutorial-missing-data.html
+last_built: 2025-11-07T13:18Z
+urls:
+  reference: https://big-life-lab.github.io/MockData/reference
+  article: https://big-life-lab.github.io/MockData/articles

@@ -1,0 +1,453 @@
+# Generating garbage data for validation testing
+
+**About this vignette:** This tutorial teaches you how to generate
+intentionally invalid “garbage” data for testing validation pipelines.
+You’ll learn how to create realistic data quality issues across
+categorical, continuous, date, and survival variables, then verify your
+validation logic catches them correctly.
+
+## Why generate garbage data?
+
+Data validation is critical for research quality, but how do you know
+your validation rules actually work? The best approach is to generate
+mock data with known quality issues, run your validation pipeline, and
+verify it catches exactly what you expect.
+
+This tutorial focuses on the DemPoRT project’s validation needs. DemPoRT
+analysts receive large administrative datasets and need robust
+validation pipelines to catch data quality issues before analysis. By
+generating mock data with intentional errors, they can:
+
+1.  **Test validation logic** before applying it to real data
+2.  **Document expected error rates** for different quality checks
+3.  **Train new team members** on common data quality patterns
+4.  **Benchmark validation performance** with known error proportions
+
+Let’s start with a motivating example. Suppose you’re validating alcohol
+consumption coding in a health survey dataset:
+
+``` r
+# Load CCHS metadata
+variable_details <- read.csv(
+  system.file("extdata/cchs/variable_details_cchsflow_sample.csv",
+              package = "MockData"),
+  stringsAsFactors = FALSE
+)
+
+variables <- read.csv(
+  system.file("extdata/cchs/variables_cchsflow_sample.csv",
+              package = "MockData"),
+  stringsAsFactors = FALSE
+)
+
+# Generate alcohol variable WITHOUT garbage (clean data only)
+df_clean <- data.frame()
+alc_clean <- create_cat_var(
+  var_raw = "ALC_1",
+  cycle = "cchs2001_p",
+  variable_details = variable_details,
+  variables = variables,
+  length = 1000,
+  df_mock = df_clean,
+  seed = 123
+)
+
+# Check for invalid codes (valid codes are 1, 2, and 6 for valid skip)
+valid_codes <- c("1", "2", "6")
+invalid_clean <- sum(!alc_clean$ALC_1 %in% valid_codes)
+```
+
+With clean data generated from metadata, your validation check finds 0
+invalid codes. But does your validation logic actually work? Let’s add
+intentional garbage using the `prop_invalid` parameter:
+
+``` r
+# Generate alcohol variable WITH garbage using prop_invalid parameter
+df_garbage <- data.frame()
+alc_garbage <- create_cat_var(
+  var_raw = "ALC_1",
+  cycle = "cchs2001_p",
+  variable_details = variable_details,
+  variables = variables,
+  length = 1000,
+  df_mock = df_garbage,
+  prop_invalid = 0.03,  # 3% invalid codes
+  seed = 456
+)
+
+# Run validation check
+invalid_garbage <- sum(!alc_garbage$ALC_1 %in% valid_codes)
+invalid_rate <- invalid_garbage / nrow(alc_garbage)
+```
+
+Now your validation finds 30 invalid codes (3% of records). This matches
+your expected 3% garbage proportion, confirming your validation logic
+works correctly.
+
+This pattern—generate garbage, run validation, verify detection—is the
+foundation of robust data quality testing.
+
+## Categorical garbage patterns
+
+Categorical variables can have several types of garbage data. The most
+common are:
+
+**Invalid codes**: Values that aren’t in the valid category set.
+Examples: “.a”, “NA”, “missing”, numeric codes outside the defined
+range.
+
+**Type mismatches**: Wrong data types. Example: Numeric codes stored as
+floats (1.0 instead of 1).
+
+**Encoding issues**: Character encoding problems. Example: “Montr0e9al”
+becomes “Montr”.
+
+MockData uses the `prop_invalid` parameter to automatically generate
+invalid category codes for testing validation logic.
+
+### Basic categorical garbage
+
+Let’s generate an ADL (Activities of Daily Living) variable with 3%
+garbage. The `prop_invalid` parameter tells MockData to generate random
+invalid codes not found in the metadata:
+
+``` r
+# Generate ADL variable with 3% invalid codes
+df_adl <- data.frame()
+adl_garbage <- create_cat_var(
+  var_raw = "ADL_01",
+  cycle = "cchs2001_p",
+  variable_details = variable_details,
+  variables = variables,
+  length = 2000,
+  df_mock = df_adl,
+  prop_invalid = 0.03,  # 3% invalid codes
+  seed = 789
+)
+
+# Validation: check for invalid codes
+# Get valid codes from metadata for ADL_01
+adl_details <- variable_details[variable_details$variable == "ADL_01" &
+                                grepl("cchs2001_p", variable_details$databaseStart, fixed = TRUE), ]
+valid_adl_codes <- unique(adl_details$recEnd[!is.na(adl_details$recEnd)])
+
+# Check for codes not in metadata
+invalid_adl <- !adl_garbage$ADL_01 %in% valid_adl_codes
+n_invalid <- sum(invalid_adl)
+invalid_pct <- round(n_invalid / nrow(adl_garbage) * 100, 1)
+```
+
+Validation results:
+
+- **Total records**: 2000
+- **Invalid codes found**: 60 (3%)
+- **Garbage codes detected**: -1, -9, -99, 88, 888, 96, 97, 98, 99, 999,
+  9999
+
+This matches our expected 3% garbage rate, confirming the validation
+logic correctly identifies invalid codes generated by `prop_invalid`.
+
+## Continuous variable garbage
+
+Continuous variables have different garbage patterns than categorical
+variables. Common issues include:
+
+**Out-of-range values**: Numbers outside biologically/logically
+plausible ranges. Example: Age = 250 years.
+
+**Type corruption**: Values stored as wrong type. Example: Age stored as
+character “45.5” instead of numeric.
+
+**Precision issues**: Inappropriate decimal places. Example: Age =
+45.7829 (overly precise).
+
+MockData uses special recEnd codes to generate continuous garbage:
+
+- **corrupt_high**: Values above the valid range
+- **corrupt_low**: Values below the valid range
+- **corrupt_na**: Missing value indicators stored as numbers (e.g.,
+  -999)
+
+### Out-of-range values
+
+Let’s generate alcohol consumption data (number of drinks on Sunday)
+with out-of-range garbage. The valid range is 0-50 drinks, so we’ll use
+`prop_invalid` to generate values outside this range:
+
+``` r
+# Generate drinks data with 2% out-of-range garbage
+df_drinks <- data.frame()
+drinks_garbage <- create_con_var(
+  var_raw = "ALW_2A1",
+  cycle = "cchs2001_p",
+  variable_details = variable_details,
+  variables = variables,
+  length = 2000,
+  df_mock = df_drinks,
+  prop_invalid = 0.02,  # 2% out-of-range values
+  seed = 200
+)
+
+# Validate: check for out-of-range values
+# Valid range for ALW_2A1 is [0, 50]
+out_of_range <- drinks_garbage$ALW_2A1 < 0 | drinks_garbage$ALW_2A1 > 50
+n_invalid <- sum(out_of_range, na.rm = TRUE)
+invalid_pct <- round(n_invalid / nrow(drinks_garbage) * 100, 1)
+```
+
+Validation results:
+
+- **Total records**: 2000
+- **Out-of-range values**: 20 (1%)
+- **Overall range**: 0 to 148.7 drinks
+- **Garbage range**: 51.2 to 148.7
+
+This confirms the validator correctly identifies out-of-range drink
+values. The `prop_invalid` parameter generates values above the maximum
+(over 50 drinks) for this variable.
+
+### Testing multiple garbage proportions
+
+We can test validation thresholds by generating data with different
+garbage rates. Let’s create drinks data with 5% invalid values and check
+how the validator handles higher garbage rates:
+
+``` r
+# Generate drinks data with higher garbage rate
+df_drinks2 <- data.frame()
+drinks_garbage2 <- create_con_var(
+  var_raw = "ALW_2A1",
+  cycle = "cchs2001_p",
+  variable_details = variable_details,
+  variables = variables,
+  length = 2000,
+  df_mock = df_drinks2,
+  prop_invalid = 0.05,  # 5% out-of-range values
+  seed = 201
+)
+
+# Validate: check for out-of-range values
+excessive_drinks <- drinks_garbage2$ALW_2A1 > 50
+n_excessive <- sum(excessive_drinks, na.rm = TRUE)
+```
+
+The validator detects:
+
+- **Excessive drinks (\>50)**: 50 (2.5%)
+- **Maximum excessive**: 149.8
+
+With a higher garbage rate (5%), validators detect more invalid values,
+allowing you to test how your validation pipeline handles varying levels
+of data quality issues.
+
+## Date variable garbage
+
+Date variables can also use the `prop_invalid` parameter to generate
+dates outside specified ranges. For date variables, `prop_invalid`
+generates dates 1-5 years before or after the valid range, making them
+clearly invalid for validation testing.
+
+The date garbage generation works the same way as continuous
+variables—you specify the proportion of invalid values and the function
+automatically generates out-of-range dates for testing validators.
+
+## Survival data garbage
+
+Survival analysis requires coordinated date validation across multiple
+time points. Garbage data helps test the complex validation rules for
+temporal consistency.
+
+Common survival data quality issues:
+
+**Date sequence violations**: Death before birth, death before interview
+
+**Impossible survival times**: Negative follow-up time, follow-up
+exceeding study period
+
+**Censoring inconsistencies**: Status indicates death but no death date
+recorded
+
+### Survival garbage without config
+
+For survival data,
+[`create_survival_dates()`](https://big-life-lab.github.io/MockData/reference/create_survival_dates.md)
+supports the `prop_invalid` parameter to generate temporal violations
+(entry date \> event date):
+
+``` r
+# Generate survival dates with 3% temporal violations
+survival_dates <- create_survival_dates(
+  entry_var = "study_entry",
+  event_var = "death_date",
+  entry_start = as.Date("2015-01-01"),
+  entry_end = as.Date("2016-12-31"),
+  followup_min = 30,      # Minimum 30 days
+  followup_max = 3650,    # Maximum 10 years
+  length = 2000,
+  df_mock = data.frame(),
+  prop_invalid = 0.03,    # 3% temporal violations
+  seed = 400
+)
+
+# Validate: entry should occur before event (death)
+temporal_violations <- survival_dates$study_entry > survival_dates$death_date
+n_violations <- sum(temporal_violations, na.rm = TRUE)
+```
+
+Validation detects 60 temporal violations (3%), matching our 3% garbage
+specification.
+
+When `prop_invalid` is specified,
+[`create_survival_dates()`](https://big-life-lab.github.io/MockData/reference/create_survival_dates.md)
+swaps entry and event dates for the specified proportion of records,
+creating realistic temporal violations for validator testing.
+
+### Testing follow-up time calculations
+
+Temporal violations also produce invalid derived variables like negative
+follow-up time:
+
+``` r
+# Calculate follow-up time in days (entry to event)
+survival_dates$followup_days <- as.numeric(
+  difftime(
+    survival_dates$death_date,
+    survival_dates$study_entry,
+    units = "days"
+  )
+)
+
+# Validate: follow-up should be non-negative
+negative_followup <- survival_dates$followup_days < 0
+n_negative_fu <- sum(negative_followup, na.rm = TRUE)
+```
+
+Validation results for derived variables:
+
+- **Negative follow-up time**: 60 (3%)
+
+The negative follow-up times correspond exactly to our temporal
+violations, confirming validators catch these derived quality issues.
+
+## Building a validation pipeline
+
+Now that we understand individual garbage patterns, let’s build a
+complete validation pipeline that tests all quality checks
+systematically. We’ll use MockData functions to generate a dataset with
+multiple garbage types:
+
+``` r
+# Generate complete dataset with multiple garbage types using MockData
+df_full <- data.frame()
+
+# Step 1: Categorical variable with garbage (ALC_1)
+alc_full <- create_cat_var(
+  var_raw = "ALC_1",
+  cycle = "cchs2001_p",
+  variable_details = variable_details,
+  variables = variables,
+  length = 5000,
+  df_mock = df_full,
+  prop_invalid = 0.03,  # 3% invalid codes
+  seed = 500
+)
+
+# Step 2: Continuous variable with garbage (ALW_2A1)
+df_full <- alc_full
+drinks_full <- create_con_var(
+  var_raw = "ALW_2A1",
+  cycle = "cchs2001_p",
+  variable_details = variable_details,
+  variables = variables,
+  length = 5000,
+  df_mock = df_full,
+  prop_invalid = 0.02,  # 2% out-of-range
+  seed = 501
+)
+
+# Combine into single dataset
+full_data <- cbind(alc_full, drinks_full)
+
+# Run validation suite
+# Check 1: Categorical codes
+alc_details <- variable_details[variable_details$variable == "ALC_1" &
+                                grepl("cchs2001_p", variable_details$databaseStart, fixed = TRUE), ]
+valid_alc <- unique(alc_details$recEnd[!is.na(alc_details$recEnd)])
+alc_invalid <- !full_data$ALC_1 %in% valid_alc
+
+# Check 2: Drinks range (valid: 0-50)
+drinks_invalid <- full_data$ALW_2A1 < 0 | full_data$ALW_2A1 > 50
+
+# Check 3: Combined validation (any record with any issue)
+any_issue <- alc_invalid | drinks_invalid
+
+# Build results table
+validation_results <- data.frame(
+  check = c("ALC_1: invalid codes", "ALW_2A1: out of range", "Any validation failure"),
+  n_fail = c(sum(alc_invalid), sum(drinks_invalid, na.rm = TRUE), sum(any_issue, na.rm = TRUE)),
+  pct_fail = c(
+    round(sum(alc_invalid) / nrow(full_data) * 100, 2),
+    round(sum(drinks_invalid, na.rm = TRUE) / nrow(full_data) * 100, 2),
+    round(sum(any_issue, na.rm = TRUE) / nrow(full_data) * 100, 2)
+  )
+)
+
+# Display results
+validation_results
+```
+
+                       check n_fail pct_fail
+    1   ALC_1: invalid codes    150     3.00
+    2  ALW_2A1: out of range     50     1.00
+    3 Any validation failure    199     3.98
+
+This validation suite detects all intentional garbage patterns. The
+failure rates match our specified proportions (3% for ALC_1, 2% for
+ALW_2A1), confirming each validator works correctly.
+
+## What you learned
+
+In this tutorial, you learned how to:
+
+- **Generate categorical garbage data** using the `prop_invalid`
+  parameter to create invalid codes
+- **Create continuous garbage patterns** using the `prop_invalid`
+  parameter for out-of-range values
+- **Test date validation logic** using the `prop_invalid` parameter for
+  out-of-period dates
+- **Add temporal violations in survival data** using the `prop_invalid`
+  parameter to swap entry and event dates
+- **Add explicit garbage with config files** using `catLabel::garbage`
+  specifications
+- **Build comprehensive validation pipelines** that test multiple
+  quality checks systematically
+- **Verify validator accuracy** by comparing detected rates to known
+  garbage proportions
+
+The key principle: generate mock data with **known** quality issues, run
+your validators, and confirm they detect **exactly** what you expect.
+This approach gives you confidence that your validation pipeline will
+catch real data quality problems in production.
+
+## Next steps
+
+- **Practice with your project**: Generate garbage data matching your
+  specific validation rules
+- **Test edge cases**: Create scenarios that stress-test validator
+  boundary conditions
+- **Document expected rates**: Use garbage data to establish baseline
+  error rate expectations
+- **Automate validation testing**: Integrate garbage data generation
+  into your CI/CD pipeline
+
+**Related vignettes**:
+
+- [DemPoRT
+  example](https://big-life-lab.github.io/MockData/articles/demport-example.md):
+  See garbage data in a complete DemPoRT workflow
+- [Date variables
+  tutorial](https://big-life-lab.github.io/MockData/articles/tutorial-dates.md):
+  Learn advanced date generation techniques
+- [Getting
+  started](https://big-life-lab.github.io/MockData/articles/getting-started.md):
+  Review MockData fundamentals

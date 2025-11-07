@@ -1,0 +1,250 @@
+# Advanced topics
+
+**About this vignette:** This guide covers advanced technical topics for
+MockData power users. Read the [Getting
+started](https://big-life-lab.github.io/MockData/articles/getting-started.md)
+guide before this document.
+
+## Overview
+
+This guide covers advanced technical topics for MockData power users,
+including duplicate prevention, integration with harmonization
+workflows, and performance considerations.
+
+**Prerequisites:** Read the [Getting
+started](https://big-life-lab.github.io/MockData/articles/getting-started.md)
+guide before this document.
+
+## Duplicate prevention: How `df_mock` works
+
+### Implementation
+
+All generator functions check if a variable already exists before
+creating it:
+
+``` r
+# From create_cat_var.R (lines 64-68)
+if (var_raw %in% names(df_mock)) {
+  # Variable already created, skip
+  return(NULL)
+}
+```
+
+### Why this matters
+
+**Without duplicate checking:**
+
+``` r
+# Dangerous - creates duplicate columns
+for (i in 1:3) {
+  df <- cbind(df, create_cat_var("SMK_01", ...))
+}
+# Result: df has SMK_01, SMK_01.1, SMK_01.2
+```
+
+**With duplicate checking:**
+
+``` r
+# Safe - only creates variable once
+for (i in 1:3) {
+  col <- create_cat_var("SMK_01", ..., df_mock = df)
+  if (!is.null(col)) df <- cbind(df, col)
+}
+# Result: df has SMK_01 (created once, subsequent calls return NULL)
+```
+
+### Design tradeoff
+
+**Current API (explicit cbind):**
+
+- **Pro:** Explicit control, clear data flow, no surprises
+- **Pro:** NULL return signals “variable exists” (useful for debugging)
+- **Con:** Requires `col <- create_*(); df <- cbind(df, col)` pattern
+
+**Alternative API (auto-append):**
+
+- Function returns `df_mock` with new column appended
+- Cleaner syntax: `df <- create_cat_var(..., df_mock = df)`
+- Planned for v0.3.0 (breaking change)
+
+## Integration with harmonization workflows
+
+MockData is designed to work with the CCHS/CHMS harmonization ecosystem.
+
+### Typical workflow
+
+1.  **Metadata preparation:** Use recodeflow metadata format
+2.  **Mock data generation:** Use MockData to create test datasets
+3.  **Harmonization development:** Test harmonization code with mock
+    data
+4.  **Validation:** Verify harmonization logic before applying to real
+    data
+5.  **Production:** Apply harmonization to real CCHS/CHMS data
+
+### Example: Testing harmonization code
+
+``` r
+# 1. Generate mock raw data
+mock_cchs <- generate_mock_cchs_cycle(
+  cycle = "CCHS_2001",
+  n = 1000,
+  variables = c("smoking", "age", "bmi"),
+  prop_NA = 0.05
+)
+
+# 2. Apply harmonization
+harmonized <- harmonize_variables(
+  data = mock_cchs,
+  metadata = variable_details,
+  variables = c("smoking", "age", "bmi")
+)
+
+# 3. Validate
+test_that("harmonization handles NA codes correctly", {
+  expect_true(all(harmonized$smoking %in% c(1, 2, 3, NA)))
+  expect_false(any(harmonized$smoking %in% c(996, 997, 998, 999)))
+})
+```
+
+### Benefits of mock data for harmonization
+
+- **Faster development:** No need to access restricted data
+- **Reproducible testing:** Same mock data every time
+- **Edge case testing:** Easy to create extreme scenarios
+- **Documentation:** Mock data examples clarify harmonization logic
+
+## Performance considerations
+
+For large-scale mock data generation:
+
+### Optimization strategies
+
+**1. Generate in batches:**
+
+``` r
+# Instead of one large generation
+result <- create_con_var(..., length = 1000000)
+
+# Generate in batches
+batch_size <- 100000
+batches <- ceiling(1000000 / batch_size)
+
+result_list <- lapply(1:batches, function(i) {
+  create_con_var(
+    ...,
+    length = batch_size,
+    df_mock = data.frame(id = ((i-1)*batch_size + 1):(i*batch_size))
+  )
+})
+
+result <- bind_rows(result_list)
+```
+
+**2. Simplify distributions:**
+
+``` r
+# Uniform is faster than normal (for continuous variables)
+distribution = "uniform"  # Faster
+distribution = "normal"    # Slower (normal distribution centered at range midpoint)
+```
+
+**3. Minimize metadata:**
+
+``` r
+# Only include variables you need
+variable_details_subset <- variable_details %>%
+  filter(variable %in% needed_vars)
+```
+
+### Current limitations
+
+- Large datasets (\>1M rows) may be slow
+- Complex metadata with many variables requires more processing
+- Normal distributions slower than uniform for continuous variables
+
+## Troubleshooting
+
+### Common issues
+
+**Issue: “Variable not found in metadata”**
+
+``` r
+# Check variable names match
+unique(variable_details$variable)
+unique(variables$variable)
+```
+
+**Issue: “No valid categories found”**
+
+``` r
+# Check recStart values
+var_details %>% filter(variable == "problem_var") %>% select(recStart, recEnd)
+
+# Ensure not all rules are filtered (copy, else)
+```
+
+**Issue: “prop_NA doesn’t work”**
+
+``` r
+# Verify NA codes exist in metadata
+na_codes <- get_variable_categories(variable_details, include_na = TRUE)
+```
+
+If `na_codes` is empty, no NA codes are available in the metadata. Add
+NA codes (typically 996-999) to `variable_details` with appropriate
+`recStart`/`recEnd` values.
+
+### Getting help
+
+- Check function documentation:
+  [`?create_cat_var`](https://big-life-lab.github.io/MockData/reference/create_cat_var.md),
+  [`?create_con_var`](https://big-life-lab.github.io/MockData/reference/create_con_var.md),
+  [`?create_date_var`](https://big-life-lab.github.io/MockData/reference/create_date_var.md)
+- Review [Getting
+  started](https://big-life-lab.github.io/MockData/articles/getting-started.md)
+  for basic concepts
+- Learn about [configuration
+  files](https://big-life-lab.github.io/MockData/articles/cchs-example.html#configuration-format)
+  for batch generation
+- Understand [missing data
+  patterns](https://big-life-lab.github.io/MockData/articles/missing-data.md)
+  in health surveys
+- See database examples:
+  [CCHS](https://big-life-lab.github.io/MockData/articles/cchs-example.md),
+  [CHMS](https://big-life-lab.github.io/MockData/articles/chms-example.md),
+  [DemPoRT](https://big-life-lab.github.io/MockData/articles/demport-example.md)
+- Open an issue on GitHub with reproducible example
+
+## Next steps
+
+**Core topics:**
+
+- [Configuration
+  files](https://big-life-lab.github.io/MockData/articles/cchs-example.html#configuration-format) -
+  Batch generation for larger projects
+- [Date
+  variables](https://big-life-lab.github.io/MockData/articles/dates.md) -
+  Working with dates and survival times
+- [Missing
+  data](https://big-life-lab.github.io/MockData/articles/missing-data.md) -
+  Realistic missing data patterns
+- [Garbage
+  data](https://big-life-lab.github.io/MockData/articles/cchs-example.html#garbage-data) -
+  Simulating data quality issues
+
+**Database-specific examples:**
+
+- [CCHS
+  example](https://big-life-lab.github.io/MockData/articles/cchs-example.md) -
+  Canadian Community Health Survey
+- [CHMS
+  example](https://big-life-lab.github.io/MockData/articles/chms-example.md) -
+  Canadian Health Measures Survey
+- [DemPoRT
+  example](https://big-life-lab.github.io/MockData/articles/demport-example.md) -
+  Dementia Population Risk Tool
+
+**Contributing:**
+
+- Apply these concepts to your harmonization projects
+- Contribute improvements to MockData on GitHub
