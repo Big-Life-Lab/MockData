@@ -101,127 +101,6 @@ vars_with_garbage <- variables %>%
 
 1. Remove `prop_garbage` from `create_wide_survival_data()` calls
 2. Add garbage to metadata using `add_garbage()` helper
-3. Update parameter names:
-   - `low_prop` → `garbage_low_prop`
-   - `low_range` → `garbage_low_range`
-   - `high_prop` → `garbage_high_prop`
-   - `high_range` → `garbage_high_range`
-
----
-
-# MockData 0.2.2 (Released)
-
-## Major changes
-
-### Removed `_mock` suffix convention
-
-**Breaking change**: The `_mock` suffix convention introduced in v0.2.1 has been removed. MockData-specific parameters now use standard names without the suffix.
-
-**Migration**:
-- `followup_min_mock` → `followup_min`
-- `followup_max_mock` → `followup_max`
-- `distribution_mock` → `distribution`
-- `event_occurs_mock` → `event_occurs`
-- `prop_invalid_mock` → `prop_invalid`
-
-**Rationale**: The `_mock` suffix added complexity without clear benefit. The current three-file architecture makes the distinction clear:
-1. Study specifications in `variable_details.csv`
-2. Optional MockData parameters in separate `mock_config.csv`
-3. No suffix needed when separation is structural
-
-### Parameter renames
-
-**Breaking change**: Renamed `cycle` parameter to `database_name` across all functions:
-- `create_cat_var(cycle = "cchs2001")` → `create_cat_var(database_name = "cchs2001")`
-- `create_con_var(cycle = "cycle1")` → `create_con_var(database_name = "cycle1")`
-- `create_date_var(cycle = "study2024")` → `create_date_var(database_name = "study2024")`
-
-**Rationale**: `database_name` is more universally understood than `cycle`, which is CCHS/CHMS-specific terminology.
-
-## Documentation rewrite
-
-Complete documentation overhaul with "show first, explain later" approach:
-
-**README.md**:
-- Leads with 30-second executable example
-- Shows metadata approach immediately
-- Targets two audiences: recodeflow users and new users
-- Removed all architecture-first explanations
-
-**New vignettes**:
-- `getting-started.qmd`: Progressive examples from single variable to full dataset
-- `for-recodeflow-users.qmd`: Quick start for users with existing metadata
-
-**Updated vignettes**:
-- All vignettes use `database_name` instead of `cycle`
-- Removed all `_mock` suffix references
-- Focused on executable examples
-
-**New minimal example**:
-- `inst/extdata/minimal-example/`: Simplest possible metadata configuration
-- 3 variables (age, smoking, death_date) across 2 CSV files
-- Used throughout documentation for consistency
-
----
-
-# MockData 0.2.1
-
-## Major changes
-
-### Function rename
-
-- **Breaking change**: `create_survival_dates()` renamed to `create_wide_survival_data()`
-- New name clarifies wide-format output (one row per individual)
-- Old function name no longer exported
-- All vignettes and documentation updated
-
-### MockData-specific recEnd codes (_mock suffix)
-
-New three-file architecture separates study specifications from MockData-specific parameters:
-
-**MockData-specific recEnd codes** (in `mock_data_config_details.csv`):
-- `followup_min_mock` / `followup_max_mock`: Override study follow-up ranges
-- `distribution_mock`: Event timing distribution (uniform, gompertz, exponential)
-- `event_occurs_mock`: Proportion of individuals who experience event (enables competing risks)
-- `prop_invalid_mock`: Proportion of temporal violations for validation testing
-
-The `_mock` suffix separates MockData-specific parameters from study specifications. When both exist, `_mock` codes take precedence.
-
-### Survival data enhancements
-
-- `create_wide_survival_data()` now supports multiple event distributions (uniform, gompertz, exponential)
-- Event occurrence probability enables competing risks (some individuals don't experience event)
-- Temporal violation support for validation testing
-- Complete MockSurvWide v1 specification implementation
-
-### Configuration architecture
-
-Three-file conceptual architecture documented:
-1. **Project data dictionary** (`mock_data_config.csv` or `variables.csv`) - READ-ONLY for MockData
-2. **Study specifications** (`mock_data_config_details.csv` or `variable_details.csv`) - READ-ONLY for MockData
-3. **MockData-specific parameters** (rows with `_mock` suffix in config_details) - WRITE-only for MockData
-
-This design:
-- Separates concerns (study specs don't contain MockData-only parameters)
-- Maintains compatibility (existing metadata files work unchanged)
-- Enables flexibility (MockData can override study parameters for testing)
-
-## New features
-
-- Example survival configuration files in `inst/extdata/survival/`
-- Comprehensive survival data generation tests
-- Architecture documentation in README and getting-started vignette
-
-## Documentation updates
-
-- **README**: Added "Configuration architecture" section with three-file structure explanation
-- **getting-started vignette**: Added architecture section explaining file roles and `_mock` suffix
-- **DemPoRT vignette**: Removed birth_date references, added MockSurvWide v1 examples
-- **All vignettes**: Updated function name from `create_survival_dates()` to `create_wide_survival_data()`
-
-## Bug fixes
-
-- None in this release
 
 ---
 
@@ -326,16 +205,19 @@ This design:
 ## Breaking changes
 
 **Configuration format changes:**
+
 - Variable details now require `uid` and `uid_detail` columns
 - `rType` field required for proper type coercion
 - New date fields: `date_start`, `date_end`, `distribution`
 
 **Migration path:**
+
 - v0.1 format still works (backward compatibility maintained)
 - Dual interface auto-detects format based on parameters
 - v0.2 recommended for new projects
 
 **File changes:**
+
 - Renamed `R/mockdata-helpers.R` → `R/mockdata_helpers.R`
 - ICES metadata removed (maintained in recodeflow package)
 
