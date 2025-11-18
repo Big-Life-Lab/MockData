@@ -1,0 +1,542 @@
+---
+title: "Advanced topics"
+format: html
+vignette: >
+  %\VignetteIndexEntry{Advanced topics}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+# Load package - works in both local dev and pkgdown build
+if (file.exists("../DESCRIPTION")) {
+  devtools::load_all("../", quiet = TRUE)
+} else {
+  library(MockData)
+}
+```
+
+::: {.vignette-about}
+**About this vignette:** This guide covers advanced technical topics for MockData power users. Read the [Getting started](getting-started.html) guide before this document.
+:::
+
+## Overview
+
+This guide covers advanced technical topics for MockData power users, including:
+
+- Derived variables and custom functions
+- Unique identifiers (UIDs) for traceability
+- Multi-database workflows
+- Integration with harmonization pipelines
+- Performance optimization
+
+**Prerequisites:** Read the [Getting started](getting-started.html) guide before this document.
+
+## Derived variables
+
+Derived variables are calculated from other variables using custom functions. MockData identifies and skips derived variables during generation, leaving them for post-generation calculation.
+
+### Identifying derived variables
+
+Derived variables use special patterns in `variable_details.csv`:
+
+- `recStart` contains `DerivedVar::[var1, var2, ...]`
+- `recEnd` contains `Func::function_name`
+
+**Example:**
+
+```csv
+uid,uid_detail,variable,recStart,recEnd,catLabel
+cchsflow_v0006,cchsflow_d00016,BMI_derived,"DerivedVar::[height, weight]","Func::bmi_fun","BMI calculated from height and weight"
+```
+
+### How it works
+
+```{r}
+#| eval: false
+
+# During create_mock_data(), derived variables are excluded
+enabled_vars <- variables[grepl("enabled", variables$role), ]
+
+# Identify derived variables
+derived_vars <- identify_derived_vars(enabled_vars, variable_details)
+
+# Exclude from generation
+enabled_vars <- enabled_vars[!enabled_vars$variable %in% derived_vars, ]
+
+# Result: Only raw variables (height, weight) are generated
+# BMI_derived must be calculated separately after generation
+```
+
+### Creating derived variables post-generation
+
+After generating mock data, calculate derived variables using your custom functions:
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+
+# 1. Generate raw variables
+mock_data <- create_mock_data(
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  n = 1000
+)
+# Result: Contains height, weight (but not BMI_derived)
+
+# 2. Calculate derived variables
+mock_data$BMI_derived <- bmi_fun(
+  height = mock_data$height,
+  weight = mock_data$weight
+)
+
+# 3. Verify
+summary(mock_data$BMI_derived)
+```
+
+### Example: Custom BMI calculation
+
+```{r}
+#| eval: false
+
+# Define custom function
+bmi_fun <- function(height, weight) {
+  # BMI = weight (kg) / height (m)^2
+  ifelse(
+    is.na(height) | is.na(weight) | height <= 0,
+    NA_real_,
+    weight / (height^2)
+  )
+}
+
+# Apply to mock data
+mock_data <- mock_data %>%
+  mutate(BMI_derived = bmi_fun(height, weight))
+```
+
+### Benefits of derived variables
+
+- **Separation of concerns**: Raw data generation vs. business logic
+- **Reusability**: Same derivation logic for mock and real data
+- **Testing**: Verify derivation functions with known inputs
+- **Documentation**: Metadata explicitly documents dependencies
+
+## Unique identifiers (UIDs)
+
+MockData uses unique identifiers to track variables and categories throughout the metadata lifecycle. UIDs provide traceability and version control for harmonization workflows.
+
+### UID structure
+
+**Variable-level UIDs** (`uid` column in `variables.csv`):
+
+```csv
+uid,variable,variableShortLabel,rType
+cchsflow_v0001,age,Age at interview,integer
+cchsflow_v0002,smoking,Smoking status,factor
+ices_v01,interview_date,Interview date,date
+```
+
+**Detail-level UIDs** (`uid_detail` column in `variable_details.csv`):
+
+```csv
+uid,uid_detail,variable,recStart,recEnd,catLabel
+cchsflow_v0001,cchsflow_d00001,age,"[18,100]","copy","Valid age range"
+cchsflow_v0001,cchsflow_d00002,age,"997","NA::b","Don't know"
+cchsflow_v0002,cchsflow_d00005,smoking,"1","1","Never smoker"
+cchsflow_v0002,cchsflow_d00006,smoking,"2","2","Former smoker"
+```
+
+### UID naming conventions
+
+**Variable UIDs:**
+
+- Format: `{project}_{version}{number}`
+- Examples: `cchsflow_v0001`, `ices_v01`, `chmsflow_v0042`
+
+**Detail UIDs:**
+
+- Format: `{project}_d{number}`
+- Examples: `cchsflow_d00001`, `ices_d003`, `chmsflow_d00156`
+
+### Benefits of UIDs
+
+- **Traceability**: Track variable definitions across metadata versions
+- **Version control**: Identify when variables changed
+- **Cross-referencing**: Link variables across databases
+- **Debugging**: Quickly locate specific category rules
+- **Documentation**: Permanent identifiers for scientific publications
+
+### Example: Tracking variable evolution
+
+```{r}
+#| eval: false
+
+# Load current metadata
+variables_v2 <- read.csv("variables_v2.csv")
+
+# Load previous metadata
+variables_v1 <- read.csv("variables_v1.csv")
+
+# Find variables that changed between versions
+changed_vars <- anti_join(variables_v2, variables_v1, by = c("uid", "rType"))
+
+# Result: Variables with same UID but different specifications
+```
+
+## Multi-database workflows
+
+MockData supports generating data for multiple databases/cycles using the `databaseStart` parameter. This enables testing harmonization code across survey cycles.
+
+### Database filtering
+
+The `databaseStart` column in `variable_details.csv` specifies which databases each category applies to:
+
+```csv
+uid,uid_detail,variable,databaseStart,recStart,recEnd,catLabel
+ices_v01,ices_d001,interview_date,minimal-example,"[2001-01-01,2005-12-31]","copy","Interview date range"
+cchsflow_v0001,cchsflow_d00001,age,"cchs2001_p,cchs2005_p","[18,100]","copy","Valid age range"
+```
+
+### Generating data for multiple databases
+
+**Single database:**
+
+```{r}
+#| eval: false
+
+# Generate for specific database
+mock_cchs2001 <- create_mock_data(
+  databaseStart = "cchs2001_p",
+  variables = variables,
+  variable_details = variable_details,
+  n = 1000
+)
+```
+
+**Multiple databases:**
+
+```{r}
+#| eval: false
+
+# Generate for multiple cycles
+databases <- c("cchs2001_p", "cchs2005_p", "cchs2009_p")
+
+mock_data_list <- lapply(databases, function(db) {
+  create_mock_data(
+    databaseStart = db,
+    variables = variables,
+    variable_details = variable_details,
+    n = 1000,
+    seed = 123  # Same seed for consistency
+  )
+})
+
+names(mock_data_list) <- databases
+```
+
+### Database-specific category rules
+
+Different databases may have different category codes for the same variable:
+
+```csv
+uid,uid_detail,variable,databaseStart,recStart,recEnd,catLabel
+cchsflow_v0002,cchsflow_d00005,smoking,cchs2001_p,"1","1","Never smoker"
+cchsflow_v0002,cchsflow_d00006,smoking,cchs2001_p,"2","2","Former smoker"
+cchsflow_v0002,cchsflow_d00007,smoking,cchs2005_p,"01","1","Never smoker"
+cchsflow_v0002,cchsflow_d00008,smoking,cchs2005_p,"02","2","Former smoker"
+```
+
+MockData automatically filters to the correct rules based on `databaseStart`.
+
+### Benefits of multi-database support
+
+- **Test harmonization**: Verify code works across survey cycles
+- **Compare databases**: Generate comparable mock datasets
+- **Version management**: Track database-specific variations
+- **Batch generation**: Create test data for entire project at once
+
+## Duplicate prevention: How `df_mock` works
+
+### Implementation
+
+All generator functions check if a variable already exists before creating it:
+
+``` r
+# From create_cat_var.R (lines 174-178)
+if (!is.null(df_mock) && var %in% names(df_mock)) {
+  return(NULL)
+}
+```
+
+### Why this matters
+
+**Without duplicate checking:**
+
+``` r
+# Dangerous - creates duplicate columns
+for (i in 1:3) {
+  df <- cbind(df, create_cat_var("SMK_01", ...))
+}
+# Result: df has SMK_01, SMK_01.1, SMK_01.2
+```
+
+**With duplicate checking:**
+
+``` r
+# Safe - only creates variable once
+for (i in 1:3) {
+  col <- create_cat_var("SMK_01", ..., df_mock = df)
+  if (!is.null(col)) df <- cbind(df, col)
+}
+# Result: df has SMK_01 (created once, subsequent calls return NULL)
+```
+
+### Design rationale
+
+**Current approach (explicit control):**
+
+-   **Pro:** Explicit control over data frame construction
+-   **Pro:** NULL return signals "variable exists" (useful for debugging)
+-   **Pro:** Compatible with both standalone and batch generation modes
+-   **Con:** Requires `if (!is.null(col)) df <- cbind(df, col)` pattern
+
+**Note:** `create_mock_data()` handles this internally, so most users won't need to worry about duplicate checking.
+
+## Integration with harmonization workflows
+
+MockData is designed to work with the CCHS/CHMS harmonization ecosystem (cchsflow, chmsflow).
+
+### Typical workflow
+
+1.  **Metadata preparation:** Use recodeflow metadata format (variables.csv, variable_details.csv)
+2.  **Mock data generation:** Use MockData to create test datasets
+3.  **Harmonization development:** Test harmonization code with mock data
+4.  **Validation:** Verify harmonization logic before applying to real data
+5.  **Production:** Apply harmonization to real CCHS/CHMS data
+
+### Example: Testing harmonization code
+
+```{r}
+#| eval: false
+
+# 1. Generate mock raw data
+mock_raw <- create_mock_data(
+  databaseStart = "cchs2001_p",
+  variables = variables,
+  variable_details = variable_details,
+  n = 1000,
+  seed = 123
+)
+
+# 2. Apply harmonization using rec_with_table()
+harmonized <- rec_with_table(
+  data = mock_raw,
+  variables = variables,
+  variable_details = variable_details,
+  databaseStart = "cchs2001_p"
+)
+
+# 3. Validate harmonization logic
+library(testthat)
+
+test_that("harmonization handles NA codes correctly", {
+  # Check that missing codes (996-999) are converted to NA
+  expect_true(all(harmonized$smoking %in% c(1, 2, 3, NA)))
+  expect_false(any(harmonized$smoking %in% c(996, 997, 998, 999), na.rm = TRUE))
+})
+
+test_that("age range is valid", {
+  valid_ages <- harmonized$age[!is.na(harmonized$age)]
+  expect_true(all(valid_ages >= 18 & valid_ages <= 100))
+})
+```
+
+### Benefits of mock data for harmonization
+
+-   **Faster development:** No need to access restricted data for testing
+-   **Reproducible testing:** Same mock data every time (use seed parameter)
+-   **Edge case testing:** Easy to create extreme scenarios (prop_garbage parameter)
+-   **Documentation:** Mock data examples clarify harmonization logic
+-   **CI/CD integration:** Automated testing without data access restrictions
+
+## Performance considerations
+
+For large-scale mock data generation:
+
+### Optimization strategies
+
+**1. Generate in batches:**
+
+``` r
+# Instead of one large generation
+result <- create_con_var(..., n = 1000000)
+
+# Generate in batches
+batch_size <- 100000
+batches <- ceiling(1000000 / batch_size)
+
+result_list <- lapply(1:batches, function(i) {
+  create_con_var(
+    ...,
+    n = batch_size,
+    df_mock = data.frame(id = ((i-1)*batch_size + 1):(i*batch_size))
+  )
+})
+
+result <- bind_rows(result_list)
+```
+
+**2. Simplify distributions:**
+
+``` r
+# Uniform is faster than normal (for continuous variables)
+distribution = "uniform"  # Faster
+distribution = "normal"    # Slower (normal distribution centered at range midpoint)
+```
+
+**3. Minimize metadata:**
+
+``` r
+# Only include variables you need
+variable_details_subset <- variable_details %>%
+  filter(variable %in% needed_vars)
+```
+
+### Current limitations
+
+-   Large datasets (\>1M rows) may be slow
+-   Complex metadata with many variables requires more processing
+-   Normal distributions slower than uniform for continuous variables
+
+## Best practices
+
+### Seed management for reproducibility
+
+Use different seeds for different variables to ensure independence while maintaining reproducibility:
+
+```{r}
+#| eval: false
+
+# Generate multiple date variables with different seeds
+birth_dates <- create_date_var(
+  var = "birth_date",
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  n = 1000,
+  seed = 100
+)
+
+death_dates <- create_date_var(
+  var = "death_date",
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  n = 1000,
+  seed = 101  # Different seed ensures independence
+)
+
+diagnosis_dates <- create_date_var(
+  var = "diagnosis_date",
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  n = 1000,
+  seed = 102  # Different seed
+)
+```
+
+**Why use different seeds:**
+
+- Ensures variables are statistically independent
+- Prevents unwanted correlations between variables
+- Maintains reproducibility (same seed = same data every time)
+
+**Recommended seed strategy:**
+
+```{r}
+#| eval: false
+
+# Use sequential seeds starting from a base value
+base_seed <- 1000
+
+mock_data <- create_mock_data(
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  n = 5000,
+  seed = base_seed
+)
+
+# For individual variable generation:
+# var1: seed = base_seed + 0 (1000)
+# var2: seed = base_seed + 1 (1001)
+# var3: seed = base_seed + 2 (1002)
+```
+
+**Document your seeds:**
+
+Always document the seed values used for data generation in your code comments or project documentation. This ensures others can reproduce your exact mock datasets.
+
+## Troubleshooting
+
+### Common issues
+
+**Issue: "Variable not found in metadata"**
+
+``` r
+# Check variable names match
+unique(variable_details$variable)
+unique(variables$variable)
+```
+
+**Issue: "No valid categories found"**
+
+``` r
+# Check recStart values
+var_details %>% filter(variable == "problem_var") %>% select(recStart, recEnd)
+
+# Ensure not all rules are filtered (copy, else)
+```
+
+**Issue: "prop_NA doesn't work"**
+
+``` r
+# Verify NA codes exist in metadata
+na_codes <- get_variable_categories(variable_details, include_na = TRUE)
+```
+
+If `na_codes` is empty, no NA codes are available in the metadata. Add NA codes (typically 996-999) to `variable_details` with appropriate `recStart`/`recEnd` values.
+
+### Getting help
+
+-   Check function documentation: `?create_cat_var`, `?create_con_var`, `?create_date_var`, `?create_mock_data`
+-   Review [Getting started](getting-started.html) for basic concepts
+-   Learn about [configuration reference](reference-config.html) for complete metadata schema
+-   Understand [missing data handling](tutorial-missing-data.html) in health surveys
+-   See [MockData for recodeflow users](for-recodeflow-users.html) for harmonization workflows
+-   Open an issue on GitHub with reproducible example
+
+## Next steps
+
+**Tutorials:**
+
+-   [Getting started](getting-started.html) - Learn MockData basics
+-   [Working with date variables](tutorial-dates.html) - Date generation and interval notation
+-   [Handling missing data](tutorial-missing-data.html) - Missing codes and proportions
+-   [Testing data quality and validation](tutorial-garbage-data.html) - Generating garbage data for QA
+-   [Generating survival data with competing risks](tutorial-survival-data.html) - Time-to-event data
+
+**Reference:**
+
+-   [Configuration reference](reference-config.html) - Complete metadata schema documentation
+-   [MockData for recodeflow users](for-recodeflow-users.html) - Integration with cchsflow/chmsflow
+
+**Contributing:**
+
+-   Apply these concepts to your harmonization projects
+-   Contribute improvements to MockData on GitHub

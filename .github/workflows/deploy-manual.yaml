@@ -1,0 +1,67 @@
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: true
+        default: 'create-date-var'
+        type: choice
+        options:
+          - main
+          - create-date-var
+          - master
+      target:
+        description: 'Deployment target (root, dev, or custom path)'
+        required: true
+        default: 'dev'
+        type: string
+
+name: Manual Deploy
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Install roxygen2
+        run: Rscript -e "install.packages('roxygen2')"
+
+      - name: Generate documentation
+        run: Rscript -e "roxygen2::roxygenize()"
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::pkgdown, local::.
+          needs: website
+
+      - name: Build pkgdown site
+        run: |
+          options(rlib_message_verbosity = "verbose")
+          pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE, quiet = FALSE)
+        shell: Rscript {0}
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs
+          branch: gh-pages
+          target-folder: ${{ inputs.target }}
+          clean: false

@@ -1,0 +1,2028 @@
+---
+title: "Configuration reference"
+format: html
+vignette: >
+  %\VignetteIndexEntry{Configuration reference}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup}
+#| include: false
+
+# Load package - works in both local dev and pkgdown build
+if (file.exists("../DESCRIPTION")) {
+  devtools::load_all("../", quiet = TRUE)
+} else {
+  library(MockData)
+}
+
+# Read example CSV files
+variables_csv <- read.csv(
+  system.file("extdata/minimal-example/variables.csv", package = "MockData"),
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+
+variable_details_csv <- read.csv(
+  system.file("extdata/minimal-example/variable_details.csv", package = "MockData"),
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+
+# Helper function: Count core vs extension columns
+count_columns <- function(csv_data, core_cols) {
+  total_cols <- ncol(csv_data)
+  n_core <- length(core_cols)
+  n_extensions <- total_cols - n_core
+  list(total = total_cols, core = n_core, extensions = n_extensions)
+}
+
+# Helper function: Format CSV rows for display
+format_csv_example <- function(df, n_rows = NULL) {
+  if (!is.null(n_rows)) {
+    df <- head(df, n_rows)
+  }
+
+  # Convert to CSV string
+  tmp <- tempfile(fileext = ".csv")
+  write.csv(df, tmp, row.names = FALSE, na = "NA")
+  csv_text <- readLines(tmp, warn = FALSE)
+  unlink(tmp)
+
+  paste(csv_text, collapse = "\n")
+}
+
+# Calculate column counts
+vars_counts <- count_columns(variables_csv, c("uid", "variable", "label", "variableType"))
+details_counts <- count_columns(variable_details_csv, c("uid", "uid_detail", "variable", "recStart"))
+```
+
+::: {.vignette-about}
+**About this vignette:** This reference document provides the complete configuration schema specification for MockData v0.2.1. For step-by-step tutorials, see [Generating datasets from configuration files](tutorial-config-files.html).
+:::
+
+::: {.callout-tip}
+## Finding specific columns
+
+This is a comprehensive reference with 20+ configuration columns. Use your browser's search (Ctrl+F / Cmd+F) to quickly find specific columns by name. Jump to sections: [variables.csv](#file-variables.csv) | [variable_details.csv](#file-variable_details.csv) | [Examples](#complete-examples)
+:::
+
+## Quick reference
+
+Essential columns for getting started:
+
+| Column | File | Required | Purpose | Example |
+|--------|------|----------|---------|---------|
+| `uid` | variables.csv | Yes | Unique variable identifier | `"v001"` |
+| `variable` | variables.csv | Yes | Output column name | `"age"` |
+| `variableType` | variables.csv | Yes | Categorical or Continuous (from recodeflow) | `"Continuous"` |
+| `rType` | variables.csv | No | R output type (integer, double, character, date, factor) | `"integer"` |
+| `distribution` | variables.csv | Continuous/Date | normal, uniform, gompertz | `"normal"` |
+| `mean`, `sd` | variables.csv | Normal dist | Distribution parameters | `50`, `15` |
+| `garbage_low_prop` | variables.csv | No | QA testing (low values) | `0.01` |
+| `garbage_high_prop` | variables.csv | No | QA testing (high values) | `0.03` |
+| `uid_detail` | variable_details.csv | Yes | Unique detail identifier | `"d001"` |
+| `recStart` | variable_details.csv | Yes | Category code or range | `"1"` or `"[18,100]"` |
+| `recEnd` | variable_details.csv | Conditional | Missing data classification | `"1"`, `"NA::a"`, `"NA::b"` |
+| `catLabel` | variable_details.csv | No | Category label | `"Never smoker"` |
+| `proportion` | variable_details.csv | Categorical | Category probability (0-1) | `0.5` |
+
+For complete column documentation, see sections below.
+
+::: {.callout-note}
+## How this vignette is generated
+
+This vignette uses inline R code to generate documentation directly from the actual example data. Column counts, CSV examples, and dataset summaries are calculated dynamically from:
+
+- [inst/extdata/minimal-example/variables.csv](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example/variables.csv)
+- [inst/extdata/minimal-example/variable_details.csv](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example/variable_details.csv)
+
+This approach ensures the documentation stays synchronized with the package and serves as integration testing during package builds.
+:::
+
+---
+
+## Overview
+
+MockData uses a two-file configuration system to define mock datasets:
+
+1. **variables.csv** - Variable-level metadata and generation parameters (`r vars_counts$total` columns total: `r vars_counts$core` core + `r vars_counts$extensions` extensions)
+2. **variable_details.csv** - Detail-level specifications for categories and ranges (`r details_counts$total` columns: `r details_counts$core` core + `r details_counts$extensions` extensions)
+
+This reference documents the complete v0.2.1 schema, including all extension columns, interval notation, and validation rules.
+
+---
+
+## File: variables.csv
+
+**Purpose:** Variable-level metadata and generation parameters
+
+### Core columns (from recodeflow)
+
+| Column | Type | Required | Description | Example |
+|--------|------|----------|-------------|---------|
+| `uid` | character | Yes | Unique identifier for this variable | `"v001"` |
+| `variable` | character | Yes | Variable name (column in output) | `"age"` |
+| `label` | character | No | Human-readable description | `"Age in years"` |
+| `variableType` | character | Yes | From recodeflow: `"Categorical"` or `"Continuous"` | `"Continuous"` |
+
+**UID format:** Use pattern `vNNN` with zero-padded numbers (e.g., `v001`, `v002`, `v010`)
+
+### Extension columns (MockData-specific)
+
+#### Type and generation control
+
+| Column | Type | Description | Values | Example |
+|--------|------|-------------|--------|---------|
+| `rType` | character | R data type for output | `"integer"`, `"double"`, `"character"`, `"date"`, `"factor"` | `"integer"` |
+| `role` | character | Multi-valued roles (comma-separated) | `"enabled,predictor,table1"` | `"enabled,predictor"` |
+| `position` | integer | Generation order (use increments of 10) | `10`, `20`, `30` | `10` |
+| `seed` | integer | Random seed for this variable | Any integer | `100` |
+
+**Role values:**
+
+- `enabled` - Generate this variable (required for generation)
+- `predictor` - Use in regression models
+- `outcome` - Outcome variable
+- `metadata` - Metadata/administrative variable
+- `table1` - Include in Table 1 summary
+
+**Seed pattern:** Recommended: `seed = position × 10` (ensures reproducibility and prevents correlation artifacts)
+
+#### Garbage data (data quality testing)
+
+| Column | Type | Description | Values | Example |
+|--------|------|-------------|--------|---------|
+| `garbage_low_prop` | numeric | Proportion of low-range garbage data | 0 to 1 | `0.01` |
+| `garbage_low_range` | character | Range for low garbage data | Interval notation | `"[-5,10]"` |
+| `garbage_high_prop` | numeric | Proportion of high-range garbage data | 0 to 1 | `0.03` |
+| `garbage_high_range` | character | Range for high garbage data | Interval notation | `"[120,150]"` |
+| `prop_garbage` | numeric | Proportion of auto-generated invalid values | 0 to 1 | `0.05` |
+
+**Two garbage data modes:**
+
+1. **Advanced (precise control):** Use `garbage_low_prop/garbage_low_range` and/or `garbage_high_prop/garbage_high_range` to specify exact ranges
+2. **Simple (auto-generated):** Use `prop_garbage` for automatic invalid value generation
+
+**Precedence:** If `garbage_low_prop` OR `garbage_high_prop` specified, those take precedence. Otherwise, `prop_garbage` is used.
+
+**Interpretation by variable type:**
+
+- **Categorical**: `prop_garbage` generates invalid codes (99, 999, 88, etc. not in valid categories)
+- **Continuous**: Advanced uses specified ranges; simple generates out-of-range values
+- **Date**: Advanced uses specified date ranges; simple generates dates 1-5 years before/after valid range
+
+**Examples:**
+
+```csv
+# Advanced: Age with precise low garbage data (negative ages)
+uid,variable,garbage_low_prop,garbage_low_range,garbage_high_prop,garbage_high_range,prop_garbage
+v001,age,0.01,"[-5,10]",NA,"[,]",NA
+
+# Advanced: BMI with two-sided garbage data (2% low + 1% high)
+uid,variable,garbage_low_prop,garbage_low_range,garbage_high_prop,garbage_high_range,prop_garbage
+v003,BMI,0.02,"[-10,0]",0.01,"[60,150]",NA
+
+# Simple: Smoking with auto-generated invalid codes
+uid,variable,garbage_low_prop,garbage_low_range,garbage_high_prop,garbage_high_range,prop_garbage
+v002,smoking,NA,NA,NA,NA,0.05
+
+# Simple: Death date with auto-generated out-of-period dates
+uid,variable,garbage_low_prop,garbage_low_range,garbage_high_prop,garbage_high_range,prop_garbage
+v006,death_date,NA,"[,]",NA,"[,]",0.02
+```
+
+**Sentinel values:** Use `NA` for not applicable, `"[,]"` for empty ranges.
+
+#### Distribution parameters (continuous and date variables)
+
+| Column | Type | Description | Values | Example |
+|--------|------|-------------|--------|---------|
+| `distribution` | character | Distribution type | `"normal"`, `"uniform"`, `"gompertz"`, `"exponential"` | `"normal"` |
+| `mean` | numeric | Mean (normal distribution) | Any number | `50` |
+| `sd` | numeric | Standard deviation (normal) | Positive number | `15` |
+| `rate` | numeric | Rate parameter (gompertz/exponential) | Positive number | `0.0001` |
+| `shape` | numeric | Shape parameter (gompertz) | Any number | `0.1` |
+
+**Distribution types:**
+
+**For continuous variables:**
+
+- `"normal"` - Normal (Gaussian) distribution (requires `mean`, `sd`)
+- `"uniform"` - Uniform distribution over valid range
+
+**For date variables:**
+
+- `"uniform"` - Equal probability for all dates
+- `"gompertz"` - Age-related hazard (requires `rate`, `shape`, `followup_min`, `followup_max`, `event_prop`)
+- `"exponential"` - Constant hazard (requires `rate`, `followup_min`, `followup_max`, `event_prop`)
+
+**For categorical variables:** Set to `NA` (categories defined by proportions in variable_details.csv)
+
+**Examples:**
+
+```csv
+# Age: normal distribution
+uid,variable,distribution,mean,sd,rate,shape
+v001,age,normal,50,15,NA,NA
+
+# BMI: normal distribution
+uid,variable,distribution,mean,sd,rate,shape
+v003,BMI,normal,27.5,5.2,NA,NA
+
+# Interview date: uniform
+uid,variable,distribution,mean,sd,rate,shape
+v004,interview_date,uniform,NA,NA,NA,NA
+
+# Primary event: gompertz survival
+uid,variable,distribution,mean,sd,rate,shape
+v005,primary_event_date,gompertz,NA,NA,0.0001,0.1
+```
+
+#### Survival parameters (date variables with events)
+
+| Column | Type | Description | Values | Example |
+|--------|------|-------------|--------|---------|
+| `followup_min` | integer | Minimum follow-up days | Positive integer | `365` |
+| `followup_max` | integer | Maximum follow-up days | Positive integer | `5475` |
+| `event_prop` | numeric | Proportion experiencing event | 0 to 1 | `0.1` |
+
+**When to use:**
+
+- Date variables representing events (death_date, disease_diagnosis, etc.)
+- NOT for index dates (interview_date) - those are the time origin
+
+**Example:**
+
+```csv
+# Primary event date: 10% experience dementia diagnosis within 1-15 years
+uid,variable,distribution,followup_min,followup_max,event_prop
+v005,primary_event_date,gompertz,365,5475,0.1
+
+# Death date: 20% die within 1-20 years (competing risk)
+uid,variable,distribution,followup_min,followup_max,event_prop
+v006,death_date,gompertz,365,7300,0.2
+
+# Loss to follow-up: 10% lost within 1-20 years (censoring)
+uid,variable,distribution,followup_min,followup_max,event_prop
+v_007,ltfu_date,uniform,365,7300,0.1
+```
+
+#### Versioning
+
+| Column | Type | Description | Format | Example |
+|--------|------|-------------|--------|---------|
+| `mockDataVersion` | character | Semantic version | `MAJOR.MINOR.PATCH` | `"1.0.0"` |
+| `mockDataLastUpdated` | character | Last update date | `YYYY-MM-DD` | `"2025-11-09"` |
+| `mockDataVersionNotes` | character | Version notes | Free text | `"Initial version"` |
+
+**Use cases:**
+
+- Track changes to generation parameters over time
+- Document why garbage data values changed
+- Maintain audit trail for reproducibility
+
+### Complete example
+
+```{r}
+#| echo: false
+#| output: asis
+cat("```csv\n")
+cat(format_csv_example(variables_csv))
+cat("\n```\n")
+```
+
+---
+
+## File: variable_details.csv
+
+**Purpose:** Detail-level specifications for categories and ranges
+
+### Core columns (from recodeflow)
+
+| Column | Type | Required | Description | Example |
+|--------|------|----------|-------------|---------|
+| `uid` | character | Yes | Foreign key to variables.csv | `"v001"` |
+| `uid_detail` | character | Yes | Unique identifier for this row | `"d001"` |
+| `variable` | character | Yes | Must match variable in variables.csv | `"age"` |
+| `recStart` | character | Yes | Input value or range | `"[18,100]"` or `"1"` |
+
+**UID relationships:**
+
+- `uid` must exist in variables.csv (foreign key)
+- `uid_detail` must be unique across entire file
+- Pattern: `d_NNN` with zero-padded numbers
+
+### Extension columns (MockData-specific)
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `catLabel` | character | Category label or description | `"Valid age range"` or `"Never smoker"` |
+| `proportion` | numeric | Population proportion (0-1) | `0.5` |
+
+**Proportion rules:**
+
+- Must sum to 1.0 per variable (for categorical variables)
+- Use `NA` for continuous/date variables with single range specification
+
+### Complete example
+
+```{r}
+#| echo: false
+#| output: asis
+cat("```csv\n")
+cat(format_csv_example(variable_details_csv))
+cat("\n```\n")
+```
+
+**Note:** Distribution parameters (mean, sd, rate, shape, etc.) are specified in variables.csv, NOT in variable_details.csv.
+
+---
+
+## recStart syntax
+
+The `recStart` column specifies input values or ranges using either single values or interval notation.
+
+### Single values (categorical variables)
+
+For categorical variables, specify exact category codes:
+
+```csv
+uid,recStart,catLabel,proportion
+v002,1,Never smoker,0.50
+v002,2,Former smoker,0.30
+v002,3,Current smoker,0.20
+```
+
+### Interval notation (continuous and date variables)
+
+For continuous or date variables, use interval notation: `[min,max]`
+
+**Format:** `[min,max]` with comma delimiter
+
+**Common bracket types:**
+
+- `[a,b]` - Inclusive on both ends (most common)
+- `[a,b)` - Inclusive start, exclusive end
+
+**Examples:**
+
+```csv
+# Numeric range: age 18 to 100 (inclusive)
+uid,recStart
+v001,"[18,100]"
+
+# Date range: interview dates 2001-2005
+uid,recStart
+v004,"[2001-01-01,2005-12-31]"
+
+# Valid range for distribution truncation
+uid,recStart
+v003,"[18,40]"
+```
+
+**Important:** Always use double quotes around interval notation in CSV files to ensure comma inside brackets is not treated as column delimiter.
+
+---
+
+## recEnd for missing data classification
+
+The `recEnd` column classifies codes into **missing** vs. **valid** categories, enabling automatic missing data generation.
+
+**Purpose:** Distinguishes between:
+
+- Valid response codes (1, 2, 3)
+- Skip codes (6, 96, 996 - question not applicable)
+- Missing codes (7-9, 97-99 - don't know, refusal, not stated)
+
+**Conditional requirement:** Required when `recStart` contains missing data codes (6-9, 96-99) to enable proper classification.
+
+### Valid response codes
+
+Map input codes to themselves using numeric values:
+
+```csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
+v002,d_002,smoking,1,1,Never smoker,0.50
+v002,d_003,smoking,2,2,Former smoker,0.30
+v002,d_004,smoking,3,3,Current smoker,0.17
+```
+
+**Pattern:** `recStart="1"` → `recEnd="1"` (code maps to itself)
+
+### Skip codes: NA::a
+
+For valid skip/not applicable codes (question not asked due to logic):
+
+```csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
+v002,d_005,smoking,6,NA::a,Valid skip,0.01
+```
+
+**Statistical treatment:** Exclude from denominator (respondent was not eligible for question)
+
+**Common codes:** 6, 96, 996 (varies by survey)
+
+### Missing codes: NA::b
+
+For don't know, refusal, not stated (question asked but no valid response):
+
+```csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
+v002,d_006,smoking,7,NA::b,Don't know,0.02
+v002,d_007,smoking,9,NA::b,Not stated,0.01
+```
+
+**Statistical treatment:** Include in denominator when calculating response rates, exclude from numerator
+
+**Common codes:** 7 (don't know), 8 (refusal), 9 (not stated), 97, 98, 99
+
+**Range notation:** Can use `[7,9]` → `NA::b` to map multiple codes at once
+
+### Continuous and date variables
+
+Use `"copy"` for valid ranges:
+
+```csv
+uid,uid_detail,variable,recStart,recEnd,catLabel
+v001,d001,age,"[18,100]",copy,Valid age range
+v004,d_007,interview_date,"[2001-01-01,2005-12-31]",copy,Interview date range
+```
+
+**Pattern:** recEnd="copy" indicates the range should be used as-is for generation
+
+### Complete example with missing data
+
+```csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
+v002,d_002,smoking,1,1,Daily smoker,0.25
+v002,d_003,smoking,2,2,Occasional,0.15
+v002,d_004,smoking,3,3,Never,0.57
+v002,d_005,smoking,7,NA::b,Don't know,0.03
+# Sum: 1.00 ✓
+```
+
+**Result:** When generating data, `get_variable_categories(include_na=TRUE)` returns only code "7", while `get_variable_categories(include_na=FALSE)` returns codes "1", "2", "3".
+
+### Why recEnd is required
+
+**Without recEnd:** Cannot distinguish between:
+
+- Code 1 (valid response)
+- Code 7 (missing - don't know)
+
+**With recEnd:** Explicit classification enables:
+
+- Automatic `prop_NA` parameter handling
+- Correct missing vs. valid proportions
+- Statistical analysis (response rates, prevalence)
+
+**Validation:** If `recStart` contains codes 6-9 or 96-99 and `recEnd` column is missing, validation will error with instructions.
+
+---
+
+## Proportions
+
+### Basic rules
+
+1. **Must sum to 1.0 per variable** (for categorical distributions)
+2. **Garbage data is separate** - `corrupt_*_prop` and `prop_garbage` not included in proportion sum
+3. **Event proportions** - `event_prop` in variables.csv may be < 1.0 (represents censoring)
+
+### Categorical variables
+
+Proportions define population distribution:
+
+```csv
+uid,recStart,catLabel,proportion
+v002,1,Never,0.50
+v002,2,Former,0.30
+v002,3,Current,0.17
+v002,7,Missing,0.03
+# Sum: 1.00 ✓
+```
+
+### Continuous and date variables
+
+Use `NA` for proportion:
+
+```csv
+uid,recStart,catLabel,proportion
+v001,"[18,100]","Valid age range",NA
+v004,"[2001-01-01,2005-12-31]","Interview date range",NA
+```
+
+### With missing codes (categorical)
+
+Missing codes are part of population (must sum to 1.0):
+
+```csv
+uid,recStart,catLabel,proportion
+v002,1,Never smoker,0.50
+v002,2,Former smoker,0.30
+v002,3,Current smoker,0.17
+v002,7,Don't know,0.03
+# Sum: 1.00 ✓
+```
+
+---
+
+## Validation rules
+
+MockData validates configuration files on load:
+
+### UID validation
+
+1. **Pattern:** `uid` should follow format `vNNN` (e.g., v001, v042), `uid_detail` should follow `dNNN` (e.g., d001, d156)
+2. **Uniqueness:** All `uid` values unique in variables.csv
+3. **Uniqueness:** All `uid_detail` values unique in variable_details.csv
+4. **Foreign keys:** All `uid` in variable_details exist in variables.csv
+
+### Column validation
+
+1. **Required columns present:**
+   - variables.csv: uid, variable, variableType
+   - variable_details.csv: uid, uid_detail, variable, recStart
+2. **Variable name match:** variable_details.variable matches variables.variable
+3. **Column placement:** Extension columns only in correct files (e.g., distribution params in variables.csv)
+
+### Value validation
+
+1. **Proportions:** Sum to 1.0 per variable (±0.01 tolerance)
+2. **Garbage data proportions:** Between 0 and 1
+3. **Garbage data ranges:** Use interval notation `[min,max]` or sentinel `"[,]"`
+4. **rType values:** One of: integer, double, factor, date, character, logical
+5. **distribution values:** One of: normal, uniform, gompertz, exponential, or NA
+6. **Versioning:** mockDataVersion follows semantic versioning (if present)
+7. **Complete grid:** All cells have explicit values (no empty strings for optional columns - use NA or sentinel values)
+
+---
+
+## Detailed column reference
+
+### uid and uid_detail: Unique identifiers
+
+**Purpose:** Permanent identifiers for traceability across metadata versions
+
+**Format requirements:**
+
+- `uid`: Pattern `vNNN` with zero-padding (e.g., `v001`, `v042`)
+- `uid_detail`: Pattern `dNNN` with zero-padding (e.g., `d001`, `d156`)
+- Zero-padding recommended for sorting: `v001` not `v1`
+
+**Common errors:**
+
+```csv
+# ❌ WRONG: Inconsistent padding
+uid,variable
+v_1,age
+v_10,smoking
+v_2,BMI
+# Result: Sorts incorrectly (v_1, v_10, v_2)
+
+# ✅ CORRECT: Zero-padded
+uid,variable
+v001,age
+v002,smoking
+v010,BMI
+# Result: Sorts correctly (v001, v002, v_010)
+```
+
+**Edge cases:**
+
+- UIDs must be globally unique across all databases
+- Reusing UIDs across databases for "same variable" is acceptable but requires consistent definitions
+- Changing UID means "new variable" even if variable name unchanged
+
+**Best practices:**
+
+- Start numbering at v_001 (not v_000)
+- Use sequential numbers for easy tracking
+- Document UID assignment logic in project README
+- Use project prefixes for multi-project repos: `cchs_v001`, `chms_v001`
+
+---
+
+### role: Multi-valued variable roles
+
+**Purpose:** Tag variables for different purposes in analysis
+
+**Valid values (comma-separated):**
+
+| Value | Meaning | Use case |
+|-------|---------|----------|
+| `enabled` | **Required for generation** | Must be present to generate variable |
+| `predictor` | Independent/explanatory variable | Regression models, Table 1 |
+| `outcome` | Dependent/response variable | Primary/secondary outcomes |
+| `metadata` | Administrative/tracking | IDs, dates, survey metadata |
+| `table1` | Summary table variable | Baseline characteristics |
+
+**Examples:**
+
+```csv
+# Age: predictor for models, show in Table 1
+uid,variable,role
+v001,age,"enabled,predictor,table1"
+
+# Primary outcome: show in Table 1
+uid,variable,role
+v005,dementia_diagnosis,"enabled,outcome,table1"
+
+# Study ID: just metadata
+uid,variable,role
+v020,study_id,"enabled,metadata"
+
+# Derived variable: not enabled (calculated post-generation)
+uid,variable,role
+v006,BMI_derived,outcome
+```
+
+**Important:** Variable will NOT be generated unless `role` contains `"enabled"`.
+
+**Common errors:**
+
+```csv
+# ❌ WRONG: Forgot "enabled"
+uid,variable,role
+v001,age,"predictor,table1"
+# Result: age will NOT be generated
+
+# ✅ CORRECT
+uid,variable,role
+v001,age,"enabled,predictor,table1"
+```
+
+**Multi-role filtering example:**
+
+```r
+# Get only variables for Table 1
+table1_vars <- variables[grepl("table1", variables$role), ]
+
+# Get predictors
+predictors <- variables[grepl("predictor", variables$role), ]
+
+# Get enabled variables for generation
+enabled_vars <- variables[grepl("enabled", variables$role), ]
+```
+
+---
+
+### position and seed: Generation order and reproducibility
+
+**Purpose:** Control variable generation order and ensure reproducible independence
+
+**position:**
+
+- Generation order (ascending)
+- Use increments of 10 (10, 20, 30...) for easy insertion
+- Lower numbers generated first
+
+**seed:**
+
+- Random seed for this specific variable
+- **Recommended:** `seed = position × 10` (e.g., position 20 → seed 200)
+- Prevents correlation artifacts between variables
+
+**Why position matters:**
+
+Some variables may depend on others being generated first (though MockData generally handles this automatically).
+
+**Why seed matters:**
+
+Using the same seed for all variables can create artificial correlations. Different seeds ensure statistical independence.
+
+**Examples:**
+
+```csv
+# Good: Increments of 10, seed = position × 10
+uid,variable,position,seed
+v001,age,10,100
+v002,smoking,20,200
+v003,BMI,30,300
+```
+
+**Common errors:**
+
+```csv
+# ❌ WRONG: Same seed for all variables
+uid,variable,position,seed
+v001,age,10,123
+v002,smoking,20,123
+v003,BMI,30,123
+# Result: Variables may be artificially correlated
+
+# ❌ WRONG: Sequential positions (hard to insert)
+uid,variable,position,seed
+v001,age,1,10
+v002,smoking,2,20
+v003,BMI,3,30
+# Result: Hard to insert new variable between age and smoking
+```
+
+**Inserting variables:**
+
+```csv
+# Original
+uid,variable,position
+v001,age,10
+v003,BMI,30
+
+# Insert smoking between age and BMI
+uid,variable,position
+v001,age,10
+v002,smoking,20  # Fits perfectly
+v003,BMI,30
+```
+
+---
+
+### sourceFormat vs sourceData
+
+**Purpose:** Simulate raw data formats for harmonization pipeline testing
+
+**Column name:** Currently `sourceFormat` in minimal-example (documentation shows `sourceData`)
+
+**Valid values:**
+
+| Value | Output type | Simulates | Example |
+|-------|-------------|-----------|---------|
+| `analysis` | R Date object | Analysis-ready dates | `as.Date("2001-01-01")` |
+| `csv` | Character string | CSV file dates | `"2001-01-01"` |
+| `sas` | Numeric | SAS date numeric | `14975` (days since 1960-01-01) |
+
+**Use case:** Test date parsing/harmonization logic
+
+**Examples:**
+
+```csv
+# Analysis-ready (default)
+uid,variable,sourceFormat
+v004,interview_date,analysis
+
+# CSV import simulation
+uid,variable,sourceFormat
+v004,interview_date,csv
+
+# SAS import simulation
+uid,variable,sourceFormat
+v004,interview_date,sas
+```
+
+**Conversion examples:**
+
+```r
+# CSV to Date
+dates_csv <- "2001-01-01"
+as.Date(dates_csv)
+
+# SAS to Date
+dates_sas <- 14975
+as.Date(dates_sas, origin = "1960-01-01")
+```
+
+See [Working with date variables](tutorial-dates.html#source-data-format-simulating-raw-data-imports) for detailed examples.
+
+---
+
+### distribution: Distribution types by variable type
+
+**Purpose:** Specify how values are distributed across valid ranges
+
+**For categorical variables:** Use `NA` (categories defined by proportions in variable_details.csv)
+
+**For continuous variables:**
+
+| Distribution | Parameters required | Use case | Example |
+|--------------|---------------------|----------|---------|
+| `normal` | `mean`, `sd` | Age, BMI, normally-distributed measurements | Age: mean=50, sd=15 |
+| `uniform` | None (uses recStart range) | Equal probability across range | Income brackets, uniform codes |
+
+**For date variables:**
+
+| Distribution | Parameters required | Use case | Example |
+|--------------|---------------------|----------|---------|
+| `uniform` | None | Index dates, enrollment dates | Interview date |
+| `gompertz` | `rate`, `shape`, `followup_min`, `followup_max`, `event_prop` | Age-related events (death, dementia) | Mortality with increasing hazard by age |
+| `exponential` | `rate`, `followup_min`, `followup_max`, `event_prop` | Constant hazard events | Loss to follow-up |
+
+**Complete examples:**
+
+```csv
+# Continuous: normal distribution
+uid,variable,variableType,distribution,mean,sd
+v001,age,Continuous,normal,50,15
+
+# Continuous: uniform distribution
+uid,variable,variableType,distribution
+v010,income_bracket,Continuous,uniform
+
+# Categorical: use NA (proportions in variable_details.csv)
+uid,variable,variableType,distribution
+v002,smoking,Categorical,
+
+# Date: uniform (index date)
+uid,variable,variableType,distribution
+v004,interview_date,Date,uniform
+
+# Date: gompertz survival (event date)
+uid,variable,variableType,distribution,rate,shape,followup_min,followup_max,event_prop
+v005,death_date,Date,gompertz,0.0001,0.1,365,7300,0.2
+```
+
+**Common errors:**
+
+```csv
+# ❌ WRONG: Normal distribution without mean/sd
+uid,variable,distribution,mean,sd
+v001,age,normal,,
+
+# ❌ WRONG: Distribution for categorical variable
+uid,variable,variableType,distribution
+v002,smoking,Categorical,normal
+
+# ✅ CORRECT
+uid,variable,distribution,mean,sd
+v001,age,normal,50,15
+v002,smoking,,
+```
+
+**Parameter interpretation:**
+
+- **Normal:** Values drawn from N(mean, sd²), truncated to recStart range
+- **Gompertz:** Hazard increases exponentially with age (realistic mortality)
+- **Exponential:** Constant hazard over time (random censoring)
+
+---
+
+### Distribution comparison table
+
+| Distribution | Shape | Median location | Skewness | Best for |
+|--------------|-------|-----------------|----------|----------|
+| **normal** | Bell curve | At mean | Symmetric | Age, BMI, height, normally-distributed measurements |
+| **uniform** | Flat | Middle of range | Symmetric | Dates without temporal pattern, random assignment |
+| **gompertz** | Right-skewed | Shifted toward end | Positive | Mortality, age-related disease onset |
+| **exponential** | Right-skewed | Shifted toward start | Positive | Time to first event, loss to follow-up |
+
+**Visual interpretation (for 2001-2020 date range):**
+
+- **uniform:** Median ≈ 2010 (middle)
+- **gompertz:** Median ≈ 2015-2018 (later years, increasing hazard)
+- **exponential:** Median ≈ 2003-2007 (earlier years, constant hazard)
+
+---
+
+## Frequently asked questions
+
+### General configuration
+
+**Q: What's the difference between variables.csv and variable_details.csv?**
+
+A: **variables.csv** defines variable-level metadata (one row per variable). **variable_details.csv** defines detail-level specifications (multiple rows per variable for categories/ranges). Think of it as a one-to-many relationship.
+
+**Q: Can I use a single CSV file instead of two?**
+
+A: No. The two-file structure comes from recodeflow and is required. It enables:
+
+- Multiple category definitions per variable
+- Clean separation of variable-level vs category-level parameters
+- Standardized harmonization workflow integration
+
+**Q: Do I need to fill in all columns?**
+
+A: No. Only required columns need values. Optional columns should use:
+
+- `NA` for not applicable
+- Empty string for unknown (though `NA` preferred)
+- Sentinel values like `[,]` for empty ranges
+
+**Q: How do I know which columns are required?**
+
+A: See [Quick reference](#quick-reference) table. Core required columns:
+
+- variables.csv: `uid`, `variable`, `variableType`
+- variable_details.csv: `uid`, `uid_detail`, `variable`, `recStart`
+
+---
+
+### Variable types
+
+**Q: When should I use Categorical vs Continuous for numeric codes?**
+
+A:
+
+- **Categorical:** Discrete codes with specific meanings (smoking status: 1=never, 2=former, 3=current)
+- **Continuous:** Numeric measurements on a scale (age, BMI, income)
+
+**Rule of thumb:** If you would calculate a mean, use Continuous. If you would calculate proportions, use Categorical.
+
+**Q: Can I have a Continuous variable with only integer values?**
+
+A: Yes. Set `variableType = "Continuous"` and `rType = "integer"`. Example: Age in years.
+
+**Q: What's the difference between variableType and rType?**
+
+A:
+
+- `variableType`: Conceptual type from recodeflow (Categorical or Continuous) - determines generation logic
+- `rType`: R output data type specified by MockData (integer, double, character, date, factor) - determines output format
+
+**Note:** Date variables use `variableType = "Continuous"` and `rType = "date"`. The variableType field comes from recodeflow and uses only Categorical/Continuous values.
+
+**Q: Should smoking status be factor or character?**
+
+A: Use `rType = "factor"` for categorical variables. Factors preserve category levels and enable proper statistical analysis.
+
+---
+
+### Garbage data
+
+**Q: What's the difference between garbage_low/garbage_high and prop_garbage?**
+
+A: Two modes:
+
+1. **Advanced (garbage_low/garbage_high):** You specify exact invalid ranges
+   - Example: Age with `garbage_low_range = "[-5,10]"` generates negative ages
+2. **Simple (prop_garbage):** MockData auto-generates invalid values
+   - Example: Categorical with `prop_garbage = 0.05` gets invalid codes like 99, 999
+
+**Precedence:** If you specify `garbage_low_prop` OR `garbage_high_prop`, those take precedence. Otherwise `prop_garbage` is used.
+
+**Q: Why would I want garbage data?**
+
+A: To test data quality pipelines:
+
+- Validate your data cleaning code catches impossible values
+- Train analysts on real-world data quality issues
+- Test edge cases in harmonization logic
+
+**Q: Can I have both low and high garbage data?**
+
+A: Yes. Specify both `garbage_low_prop/garbage_low_range` AND `garbage_high_prop/garbage_high_range`:
+
+```csv
+uid,variable,garbage_low_prop,garbage_low_range,garbage_high_prop,garbage_high_range
+v003,BMI,0.02,"[-10,0]",0.01,"[60,150]"
+```
+
+Result: 2% have BMI < 0, 1% have BMI 60-150, rest have valid values.
+
+---
+
+### Missing data
+
+**Q: What's the difference between NA::a and NA::b?**
+
+A: Survey missing data classification:
+
+- **NA::a (valid skip):** Question not asked due to logic (respondent not eligible)
+  - Example: Pregnancy questions skipped for males
+  - Statistical treatment: Exclude from denominator
+- **NA::b (missing response):** Question asked but no valid answer (don't know, refusal, not stated)
+  - Example: Respondent refused to answer income question
+  - Statistical treatment: Include in denominator, exclude from numerator
+
+**Q: Do missing codes count toward the proportion sum?**
+
+A: **Yes.** All proportions must sum to 1.0, including missing codes:
+
+```csv
+uid,recStart,recEnd,proportion
+v002,1,1,0.50
+v002,2,2,0.30
+v002,3,3,0.17
+v002,7,NA::b,0.03
+# Sum = 1.00 ✓
+```
+
+**Q: How do I generate missing data for continuous/date variables?**
+
+A: Use `else` in recStart with NA classification:
+
+```csv
+uid,variable,recStart,recEnd,proportion
+v001,age,"[18,100]","copy",
+v001,age,"else","NA::b",0.05
+```
+
+Result: 5% of age values will be NA (recoded from "else" = everything not in range).
+
+**Q: Can I use ranges for missing codes?**
+
+A: Yes:
+
+```csv
+# Map codes 997-999 to NA::b
+uid,recStart,recEnd
+v001,"[997,999]",NA::b
+```
+
+---
+
+### Distributions and parameters
+
+**Q: What happens if normal distribution generates values outside recStart range?**
+
+A: Values are truncated to the recStart range. Example:
+
+```csv
+uid,variable,distribution,mean,sd,recStart
+v001,age,normal,50,15,"[18,100]"
+```
+
+Result: Normal distribution N(50, 15²) truncated to [18, 100]. No values < 18 or > 100.
+
+**Q: When should I use gompertz vs exponential for survival data?**
+
+A:
+
+- **Gompertz:** Age-related events where hazard increases with time (mortality, dementia, chronic disease)
+- **Exponential:** Constant hazard events where risk doesn't change with time (loss to follow-up, random censoring)
+
+**Q: What are typical gompertz parameters?**
+
+A: For mortality in elderly cohorts:
+
+```csv
+distribution,rate,shape,followup_min,followup_max,event_prop
+gompertz,0.0001,0.1,365,7300,0.2
+```
+
+- `rate = 0.0001`: Baseline hazard
+- `shape = 0.1`: Hazard acceleration (positive = increasing hazard with age)
+- `followup_max = 7300`: 20 years
+- `event_prop = 0.2`: 20% experience event
+
+**Q: Why do my date variables all have the same value?**
+
+A: Check:
+
+1. Are you using `distribution = "uniform"`? (Required for variation)
+2. Is `recStart` an interval `[start,end]` not a single date?
+3. Did you set different seeds for each variable?
+
+---
+
+### UIDs and foreign keys
+
+**Q: Must uid in variable_details.csv match uid in variables.csv exactly?**
+
+A: **Yes.** This is a foreign key relationship. Every `uid` in variable_details.csv must exist in variables.csv.
+
+**Q: Can I have multiple variables with the same uid?**
+
+A: **No.** UIDs must be unique within variables.csv. Use different UIDs for different variables.
+
+**Q: Can variable_details.csv have gaps in uid_detail numbering?**
+
+A: Yes. uid_detail values don't need to be sequential, just unique:
+
+```csv
+uid_detail,variable
+d001,age
+d_003,age
+d_042,age
+# Valid - gaps are OK
+```
+
+**Q: What happens if I reference a uid that doesn't exist in variables.csv?**
+
+A: Validation error:
+
+```
+Error: uid 'v_999' in variable_details.csv not found in variables.csv
+```
+
+---
+
+### Proportions and validation
+
+**Q: How strict is the "proportions must sum to 1.0" rule?**
+
+A: Tolerance ±0.01. These are valid:
+
+- 1.00 ✓
+- 0.99 ✓
+- 1.01 ✓
+- 0.98 ❌ (too far from 1.0)
+
+**Q: Do garbage data proportions count in the sum?**
+
+A: **No.** Garbage data (`garbage_low_prop`, `garbage_high_prop`, `prop_garbage`) is separate from population proportions.
+
+Example:
+
+```csv
+# Proportions in variable_details.csv must sum to 1.0
+uid,recStart,proportion
+v002,1,0.50
+v002,2,0.30
+v002,3,0.20
+# Sum = 1.00 ✓
+
+# Garbage data in variables.csv is additional
+uid,prop_garbage
+v002,0.05
+# Result: 95% valid (distributed 50/30/20), 5% invalid codes
+```
+
+**Q: What if I want unequal category probabilities?**
+
+A: Specify exact proportions in variable_details.csv:
+
+```csv
+uid,recStart,catLabel,proportion
+v002,1,Never smoker,0.60
+v002,2,Former smoker,0.25
+v002,3,Current smoker,0.15
+# Reflects real population distribution
+```
+
+---
+
+### Database filtering and multi-cycle data
+
+**Q: What is databaseStart and when do I need it?**
+
+A: Database/cycle identifier for filtering. Needed when:
+
+- Generating data for multiple survey cycles (CCHS 2001, 2005, 2009)
+- Variables have database-specific category codes
+- Testing multi-cycle harmonization
+
+**Q: How do I specify which databases a row applies to?**
+
+A: Use comma-separated list in `databaseStart` column (variable_details.csv):
+
+```csv
+uid,variable,databaseStart,recStart
+v001,age,"cchs2001_p,cchs2005_p","[18,100]"
+v002,smoking,cchs2001_p,1
+v002,smoking,cchs2005_p,01
+```
+
+Row 1 applies to both databases. Rows 2-3 are database-specific (different codes for smoking).
+
+**Q: What if I'm only generating data for one database?**
+
+A: Use a single database name consistently:
+
+```csv
+uid,variable,databaseStart,recStart
+v001,age,my_study,"[18,100]"
+v002,smoking,my_study,1
+```
+
+Then generate with:
+
+```r
+create_mock_data(
+  databaseStart = "my_study",
+  variables = variables,
+  variable_details = variable_details
+)
+```
+
+---
+
+## Troubleshooting
+
+### Validation errors
+
+**Error: "Proportions for variable 'smoking' sum to 0.97, expected 1.0"**
+
+**Cause:** Category proportions don't sum to 1.0 (±0.01 tolerance)
+
+**Fix:** Check proportions in variable_details.csv for that variable:
+
+```r
+# Identify the problem
+var_details %>%
+  filter(variable == "smoking") %>%
+  summarize(total = sum(proportion, na.rm = TRUE))
+
+# Fix: Adjust proportions to sum to 1.0
+```
+
+---
+
+**Error: "uid 'v_042' in variable_details.csv not found in variables.csv"**
+
+**Cause:** Foreign key violation - referenced uid doesn't exist
+
+**Fix:** Check for typos or missing rows:
+
+```r
+# Find orphaned uids
+details_uids <- unique(variable_details$uid)
+vars_uids <- unique(variables$uid)
+orphans <- setdiff(details_uids, vars_uids)
+print(orphans)
+
+# Fix: Either add missing uid to variables.csv or fix typo in variable_details.csv
+```
+
+---
+
+**Error: "Required column 'recStart' not found in variable_details.csv"**
+
+**Cause:** Missing required column
+
+**Fix:** Add the missing column:
+
+```r
+# Check what columns exist
+names(variable_details)
+
+# Add missing column (with default values if needed)
+variable_details$recStart <- NA
+```
+
+---
+
+**Error: "Invalid rType value 'float' for variable 'BMI'"**
+
+**Cause:** rType must be one of: integer, double, factor, date, character, logical
+
+**Fix:** Use `"double"` not `"float"`:
+
+```csv
+# ❌ WRONG
+uid,variable,rType
+v003,BMI,float
+
+# ✅ CORRECT
+uid,variable,rType
+v003,BMI,double
+```
+
+---
+
+**Error: "distribution 'normal' requires 'mean' and 'sd' parameters"**
+
+**Cause:** Normal distribution missing required parameters
+
+**Fix:** Specify mean and sd:
+
+```csv
+# ❌ WRONG
+uid,variable,distribution,mean,sd
+v001,age,normal,,
+
+# ✅ CORRECT
+uid,variable,distribution,mean,sd
+v001,age,normal,50,15
+```
+
+---
+
+### Generation issues
+
+**Problem: All date variables have the same value**
+
+**Possible causes:**
+
+1. Used single date instead of interval in recStart
+2. Forgot to specify distribution
+3. Same seed for all variables
+
+**Fix:**
+
+```csv
+# Check recStart uses interval notation
+uid,variable,recStart
+v004,interview_date,"[2001-01-01,2005-12-31]"
+
+# Check distribution is specified
+uid,variable,distribution
+v004,interview_date,uniform
+
+# Check different seeds
+uid,variable,seed
+v004,interview_date,400
+v005,event_date,500
+```
+
+---
+
+**Problem: No variables generated (empty data frame)**
+
+**Possible causes:**
+
+1. No variables have `role = "enabled"`
+2. databaseStart filter excludes all rows
+3. All variables are derived variables
+
+**Fix:**
+
+```r
+# Check which variables are enabled
+enabled <- variables[grepl("enabled", variables$role), ]
+nrow(enabled)  # Should be > 0
+
+# Check databaseStart filtering
+filtered <- variable_details[
+  grepl(databaseStart, variable_details$databaseStart),
+]
+nrow(filtered)  # Should be > 0
+```
+
+---
+
+**Problem: Proportions don't match expected distribution**
+
+**Cause:** Forgot to account for missing data proportion
+
+**Fix:** Missing data proportion reduces valid category proportions:
+
+```csv
+# If you want 50% never smokers in VALID responses:
+uid,recStart,recEnd,proportion
+v002,1,1,0.475     # 50% of 95% = 47.5%
+v002,2,2,0.285     # 30% of 95% = 28.5%
+v002,3,3,0.19      # 20% of 95% = 19%
+v002,7,NA::b,0.05  # 5% missing
+# Sum = 1.00
+# Result: Among VALID responses, 50/30/20 split
+```
+
+---
+
+**Problem: Garbage data not appearing**
+
+**Possible causes:**
+
+1. Proportion too small to see in sample
+2. Wrong column name (garbage_low vs corrupt_low)
+3. Precedence issue (prop_garbage ignored if garbage_low_prop specified)
+
+**Fix:**
+
+```csv
+# Increase proportion for testing
+uid,variable,garbage_high_prop
+v003,BMI,0.20  # 20% easier to verify than 1%
+
+# Check correct column names (garbage_ not corrupt_)
+uid,variable,garbage_low_prop,garbage_low_range
+v001,age,0.05,"[-5,10]"
+
+# If using advanced mode, don't specify prop_garbage
+uid,variable,garbage_low_prop,garbage_low_range,prop_garbage
+v001,age,0.05,"[-5,10]",  # Leave prop_garbage empty
+```
+
+---
+
+### Performance issues
+
+**Problem: Generation very slow for large n**
+
+**Cause:** Complex distributions (especially normal) are slower than uniform
+
+**Solutions:**
+
+1. Use uniform distribution where appropriate
+2. Generate in batches
+3. Simplify metadata (fewer variables, fewer categories)
+
+```r
+# Batch generation example
+batch_size <- 100000
+n_batches <- 10
+
+results <- lapply(1:n_batches, function(i) {
+  create_mock_data(
+    databaseStart = "my_study",
+    variables = variables,
+    variable_details = variable_details,
+    n = batch_size,
+    seed = 1000 + i  # Different seed per batch
+  )
+})
+
+final_data <- bind_rows(results)
+```
+
+---
+
+## Complete examples
+
+### Example 1: Basic categorical variable with missing codes
+
+**Use case:** Smoking status with standard survey missing codes
+
+```csv
+# variables.csv
+uid,variable,label,variableType,rType,role,position,seed,prop_garbage
+v002,smoking,Smoking status,Categorical,factor,"enabled,predictor",20,200,0.05
+
+# variable_details.csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
+v002,d_002,smoking,1,1,Never smoker,0.50
+v002,d_003,smoking,2,2,Former smoker,0.30
+v002,d_004,smoking,3,3,Current smoker,0.17
+v002,d_005,smoking,7,NA::b,Don't know,0.03
+```
+
+**Result:** 50% never/30% former/17% current smokers, 3% don't know (NA), plus 5% invalid codes (99, 999) from prop_garbage.
+
+---
+
+### Example 2: Continuous variable with normal distribution and precise garbage ranges
+
+**Use case:** Body mass index with biologically impossible values for QA testing
+
+```csv
+# variables.csv
+uid,variable,label,variableType,rType,role,position,seed,garbage_low_prop,garbage_low_range,garbage_high_prop,garbage_high_range,distribution,mean,sd
+v003,BMI,Body mass index,Continuous,double,"enabled,outcome",30,300,0.02,"[-10,0]",0.01,"[60,150]",normal,27.5,5.2
+
+# variable_details.csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
+v003,d_006,BMI,"[15,50]",copy,Valid BMI range,
+```
+
+**Result:** Normal distribution N(27.5, 5.2²) truncated to [15, 50], with 2% negative BMI values and 1% extremely high (60-150) values.
+
+---
+
+### Example 3: Continuous variable with missing data
+
+**Use case:** Age with survey missing codes and uniform distribution
+
+```csv
+# variables.csv
+uid,variable,label,variableType,rType,role,position,seed
+v001,age,Age in years,Continuous,integer,"enabled,predictor,table1",10,100
+
+# variable_details.csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
+v001,d001,age,"[18,100]",copy,Valid age range,0.90
+v001,d_002,age,997,NA::b,Don't know,0.05
+v001,d_003,age,998,NA::b,Refusal,0.03
+v001,d_004,age,999,NA::b,Not stated,0.02
+```
+
+**Result:** 90% valid ages uniformly distributed 18-100, 10% missing with codes 997/998/999 (mapped to NA).
+
+---
+
+### Example 4: Date variable (cohort entry/index date)
+
+**Use case:** Interview date as time origin for survival analysis
+
+```csv
+# variables.csv
+uid,variable,label,variableType,rType,role,position,seed,distribution,sourceFormat
+v004,interview_date,Interview date,Date,date,"enabled,metadata",40,400,uniform,analysis
+
+# variable_details.csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
+v004,d_007,interview_date,"[2001-01-01,2005-12-31]",copy,Interview date range,1
+v004,d_008,interview_date,else,NA::b,Missing interview date,0
+```
+
+**Result:** Uniform distribution of dates 2001-2005 (all respondents interviewed), output as R Date objects.
+
+---
+
+### Example 5: Survival variable with competing risks (gompertz distribution)
+
+**Use case:** Primary event (dementia diagnosis) with age-related hazard and temporal garbage data
+
+```csv
+# variables.csv
+uid,variable,label,variableType,rType,role,position,seed,garbage_high_prop,garbage_high_range,distribution,rate,shape,followup_min,followup_max,event_prop
+v005,primary_event_date,Primary event date (dementia),Date,date,"enabled,outcome,table1",50,500,0.03,"[2021-01-01,2099-12-31]",gompertz,0.0001,0.1,0,5475,0.1
+
+# variable_details.csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
+v005,d_009,primary_event_date,"[2002-01-01,2021-01-01]",copy,Primary event date range,0.1
+v005,d_010,primary_event_date,else,NA::b,Missing event date,0
+```
+
+**Interpretation:**
+
+- 10% experience dementia diagnosis within 0-15 years after interview
+- Event times follow gompertz distribution (increasing hazard with age)
+- 3% have impossible future dates (2021-2099) for QA testing
+- 90% censored (no event)
+
+---
+
+### Example 6: Multi-cycle categorical variable with database-specific codes
+
+**Use case:** Smoking status with different category codes across survey cycles
+
+```csv
+# variables.csv
+uid,variable,label,variableType,rType,role,position,seed
+v002,smoking,Smoking status,Categorical,factor,"enabled,predictor",20,200
+
+# variable_details.csv
+uid,uid_detail,variable,databaseStart,recStart,recEnd,catLabel,proportion
+v002,d_002,smoking,cchs2001_p,1,1,Never smoker,0.50
+v002,d_003,smoking,cchs2001_p,2,2,Former smoker,0.30
+v002,d_004,smoking,cchs2001_p,3,3,Current smoker,0.20
+v002,d_005,smoking,cchs2005_p,01,1,Never smoker,0.50
+v002,d_006,smoking,cchs2005_p,02,2,Former smoker,0.30
+v002,d_007,smoking,cchs2005_p,03,3,Current smoker,0.20
+```
+
+**Result:**
+
+- CCHS 2001: Codes 1/2/3 (numeric)
+- CCHS 2005: Codes 01/02/03 (zero-padded strings)
+- Same proportions, different source codes
+- Both map to harmonized values 1/2/3 (recEnd column)
+
+---
+
+### Example 7: Derived variable (BMI from height and weight)
+
+**Use case:** BMI calculated post-generation from height and weight
+
+```csv
+# variables.csv (height)
+uid,variable,label,variableType,rType,role,position,seed,distribution,mean,sd
+v004,height,Height in meters,Continuous,double,"enabled,predictor",40,400,normal,1.7,0.1
+
+# variables.csv (weight)
+uid,variable,label,variableType,rType,role,position,seed,distribution,mean,sd
+v005,weight,Weight in kg,Continuous,double,"enabled,predictor",50,500,normal,75,15
+
+# variables.csv (BMI_derived - NOT enabled)
+uid,variable,label,variableType,rType,role,position,seed
+v006,BMI_derived,BMI calculated from height and weight,Continuous,double,outcome,60,600
+
+# variable_details.csv
+uid,uid_detail,variable,recStart,recEnd,catLabel
+v004,d_012,height,"[1.4,2.1]",copy,Valid height range (meters)
+v005,d_014,weight,"[35,150]",copy,Valid weight range (kg)
+v006,d_016,BMI_derived,"DerivedVar::[height, weight]","Func::bmi_fun",BMI calculated from height and weight
+```
+
+**Generation workflow:**
+
+```r
+# 1. Generate height and weight
+mock_data <- create_mock_data(
+  databaseStart = "my_study",
+  variables = variables,
+  variable_details = variable_details,
+  n = 1000
+)
+# Result: Contains height, weight (but NOT BMI_derived)
+
+# 2. Calculate BMI_derived post-generation
+bmi_fun <- function(height, weight) {
+  ifelse(
+    is.na(height) | is.na(weight) | height <= 0,
+    NA_real_,
+    weight / (height^2)
+  )
+}
+
+mock_data$BMI_derived <- bmi_fun(mock_data$height, mock_data$weight)
+```
+
+**Note:** Derived variables are NOT generated by create_mock_data(). See [Advanced topics: Derived variables](advanced-topics.html#derived-variables) for details.
+
+---
+
+### Example 8: Complete survival analysis dataset with competing risks
+
+**Use case:** Cohort study with primary event, death, and censoring
+
+```csv
+# variables.csv
+uid,variable,label,variableType,rType,role,position,seed,distribution,rate,shape,followup_min,followup_max,event_prop
+v004,interview_date,Interview date,Date,date,"enabled,metadata",40,400,uniform,,,,,,
+v005,primary_event_date,Dementia diagnosis,Date,date,"enabled,outcome",50,500,gompertz,0.0001,0.1,0,5475,0.1
+v006,death_date,Death date,Date,date,"enabled,outcome",60,600,gompertz,0.0001,0.1,365,7300,0.2
+v_007,ltfu_date,Loss to follow-up,Date,date,"enabled,outcome",70,700,uniform,,,365,7300,0.1
+v_008,admin_censor_date,Administrative censoring,Date,date,"enabled,metadata",80,800,,,,365,7300,1
+
+# variable_details.csv
+uid,uid_detail,variable,recStart,recEnd,proportion
+v004,d_007,interview_date,"[2001-01-01,2005-12-31]",copy,1
+v005,d_009,primary_event_date,"[2002-01-01,2021-01-01]",copy,0.1
+v006,d_011,death_date,"[2002-01-01,2024-12-31]",copy,0.2
+v_007,d_013,ltfu_date,"[2002-01-01,2024-12-31]",copy,0.1
+v_008,d_015,admin_censor_date,2024-12-31,copy,1
+```
+
+**Interpretation:**
+
+- **Index date:** Interview 2001-2005 (100% have date)
+- **Primary event:** 10% develop dementia within 0-15 years (gompertz hazard)
+- **Competing risk:** 20% die within 1-20 years (gompertz hazard)
+- **Censoring:** 10% lost to follow-up within 1-20 years (uniform)
+- **Administrative:** All censored at 2024-12-31
+
+**Result:** Realistic competing risks dataset with:
+
+- Some experience primary event before death/censoring
+- Some die before primary event
+- Some censored (lost to follow-up or administrative)
+- No individual can have more than one terminal event
+
+See [Tutorial: Generating survival data with competing risks](tutorial-survival-data.html) for complete workflow.
+
+---
+
+### Example 9: Categorical variable with skip logic (NA::a)
+
+**Use case:** Pregnancy question with valid skip for males/postmenopausal
+
+```csv
+# variables.csv
+uid,variable,label,variableType,rType,role,position,seed
+v010,currently_pregnant,Currently pregnant,Categorical,factor,"enabled,outcome",100,1000
+
+# variable_details.csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
+v010,d_020,currently_pregnant,1,1,Yes,0.05
+v010,d_021,currently_pregnant,2,2,No,0.30
+v010,d_022,currently_pregnant,6,NA::a,Valid skip (not applicable),0.60
+v010,d_023,currently_pregnant,9,NA::b,Not stated,0.05
+```
+
+**Result:**
+
+- 5% currently pregnant
+- 30% not pregnant
+- 60% valid skip (males, postmenopausal females - not eligible for question)
+- 5% eligible but didn't answer
+
+**Statistical interpretation:**
+
+- **Denominator for prevalence:** 0.05 + 0.30 + 0.05 = 0.40 (eligible respondents)
+- **Prevalence among eligible:** 0.05 / 0.40 = 12.5%
+- **Response rate:** (0.05 + 0.30) / 0.40 = 87.5%
+
+---
+
+### Example 10: Versioned metadata with garbage data evolution
+
+**Use case:** Tracking changes to QA testing parameters over time
+
+```csv
+# variables.csv (version 1.0.0)
+uid,variable,garbage_low_prop,garbage_low_range,mockDataVersion,mockDataVersionNotes
+v001,age,0.01,"[-5,10]",1.0.0,Initial version with minimal contamination
+
+# variables.csv (version 1.1.0 - increased QA testing)
+uid,variable,garbage_low_prop,garbage_low_range,mockDataVersion,mockDataLastUpdated,mockDataVersionNotes
+v001,age,0.05,"[-10,15]",1.1.0,2025-11-15,Increased contamination for comprehensive QA testing
+```
+
+**Use case:**
+
+- Track metadata evolution
+- Document why garbage data proportions changed
+- Reproduce exact mock datasets from specific versions
+- Audit trail for scientific publications
+
+---
+
+## Edge cases and special configurations
+
+### Single-value categorical variable
+
+**Use case:** Binary variable with only two categories
+
+```csv
+uid,uid_detail,variable,recStart,recEnd,proportion
+v020,d_040,diabetes,0,0,0.90
+v020,d_041,diabetes,1,1,0.10
+```
+
+**Result:** 90% no diabetes (0), 10% diabetes (1).
+
+---
+
+### Administrative date (all same value)
+
+**Use case:** Data freeze date - everyone has same value
+
+```csv
+# variables.csv
+uid,variable,variableType,rType,distribution
+v_008,admin_censor_date,Date,date,
+
+# variable_details.csv
+uid,uid_detail,variable,recStart,recEnd,proportion
+v_008,d_015,admin_censor_date,2024-12-31,copy,1
+```
+
+**Result:** All rows have `2024-12-31` (single date, not a range).
+
+---
+
+### Continuous variable with missing data using "else"
+
+**Use case:** Height with catch-all missing pattern
+
+```csv
+uid,uid_detail,variable,recStart,recEnd,proportion
+v004,d_012,height,"[1.4,2.1]",copy,
+v004,d_013,height,else,NA::b,0.02
+```
+
+**Result:** 98% valid heights [1.4, 2.1], 2% coded as `else` → NA.
+
+---
+
+### Zero-variance continuous variable (for testing)
+
+**Use case:** Constant value for all observations
+
+```csv
+# variables.csv
+uid,variable,distribution,mean,sd
+v030,constant_value,normal,100,0.001
+
+# variable_details.csv
+uid,uid_detail,variable,recStart
+v030,d_060,constant_value,"[99.99,100.01]"
+```
+
+**Result:** All values ≈ 100 (effectively constant given narrow range and tiny SD).
+
+---
+
+## Schema design principles
+
+### Core principles
+
+**1. Complete grid:** Every cell has an explicit value
+
+- Use `NA` for not applicable
+- Use `""` (empty string) only when value is truly unknown
+- Use sentinel values `[,]` for empty ranges
+- No implicit defaults - be explicit
+
+**2. Separation of concerns:**
+
+- **variables.csv:** Variable-level metadata (one row per variable)
+- **variable_details.csv:** Category/range specifications (multiple rows per variable)
+- **Generation logic:** In R package functions, not in metadata
+
+**3. Traceability:**
+
+- UIDs provide permanent identifiers
+- Versioning columns track metadata evolution
+- Foreign keys link files (uid column)
+
+**4. Composability:**
+
+- Variables can be generated independently
+- Metadata can be shared across databases (databaseStart filtering)
+- Derived variables calculated post-generation
+
+**5. Validation-first:**
+
+- Schema validates before generation
+- Fail fast with clear error messages
+- Sum-to-one enforcement prevents silent errors
+
+---
+
+### Best practices checklist
+
+**Before creating metadata:**
+
+- [ ] Choose naming convention for UIDs (project prefix + zero-padded numbers)
+- [ ] Decide on databaseStart naming (single study vs multi-cycle)
+- [ ] Plan versioning strategy (when to increment mockDataVersion)
+- [ ] Document seed strategy (position × 10 recommended)
+
+**During metadata creation:**
+
+- [ ] Use zero-padded UIDs (v001 not v1)
+- [ ] Use increments of 10 for position (10, 20, 30)
+- [ ] Ensure proportions sum to 1.0 for each variable
+- [ ] Include "enabled" in role for variables to generate
+- [ ] Use interval notation for continuous/date ranges
+- [ ] Specify distribution parameters when needed
+- [ ] Add catLabel for documentation
+
+**After metadata creation:**
+
+- [ ] Validate files load without errors
+- [ ] Check foreign keys (all variable_details.uid exist in variables.uid)
+- [ ] Verify proportions sum correctly
+- [ ] Test generation with small n (100) first
+- [ ] Check output matches expected distributions
+- [ ] Verify garbage data appears as expected
+- [ ] Document any non-obvious design decisions
+
+**For production use:**
+
+- [ ] Freeze metadata version (commit to git)
+- [ ] Document mockDataVersion in README
+- [ ] Include seed in generation scripts
+- [ ] Save generated data with metadata version tag
+- [ ] Keep audit trail of metadata changes
+
+---
+
+## Migration from older versions
+
+### From recodeflow metadata (no MockData extensions)
+
+If you have existing recodeflow metadata without MockData extension columns:
+
+**1. Add required extension columns to variables.csv:**
+
+```r
+# Minimal additions
+variables$rType <- "double"  # Or appropriate type
+variables$role <- "enabled"
+variables$position <- seq(10, by = 10, length.out = nrow(variables))
+variables$seed <- variables$position * 10
+```
+
+**2. Add distribution columns (if needed):**
+
+```r
+# For continuous variables
+continuous_vars <- variables$variableType == "Continuous"
+variables$distribution[continuous_vars] <- "uniform"
+
+# For date variables
+date_vars <- variables$variableType == "Date"
+variables$distribution[date_vars] <- "uniform"
+```
+
+**3. Add recEnd to variable_details.csv:**
+
+```r
+# For continuous/date variables with ranges
+variable_details$recEnd[is.na(variable_details$recEnd)] <- "copy"
+
+# For categorical variables (map codes to themselves)
+# Requires manual review to identify missing codes
+```
+
+**4. Validate and test:**
+
+```r
+# Load and validate
+mock_data <- create_mock_data(
+  databaseStart = "your_database",
+  variables = variables,
+  variable_details = variable_details,
+  n = 100
+)
+
+# Verify structure
+str(mock_data)
+summary(mock_data)
+```
+
+---
+
+### From MockData v0.1.x to v0.2.x
+
+Key changes in v0.2.0:
+
+**1. Garbage data column names changed:**
+
+```csv
+# OLD (v0.1.x)
+corrupt_low_prop,corrupt_low_range,corrupt_high_prop,corrupt_high_range
+
+# NEW (v0.2.x)
+garbage_low_prop,garbage_low_range,garbage_high_prop,garbage_high_range
+```
+
+**Migration:**
+
+```r
+# Rename columns
+names(variables)[names(variables) == "corrupt_low_prop"] <- "garbage_low_prop"
+names(variables)[names(variables) == "corrupt_low_range"] <- "garbage_low_range"
+names(variables)[names(variables) == "corrupt_high_prop"] <- "garbage_high_prop"
+names(variables)[names(variables) == "corrupt_high_range"] <- "garbage_high_range"
+```
+
+**2. Distribution parameters moved to variables.csv:**
+
+In v0.1.x, some parameters were in variable_details.csv. In v0.2.x, all distribution parameters are in variables.csv.
+
+**3. New versioning columns available:**
+
+```csv
+mockDataVersion,mockDataLastUpdated,mockDataVersionNotes
+```
+
+Add these to track metadata changes over time.
+
+---
+
+## Performance optimization
+
+### For large datasets (n > 1M)
+
+**1. Use simpler distributions:**
+
+```csv
+# Slower
+distribution,mean,sd
+normal,50,15
+
+# Faster
+distribution
+uniform
+```
+
+**2. Minimize variables:**
+
+Only include variables you actually need. Each variable adds generation time.
+
+**3. Batch generation:**
+
+```r
+# Generate in chunks
+batch_size <- 100000
+n_batches <- ceiling(total_n / batch_size)
+
+results <- lapply(1:n_batches, function(i) {
+  create_mock_data(
+    databaseStart = "my_study",
+    variables = variables,
+    variable_details = variable_details,
+    n = min(batch_size, total_n - (i-1)*batch_size),
+    seed = base_seed + i
+  )
+})
+
+final_data <- bind_rows(results)
+```
+
+**4. Simplify metadata:**
+
+- Reduce number of categories per variable
+- Use uniform instead of normal distributions
+- Minimize garbage data (only for QA testing, not production)
+
+---
+
+### Memory management
+
+**For n > 10M rows:**
+
+```r
+# Generate in batches and write to disk
+for (i in 1:n_batches) {
+  batch <- create_mock_data(
+    databaseStart = "my_study",
+    variables = variables,
+    variable_details = variable_details,
+    n = batch_size,
+    seed = base_seed + i
+  )
+
+  # Write to disk immediately
+  write.csv(batch, paste0("mock_data_batch_", i, ".csv"), row.names = FALSE)
+
+  # Free memory
+  rm(batch)
+  gc()
+}
+
+# Combine later if needed
+all_files <- list.files(pattern = "mock_data_batch_.*\\.csv")
+combined <- do.call(rbind, lapply(all_files, read.csv))
+```
+
+---
+
+## Reference implementation
+
+```{r}
+#| echo: false
+
+# Summarize the example dataset
+n_variables <- nrow(variables_csv)
+n_detail_rows <- nrow(variable_details_csv)
+variable_types <- table(variables_csv$variableType)
+rtypes <- table(variables_csv$rType)
+```
+
+See [inst/extdata/minimal-example/](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example) for a complete working example with `r n_variables` variables (`r paste(names(variable_types), ":", variable_types, collapse = ", ")`) and `r n_detail_rows` detail rows demonstrating:
+
+- All `r vars_counts$extensions` variable-level extension columns (plus `r vars_counts$core` core recodeflow columns)
+- All `r details_counts$extensions` detail-level extension columns (plus `r details_counts$core` core recodeflow columns)
+- All variable types (integer, factor, double, date)
+- All garbage data patterns (advanced low/high, simple prop_garbage)
+- All distribution types (normal, uniform, gompertz)
+- Survival analysis with competing risks
+- UID-based foreign keys
+- Interval notation throughout
+- Complete grid principle (no empty strings, explicit NA/sentinels)
+
+This example validates successfully and can be used as a template for new projects.

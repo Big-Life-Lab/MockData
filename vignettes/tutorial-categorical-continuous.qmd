@@ -1,0 +1,541 @@
+---
+title: "Generating categorical and continuous variables"
+format: html
+vignette: >
+  %\VignetteIndexEntry{Generating categorical and continuous variables}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+# Load package - works in both local dev and pkgdown build
+if (file.exists("../DESCRIPTION")) {
+  devtools::load_all("../", quiet = TRUE)
+} else {
+  library(MockData)
+}
+```
+
+::: {.vignette-about}
+**About this vignette:** This tutorial teaches the fundamentals of generating categorical and continuous variables. You'll learn how to use `create_cat_var()` and `create_con_var()` to generate individual variables with precise control over distributions and proportions. All code examples run during vignette build to ensure accuracy.
+:::
+
+## Overview
+
+MockData provides two core functions for generating the most common variable types:
+
+- **`create_cat_var()`** - Categorical variables (smoking status, education level, disease diagnosis)
+- **`create_con_var()`** - Continuous variables (age, weight, blood pressure, income)
+
+This tutorial focuses on the basics of these two variable types. For specialized topics, see:
+
+- [Missing data](tutorial-missing-data.html) - Survey missing codes and NA patterns
+- [Garbage data](tutorial-garbage-data.html) - Data quality testing with intentional errors
+- [Date variables](tutorial-dates.html) - Temporal data and survival times
+
+## Categorical variables
+
+Categorical variables represent discrete categories with specific meanings. Examples: smoking status, education level, disease diagnosis.
+
+### Basic categorical variable
+
+Let's generate smoking status from the minimal-example metadata:
+
+::: {.callout-note}
+## About example data paths
+
+These examples use `system.file()` to load example metadata included with the MockData package. In your own projects, you'll use regular file paths:
+
+```r
+# Package examples use:
+variables <- read.csv(
+  system.file("extdata/minimal-example/variables.csv", package = "MockData"),
+  stringsAsFactors = FALSE, check.names = FALSE
+)
+
+# Your code will use:
+variables <- read.csv(
+  "path/to/your/variables.csv",
+  stringsAsFactors = FALSE, check.names = FALSE
+)
+```
+:::
+
+```{r}
+#| label: load-metadata-generate-smoking
+#| warning: false
+#| message: false
+
+# Load minimal-example metadata
+variables <- read.csv(
+  system.file("extdata/minimal-example/variables.csv", package = "MockData"),
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+
+variable_details <- read.csv(
+  system.file("extdata/minimal-example/variable_details.csv", package = "MockData"),
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+
+# Generate smoking status (categorical variable)
+smoking <- create_cat_var(
+  var = "smoking",
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  n = 1000,
+  seed = 123
+)
+
+# View structure
+head(smoking)
+str(smoking)
+```
+
+### Categorical variable proportions
+
+The `proportion` column in variable_details.csv controls the distribution of categories:
+
+```{r}
+#| label: extract-smoking-proportions
+#| echo: false
+
+# Extract smoking proportions from metadata
+smoking_details <- variable_details[variable_details$variable == "smoking", ]
+```
+
+**Smoking proportions from metadata:**
+
+```{r}
+#| label: display-smoking-table
+#| echo: false
+knitr::kable(smoking_details[, c("recStart", "catLabel", "proportion")])
+```
+
+**Observed distribution:**
+
+```{r}
+#| label: check-smoking-distribution
+# Check the distribution
+table(smoking$smoking)
+prop.table(table(smoking$smoking))
+```
+
+**Key insight:** The observed proportions closely match the metadata specifications. MockData samples categories according to the specified proportions.
+
+### Understanding categorical metadata
+
+For smoking (cchsflow_v0002), the metadata specifies:
+
+**In variables.csv:**
+
+- `variableType = "Categorical"`
+- `rType = "factor"` - Output as R factor with levels
+
+**In variable_details.csv:**
+
+- Each category has its own row
+- `recStart` contains the category code ("1", "2", "3")
+- `proportion` must sum to 1.0 across all categories
+
+```{r}
+#| label: verify-proportions-sum
+#| echo: false
+
+# Verify proportions sum to 1.0
+prop_sum <- sum(smoking_details$proportion, na.rm = TRUE)
+```
+
+**Proportion validation:** Sum = `r round(prop_sum, 3)` (must be 1.0 ± 0.01)
+
+## Continuous variables
+
+Continuous variables represent numeric measurements on a scale. Examples: age, BMI, blood pressure, income.
+
+### Basic continuous variable (integer)
+
+Let's generate age from the minimal-example metadata:
+
+```{r}
+#| label: generate-age
+#| warning: false
+#| message: false
+
+# Generate age (continuous variable with integer output)
+age <- create_con_var(
+  var = "age",
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  n = 1000,
+  seed = 456
+)
+
+# View structure
+head(age)
+str(age)
+```
+
+### Continuous variable distributions
+
+Continuous variables use statistical distributions to generate realistic values:
+
+```{r}
+#| label: check-age-distribution
+# Check the distribution
+summary(age$age)
+hist(age$age, breaks = 30, main = "Age Distribution", xlab = "Age (years)", col = "lightblue")
+```
+
+```{r}
+#| label: extract-age-parameters
+#| echo: false
+
+# Extract age distribution parameters from metadata
+age_row <- variables[variables$variable == "age", ]
+age_mean <- age_row$mean
+age_sd <- age_row$sd
+age_distribution <- age_row$distribution
+```
+
+**Distribution parameters from metadata:**
+
+- Distribution: `r age_distribution`
+- Mean: `r age_mean`
+- Standard deviation: `r age_sd`
+
+**Interpretation:** Age is drawn from a normal distribution with mean = `r age_mean` and SD = `r age_sd`, truncated to the valid range specified in variable_details.csv. Notice the peak at 999—in raw data from complex sources like surveys, missing codes are often unrealistically high or low values. This is by design, but it can generate unusual patterns in the data distribution. See the [Missing data tutorial](tutorial-missing-data.html) for more information.
+
+### Understanding continuous metadata
+
+For age (cchsflow_v0001), the metadata specifies:
+
+**In variables.csv:**
+
+- `variableType = "Continuous"`
+- `rType = "integer"` - Output as whole numbers
+- `distribution = "normal"` - Use normal distribution
+- `mean = 50`, `sd = 15` - Distribution parameters
+
+**In variable_details.csv:**
+
+- `recStart = "[18,100]"` - Valid range (interval notation)
+- `proportion = NA` - Not applicable for continuous variables
+
+The normal distribution is truncated to [18, 100], ensuring no invalid ages are generated.
+
+### Continuous variable (double precision)
+
+Let's generate weight, which requires decimal precision:
+
+```{r}
+#| label: generate-weight
+#| warning: false
+#| message: false
+
+# Generate weight (continuous variable with double precision)
+weight <- create_con_var(
+  var = "weight",
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  n = 1000,
+  seed = 789
+)
+
+# View structure
+head(weight)
+str(weight)
+```
+
+```{r}
+#| label: check-weight-distribution
+# Check the distribution
+summary(weight$weight)
+hist(weight$weight, breaks = 30, main = "Weight Distribution", xlab = "Weight (kg)", col = "lightgreen")
+```
+
+```{r}
+#| label: extract-weight-parameters
+#| echo: false
+
+# Extract weight distribution parameters
+weight_row <- variables[variables$variable == "weight", ]
+weight_mean <- weight_row$mean
+weight_sd <- weight_row$sd
+```
+
+**Weight parameters:**
+
+- Distribution: normal
+- Mean: `r weight_mean` kg
+- Standard deviation: `r weight_sd` kg
+- Output type: double (decimal values)
+
+**Difference from age:** Weight uses `rType = "double"` to preserve decimal precision (e.g., 72.3, 85.7), while age uses `rType = "integer"` for whole numbers (e.g., 45, 67).
+
+## Comparing categorical vs continuous
+
+| Aspect | Categorical | Continuous |
+|--------|-------------|------------|
+| **Use case** | Discrete categories | Numeric measurements |
+| **Examples** | Smoking status, education | Age, weight, income |
+| **Distribution** | Proportions | Statistical (normal, uniform) |
+| **variable_details** | Multiple rows (one per category) | Single row (range specification) |
+| **proportion column** | Required (must sum to 1.0) | NA (not applicable) |
+| **recStart** | Category codes ("1", "2", "3") | Interval notation ("[18,100]") |
+| **Output types** | factor, character | integer, double |
+
+## When to use individual functions vs create_mock_data()
+
+**Use `create_cat_var()` or `create_con_var()` when:**
+
+- Testing a single variable interactively
+- Exploring distribution parameters
+- Debugging metadata specifications
+- Generating variables one at a time for specific tests
+
+**Use `create_mock_data()` when:**
+
+- Generating complete datasets with multiple variables
+- Need all variables generated together
+- Production workflows with saved metadata files
+
+**Example: Batch generation**
+
+```{r}
+#| label: batch-generation
+#| warning: false
+#| message: false
+
+# Generate multiple variables at once
+mock_data <- create_mock_data(
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  n = 1000,
+  seed = 100
+)
+
+# Check which variables were generated
+names(mock_data)
+head(mock_data[, c("smoking", "age", "weight")])
+```
+
+**Result:** All enabled variables generated in a single call, maintaining consistent sample size and relationships.
+
+## Distribution types for continuous variables
+
+MockData supports two distributions for continuous variables:
+
+### Normal distribution
+
+Most common for naturally-varying measurements:
+
+**Parameters:**
+
+- `distribution = "normal"`
+- `mean` - Center of distribution
+- `sd` - Spread (standard deviation)
+
+**Examples:**
+
+- Age (mean = 50, sd = 15)
+- Weight (mean = 75, sd = 15)
+- Height (mean = 1.7, sd = 0.1)
+
+**Properties:**
+
+- Bell-shaped curve
+- Symmetric around mean
+- ~68% within 1 SD, ~95% within 2 SD
+- Values truncated to valid range
+
+### Uniform distribution
+
+Equal probability across entire range:
+
+**Parameters:**
+
+- `distribution = "uniform"`
+- No additional parameters needed
+- Uses range from variable_details.csv
+
+**Example configuration:**
+
+```csv
+# variables.csv
+uid,variable,distribution
+v010,participant_id,uniform
+
+# variable_details.csv
+uid,variable,recStart
+v010,participant_id,"[1000,9999]"
+```
+
+**Use cases:**
+
+- ID numbers
+- Random assignment codes
+- Variables without known distribution
+
+## Proportions for categorical variables
+
+Proportions control the population distribution of categories. They must sum to 1.0 (±0.01 tolerance).
+
+### Example: Realistic smoking prevalence
+
+```{r}
+#| label: show-smoking-proportions
+#| echo: false
+
+# Show smoking proportions
+smoking_props <- variable_details[variable_details$variable == "smoking", c("catLabel", "proportion")]
+knitr::kable(smoking_props, row.names = FALSE)
+```
+
+These proportions might reflect:
+
+- Published health survey statistics
+- Literature values for the population
+- Target distributions for study design
+
+### Matching published statistics
+
+The proportion specification allows you to generate mock data that matches "Table 1" descriptive statistics from published papers.
+
+**Example scenario:** A paper reports:
+
+- Never smokers: 50%
+- Former smokers: 30%
+- Current smokers: 17%
+- Don't know: 3%
+
+By setting these proportions in variable_details.csv, your mock data will match the published distribution.
+
+## Output data types (rType)
+
+The `rType` column in variables.csv controls the R data type of the output:
+
+### For categorical variables
+
+**factor (recommended):**
+
+- Preserves category levels
+- Required for statistical modeling
+- Example: smoking status
+
+**character:**
+
+- Plain text representation
+- Use for IDs or non-analyzable categories
+- Example: participant ID, study site
+
+### For continuous variables
+
+**integer:**
+
+- Whole numbers only
+- Use for counts, age in years
+- Example: age, number of children
+
+**double:**
+
+- Decimal precision
+- Use for measurements requiring precision
+- Example: weight, blood pressure, lab values
+
+**Example comparison:**
+
+```{r}
+#| label: compare-age-weight
+# Age: integer (no decimals)
+head(age$age)
+
+# Weight: double (decimal precision)
+head(weight$weight)
+```
+
+## Checking generated data
+
+Always verify that generated data matches your expectations:
+
+### For categorical variables
+
+```{r}
+#| label: check-categorical
+# Check factor levels
+levels(smoking$smoking)
+
+# Check proportions
+prop.table(table(smoking$smoking))
+
+# Verify data type
+class(smoking$smoking)
+```
+
+### For continuous variables
+
+```{r}
+#| label: check-continuous
+# Check range
+range(age$age, na.rm = TRUE)
+
+# Check distribution parameters
+mean(age$age, na.rm = TRUE)
+sd(age$age, na.rm = TRUE)
+
+# Verify data type
+class(age$age)
+```
+
+**Validation checklist:**
+
+- [ ] Proportions sum to ~1.0 (categorical)
+- [ ] Values within expected range (continuous)
+- [ ] Correct data type (factor, integer, double)
+- [ ] Sample size matches n parameter
+- [ ] Distribution shape looks reasonable (histogram)
+
+## Key concepts summary
+
+| Concept | Implementation | Details |
+|---------|----------------|---------|
+| **Categorical variables** | `create_cat_var()` | Discrete categories with proportions |
+| **Continuous variables** | `create_con_var()` | Numeric measurements with distributions |
+| **Proportions** | In variable_details.csv | Must sum to 1.0 for categorical |
+| **Distributions** | normal, uniform | Specified in variables.csv |
+| **Output types** | rType column | factor, character, integer, double |
+| **Metadata validation** | Automatic | Proportions, ranges, types checked |
+| **Batch generation** | `create_mock_data()` | Multiple variables at once |
+
+## What you learned
+
+In this tutorial, you learned:
+
+- **Categorical variables:** Using `create_cat_var()` to generate variables with discrete categories
+- **Proportions:** How to specify and validate category distributions
+- **Continuous variables:** Using `create_con_var()` to generate numeric measurements
+- **Distributions:** Normal and uniform distributions for continuous data
+- **Output types:** Choosing appropriate rType (factor, integer, double) for each variable
+- **Metadata structure:** How variables.csv and variable_details.csv work together
+- **Individual vs batch:** When to use single-variable functions vs `create_mock_data()`
+- **Validation:** Checking that generated data matches metadata specifications
+
+## Next steps
+
+**Continue learning:**
+
+- [Date variables](tutorial-dates.html) - Temporal data and event times
+- [Survival data](tutorial-survival-data.html) - Competing risks and censoring
+- [Missing data](tutorial-missing-data.html) - Survey missing codes (NA::a vs NA::b)
+- [Garbage data](tutorial-garbage-data.html) - Data quality testing
+
+**Reference:**
+
+- [Configuration reference](reference-config.html) - Complete metadata schema
+- [Getting started](getting-started.html) - Overview and first examples

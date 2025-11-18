@@ -5,12 +5,17 @@
 .Rhistory
 .RData
 .Ruserdata
+.Renviron
+
+# Temporary files and development artifacts
+.tmp/
 
 # macOS
 .DS_Store
 
 # Generated documentation
 man/*.Rd
+docs/
 
 # Quarto/HTML output
 Generate_mock_data.html

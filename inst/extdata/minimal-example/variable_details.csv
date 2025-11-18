@@ -1,0 +1,27 @@
+"uid","uid_detail","variable","recStart","recEnd","catLabel","proportion"
+"cchsflow_v0001","cchsflow_d00001","age","[18,100]","copy","Valid age range",0.90
+"cchsflow_v0001","cchsflow_d00002","age","997","NA::b","Don't know",0.05
+"cchsflow_v0001","cchsflow_d00003","age","998","NA::b","Refusal",0.03
+"cchsflow_v0001","cchsflow_d00004","age","999","NA::b","Not stated",0.02
+"cchsflow_v0002","cchsflow_d00005","smoking","1","1","Never smoker",0.5
+"cchsflow_v0002","cchsflow_d00006","smoking","2","2","Former smoker",0.3
+"cchsflow_v0002","cchsflow_d00007","smoking","3","3","Current smoker",0.17
+"cchsflow_v0002","cchsflow_d00008","smoking","7","NA::b","Don't know",0.03
+"cchsflow_v0003","cchsflow_d00009","BMI","[15,50]","copy","Valid BMI range",
+"cchsflow_v0003","cchsflow_d00010","BMI","996","NA::a","Not applicable",0.3
+"cchsflow_v0003","cchsflow_d00011","BMI","[997,999]","NA::b","Don't know, refusal, not stated",0.1
+"cchsflow_v0004","cchsflow_d00012","height","[1.4,2.1]","copy","Valid height range (meters)",
+"cchsflow_v0004","cchsflow_d00013","height","else","NA::b","Missing height",0.02
+"cchsflow_v0005","cchsflow_d00014","weight","[35,150]","copy","Valid weight range (kg)",
+"cchsflow_v0005","cchsflow_d00015","weight","else","NA::b","Missing weight",0.03
+"cchsflow_v0006","cchsflow_d00016","BMI_derived","DerivedVar::[height, weight]","Func::bmi_fun","BMI calculated from height and weight",
+"ices_v01","ices_d001","interview_date","[2001-01-01,2005-12-31]","copy","Interview date range",1
+"ices_v01","ices_d002","interview_date","else","NA::b","Missing interview date",0
+"ices_v02","ices_d003","primary_event_date","[2002-01-01,2021-01-01]","copy","Primary event date range",0.1
+"ices_v02","ices_d004","primary_event_date","else","NA::b","Missing event date",0
+"ices_v03","ices_d005","death_date","[2002-01-01,2024-12-31]","copy","Death date range",0.2
+"ices_v03","ices_d006","death_date","else","NA::b","Missing death date",0.05
+"ices_v04","ices_d007","ltfu_date","[2002-01-01,2024-12-31]","copy","Loss to follow-up date range",0.05
+"ices_v04","ices_d008","ltfu_date","else","NA::b","Missing ltfu date",
+"ices_v05","ices_d009","admin_censor_date","2024-12-31","copy","Administrative censor date",1
+"ices_v05","ices_d010","admin_censor_date","else","NA::b","Missing administrative censor date",0

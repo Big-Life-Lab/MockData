@@ -11,8 +11,8 @@
 #'
 #' This function parses the `variableStart` field from variable_details metadata
 #' and extracts the raw variable name for a specific database/cycle. It supports
-#' recodeflow-standard formats: database-prefixed ("database::varname"),
-#' bracket ("[varname]"), mixed, and plain formats.
+#' recodeflow-standard formats: database-prefixed (`"database::varname"`),
+#' bracket (`"[varname]"`), mixed, and plain formats.
 #'
 #' @param variable_start Character string from variableStart field. Can contain
 #'   multiple database specifications separated by commas (e.g., "cycle1::age, cycle2::AGE").
@@ -23,13 +23,13 @@
 #' @details
 #' The function implements recodeflow-standard parsing strategies:
 #' \enumerate{
-#'   \item Database-prefixed format: "database::varname" - for database-specific names
-#'   \item Bracket format (whole string): "[varname]" - for database-agnostic names
-#'   \item Bracket format (segment): "database1::var1, [var2]" - [var2] is DEFAULT for other databases
-#'   \item Plain format: "varname" - uses value as-is
+#'   \item Database-prefixed format: `"database::varname"` - for database-specific names
+#'   \item Bracket format (whole string): `"[varname]"` - for database-agnostic names
+#'   \item Bracket format (segment): `"database1::var1, [var2]"` - `[var2]` is DEFAULT for other databases
+#'   \item Plain format: `"varname"` - uses value as-is
 #' }
 #'
-#' **Important**: [variable] represents the DEFAULT for all databases not explicitly
+#' **Important**: `[variable]` represents the DEFAULT for all databases not explicitly
 #' referenced with database:: notation. This reduces repetition when only one or a
 #' few databases use different variable names.
 #'
@@ -56,6 +56,7 @@
 #' parse_variable_start("cycle2::age", "cycle1")
 #' # Returns: NULL
 #'
+#' @family parsing-utilities
 #' @export
 parse_variable_start <- function(variable_start, cycle) {
   # Basic validation
@@ -129,22 +130,23 @@ parse_variable_start <- function(variable_start, cycle) {
 #'   Returns NULL if parsing fails
 #'
 #' @details
-#' **Recodeflow-Standard Range Notation:**
+#' **Range Notation Formats:**
 #'
-#' These patterns work across all recodeflow projects (CHMS, CCHS, etc.):
+#' Supports both comma (recommended) and semicolon (compatibility) delimiters:
 #'
-#' - Integer ranges: `[7,9]` → integers 7,8,9
-#' - Continuous ranges: `[18.5,25)` → 18.5 ≤ x < 25
-#' - Continuous ranges: `[18.5,25]` → 18.5 ≤ x ≤ 25
-#' - Infinity ranges: `[30,inf)` → x ≥ 30
+#' - Integer ranges: `[7,9]` or `[7;9]` → integers 7,8,9
+#' - Continuous ranges: `[18.5,25)` or `[18.5;25)` → 18.5 ≤ x < 25
+#' - Continuous ranges: `[18.5,25]` or `[18.5;25]` → 18.5 ≤ x ≤ 25
+#' - Infinity ranges: `[30,inf)` or `[30;inf)` → x ≥ 30
+#' - Date ranges: `[2001-01-01;2005-12-31]` (semicolon recommended for dates)
 #' - Special codes: `NA::a`, `NA::b`, `copy`, `else` (passed through unchanged)
 #' - Function calls: `Func::function_name` (passed through unchanged)
 #'
 #' **Mathematical Bracket Notation:**
-#' - `[a,b]` - Closed interval: a ≤ x ≤ b
-#' - `[a,b)` - Half-open interval: a ≤ x < b
-#' - `(a,b]` - Half-open interval: a < x ≤ b
-#' - `(a,b)` - Open interval: a < x < b
+#' - `[a,b]` or `[a;b]` - Closed interval: a ≤ x ≤ b
+#' - `[a,b)` or `[a;b)` - Half-open interval: a ≤ x < b
+#' - `(a,b]` or `(a;b]` - Half-open interval: a < x ≤ b
+#' - `(a,b)` or `(a;b)` - Open interval: a < x < b
 #'
 #' **Auto-Detection Logic:**
 #' - Contains decimal values → continuous range
@@ -170,6 +172,7 @@ parse_variable_start <- function(variable_start, cycle) {
 #' parse_range_notation("else")    # Returns: list(type="special", value="else")
 #'
 #' @note Adapted from cchsflow v4.0.0 (2025-07-27) - universal across recodeflow projects
+#' @family parsing-utilities
 #' @export
 parse_range_notation <- function(range_string, range_type = "auto", expand_integers = TRUE) {
   # Handle NULL, NA, or empty inputs
@@ -225,32 +228,47 @@ parse_range_notation <- function(range_string, range_type = "auto", expand_integ
   # Extract content between brackets
   inner_content <- substr(range_clean, 2, nchar(range_clean) - 1)
 
-  # Find comma position
-  comma_pos <- regexpr(",", inner_content)
-  if (comma_pos[1] == -1) {
+  # Find delimiter position (comma or semicolon)
+  # Support both comma (recommended) and semicolon (compatibility)
+  delimiter_pos <- regexpr("[,;]", inner_content)
+  if (delimiter_pos[1] == -1) {
     return(NULL)
   }
 
-  min_str <- trimws(substr(inner_content, 1, comma_pos[1] - 1))
-  max_str <- trimws(substr(inner_content, comma_pos[1] + 1, nchar(inner_content)))
+  min_str <- trimws(substr(inner_content, 1, delimiter_pos[1] - 1))
+  max_str <- trimws(substr(inner_content, delimiter_pos[1] + 1, nchar(inner_content)))
 
-  # Parse min value (handle "inf" and numeric values)
+  # Parse min value (handle "inf", numeric values, and dates)
   if (tolower(min_str) == "inf") {
     min_val <- Inf
   } else {
+    # Try numeric first
     min_val <- suppressWarnings(as.numeric(min_str))
+    # If numeric parsing fails, try date parsing
     if (is.na(min_val)) {
-      return(NULL)
+      min_date <- suppressWarnings(as.Date(min_str))
+      if (!is.na(min_date)) {
+        min_val <- min_date
+      } else {
+        return(NULL)
+      }
     }
   }
 
-  # Parse max value (handle "inf" and numeric values)
+  # Parse max value (handle "inf", numeric values, and dates)
   if (tolower(max_str) == "inf") {
     max_val <- Inf
   } else {
+    # Try numeric first
     max_val <- suppressWarnings(as.numeric(max_str))
+    # If numeric parsing fails, try date parsing
     if (is.na(max_val)) {
-      return(NULL)
+      max_date <- suppressWarnings(as.Date(max_str))
+      if (!is.na(max_date)) {
+        max_val <- max_date
+      } else {
+        return(NULL)
+      }
     }
   }
 
@@ -260,19 +278,24 @@ parse_range_notation <- function(range_string, range_type = "auto", expand_integ
 
   # Auto-detect range type if not specified
   if (range_type == "auto") {
-    # Detect continuous ranges by:
-    # 1. Mathematical bracket notation (half-open intervals)
-    # 2. Decimal values
-    # 3. Infinity values
-    # 4. Explicitly non-inclusive brackets
-    has_mathematical_notation <- (!min_inclusive || !max_inclusive)
-    has_decimals <- (min_val != floor(min_val)) || (max_val != floor(max_val))
-    has_infinity <- is.infinite(min_val) || is.infinite(max_val)
-
-    if (has_mathematical_notation || has_decimals || has_infinity) {
-      range_type <- "continuous"
+    # Detect dates first
+    if (inherits(min_val, "Date") || inherits(max_val, "Date")) {
+      range_type <- "date"
     } else {
-      range_type <- "integer"
+      # Detect continuous ranges by:
+      # 1. Mathematical bracket notation (half-open intervals)
+      # 2. Decimal values
+      # 3. Infinity values
+      # 4. Explicitly non-inclusive brackets
+      has_mathematical_notation <- (!min_inclusive || !max_inclusive)
+      has_decimals <- (min_val != floor(min_val)) || (max_val != floor(max_val))
+      has_infinity <- is.infinite(min_val) || is.infinite(max_val)
+
+      if (has_mathematical_notation || has_decimals || has_infinity) {
+        range_type <- "continuous"
+      } else {
+        range_type <- "integer"
+      }
     }
   }
 
@@ -297,6 +320,15 @@ parse_range_notation <- function(range_string, range_type = "auto", expand_integ
   } else if (range_type == "continuous") {
     return(list(
       type = "continuous",
+      min = min_val,
+      max = max_val,
+      min_inclusive = min_inclusive,
+      max_inclusive = max_inclusive
+    ))
+
+  } else if (range_type == "date") {
+    return(list(
+      type = "date",
       min = min_val,
       max = max_val,
       min_inclusive = min_inclusive,

@@ -1,0 +1,664 @@
+---
+title: "Generating garbage data for validation testing"
+format: html
+vignette: >
+  %\VignetteIndexEntry{Generating garbage data for validation testing}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+# Load package - works in both local dev and pkgdown build
+if (file.exists("../DESCRIPTION")) {
+  devtools::load_all("../", quiet = TRUE)
+} else {
+  library(MockData)
+}
+```
+
+::: {.vignette-about}
+**About this vignette:** This tutorial teaches you how to generate intentionally invalid "garbage" data for testing validation pipelines. You'll learn how to create realistic data quality issues across categorical, continuous, date, and survival variables, then verify your validation logic catches them correctly. All code examples run during vignette build to ensure accuracy.
+:::
+
+## Why generate garbage data?
+
+Data validation is important for research quality, but how do you know your validation rules actually work? The best approach is to generate mock data with known quality issues, run your validation pipeline, and verify it catches exactly what you expect.
+
+Health research projects often receive large datasets and need robust validation pipelines to catch data quality issues before analysis. By generating mock data with intentional errors, you can:
+
+1. **Test validation logic** before applying it to real data
+2. **Document expected error rates** for different quality checks
+3. **Train new team members** on common data quality patterns
+4. **Benchmark validation performance** with known error proportions
+
+Let's start with a motivating example. Suppose you're validating smoking status coding in a health survey dataset:
+
+```{r}
+#| label: load-metadata-generate-clean
+#| message: false
+#| warning: false
+
+# Load minimal-example metadata
+variable_details <- read.csv(
+  system.file("extdata/minimal-example/variable_details.csv",
+              package = "MockData"),
+  stringsAsFactors = FALSE
+)
+
+variables <- read.csv(
+  system.file("extdata/minimal-example/variables.csv",
+              package = "MockData"),
+  stringsAsFactors = FALSE
+)
+
+# Generate smoking variable WITHOUT garbage (clean data only)
+df_clean <- data.frame()
+smoking_clean <- create_cat_var(
+  var = "smoking",
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  df_mock = df_clean,
+  n = 1000,
+  seed = 123
+)
+
+# Check for invalid codes (valid codes are 1=Never, 2=Former, 3=Current, 7=Don't know)
+# IMPORTANT: Exclude NA values - they are legitimate missing data, not garbage
+valid_codes <- c("1", "2", "3", "7")
+invalid_clean <- sum(!smoking_clean$smoking %in% valid_codes & !is.na(smoking_clean$smoking))
+```
+
+With clean data generated from metadata, your validation check finds `r invalid_clean` invalid codes. This confirms the data is clean, but how do you know your validation logic actually works?
+
+## Unified garbage approach
+
+MockData uses a unified garbage generation pattern across **all variable types** (categorical, continuous, date, and survival):
+
+**Core pattern:**
+- `garbage_low_prop` + `garbage_low_range` for values below valid range
+- `garbage_high_prop` + `garbage_high_range` for values above valid range
+- Specified in variables metadata (or added with `add_garbage()` helper)
+
+**Helper function for easy setup:**
+
+```r
+# Add garbage to any variable type
+vars_with_garbage <- add_garbage(variables, "smoking",
+  garbage_low_prop = 0.02, garbage_low_range = "[-2, 0]")
+```
+
+## Categorical garbage patterns
+
+Categorical variables can have several types of garbage data. The most common are:
+
+**Invalid codes**: Values that aren't in the valid category set. Examples: ".a", "NA", "missing", numeric codes outside the defined range.
+
+**Type mismatches**: Wrong data types. Example: Numeric codes stored as floats (1.0 instead of 1).
+
+**Encoding issues**: Character encoding problems. Example: "Montr\u00e9al" becomes "Montr\ufffdal".
+
+### Categorical validation logic
+
+Let's demonstrate the validation logic for categorical variables. This example shows how to properly validate categorical data by excluding NA values (which represent legitimate missing data, not garbage):
+
+```{r}
+#| label: validate-categorical-clean
+#| message: false
+#| warning: false
+
+# Generate smoking variable (clean data from metadata)
+df_smoking <- data.frame()
+smoking_clean2 <- create_cat_var(
+  var = "smoking",
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  df_mock = df_smoking,
+  n = 2000,
+  seed = 789
+)
+
+# Validation: check for invalid codes
+# Get valid codes from metadata for smoking
+smoking_details <- variable_details[variable_details$variable == "smoking", ]
+valid_smoking_codes <- unique(smoking_details$recStart[!is.na(smoking_details$recStart)])
+
+# CRITICAL: Exclude NA values - they are legitimate missing data, not garbage
+# Incorrect: invalid_smoking <- !smoking_clean2$smoking %in% valid_smoking_codes (counts NA as garbage)
+# Correct:
+invalid_smoking <- !smoking_clean2$smoking %in% valid_smoking_codes & !is.na(smoking_clean2$smoking)
+n_invalid <- sum(invalid_smoking)
+invalid_pct <- round(n_invalid / nrow(smoking_clean2) * 100, 1)
+```
+
+```{r}
+#| label: count-na-values
+#| echo: false
+
+# Count NA values separately
+n_na <- sum(is.na(smoking_clean2$smoking))
+na_pct <- round(n_na / nrow(smoking_clean2) * 100, 1)
+```
+
+Validation results:
+
+- **Total records**: `r nrow(smoking_clean2)`
+- **Invalid codes found**: `r n_invalid` (`r invalid_pct`%)
+- **NA values (legitimate missing)**: `r n_na` (`r na_pct`%)
+
+Since we generated clean data without garbage specification, we correctly find 0 invalid codes. The NA values represent legitimate missing data patterns from the metadata proportions, not garbage.
+
+### Generating categorical garbage
+
+Now let's generate smoking data with intentional invalid codes using these garbage functions. For smoking (valid codes: 1, 2, 3, 7), we'll generate invalid codes below the valid range:
+
+```{r}
+#| label: generate-categorical-garbage
+#| message: false
+#| warning: false
+
+# Add garbage to smoking using helper function
+vars_smoking_garbage <- add_garbage(variables, "smoking",
+  garbage_low_prop = 0.03, garbage_low_range = "[-2, 0]")
+
+# Generate smoking with garbage
+smoking_garbage <- create_cat_var(
+  var = "smoking",
+  databaseStart = "minimal-example",
+  variables = vars_smoking_garbage,  # Uses modified variables with garbage
+  variable_details = variable_details,
+  n = 1000,
+  seed = 999
+)
+
+# Validate: check for invalid codes
+# Get valid codes from metadata
+smoking_details_check <- variable_details[variable_details$variable == "smoking", ]
+valid_codes_check <- unique(smoking_details_check$recStart[!is.na(smoking_details_check$recStart)])
+
+# Find garbage values (exclude NA - legitimate missing data)
+smoking_values <- as.numeric(as.character(smoking_garbage$smoking))
+garbage_smoking <- smoking_values[smoking_values < 1 & !is.na(smoking_values)]
+n_garbage_smoking <- length(garbage_smoking)
+garbage_smoking_pct <- round(n_garbage_smoking / nrow(smoking_garbage) * 100, 1)
+```
+
+**Validation results:**
+
+- **Total records**: `r nrow(smoking_garbage)`
+- **Garbage values found**: `r n_garbage_smoking` (`r garbage_smoking_pct`%)
+- **Expected**: ~3% (from garbage_low_prop = 0.03)
+- **Garbage codes generated**: `r paste(sort(unique(garbage_smoking)), collapse = ", ")`
+
+These functions generated invalid categorical codes (-2, -1, 0) by treating the valid codes as ordinal. This allows validation testing without pre-defining specific invalid category rows in metadata.
+
+### Alternative: Direct metadata modification
+
+Instead of using `add_garbage()`, you can modify the variables data frame directly:
+
+```{r}
+#| label: categorical-direct-modification
+#| message: false
+#| warning: false
+
+# Direct modification approach (equivalent to add_garbage)
+vars_smoking_direct <- variables
+vars_smoking_direct$garbage_low_prop[vars_smoking_direct$variable == "smoking"] <- 0.03
+vars_smoking_direct$garbage_low_range[vars_smoking_direct$variable == "smoking"] <- "[-2, 0]"
+
+# Generate smoking with garbage (using directly modified variables)
+smoking_direct <- create_cat_var(
+  var = "smoking",
+  databaseStart = "minimal-example",
+  variables = vars_smoking_direct,
+  variable_details = variable_details,
+  n = 1000,
+  seed = 999  # Same seed as helper example
+)
+
+# Validate: should match add_garbage() results
+smoking_direct_values <- as.numeric(as.character(smoking_direct$smoking))
+garbage_direct <- smoking_direct_values[smoking_direct_values < 1 & !is.na(smoking_direct_values)]
+```
+
+Both approaches produce identical results. Use `add_garbage()` for cleaner code or direct modification when building programmatic workflows.
+
+## Continuous variable garbage
+
+Continuous variables have different garbage patterns than categorical variables. Common issues include:
+
+**Out-of-range values**: Numbers outside biologically/logically plausible ranges. Example: Age = 250 years.
+
+**Type garbage data**: Values stored as wrong type. Example: Age stored as character "45.5" instead of numeric.
+
+**Precision issues**: Inappropriate decimal places. Example: Age = 45.7829 (overly precise).
+
+MockData generates continuous garbage using the same pattern:
+
+- Use `garbage_low_prop` + `garbage_low_range` for values below valid range
+- Use `garbage_high_prop` + `garbage_high_range` for values above valid range
+- Specify exact ranges using interval notation (e.g., `[-10, 0]` or `[200, 300]`)
+
+### Out-of-range values with helper function
+
+Let's generate age data with out-of-range garbage. The valid range is 18-100 years, so we'll add high-range garbage above 100 using the `add_garbage()` helper:
+
+```{r}
+#| label: generate-continuous-garbage-helper
+#| message: false
+#| warning: false
+
+# Add high-range garbage to age using helper function
+vars_age_garbage <- add_garbage(variables, "age",
+  garbage_high_prop = 0.02, garbage_high_range = "[120, 200]")
+
+# Generate age data with garbage
+df_age <- data.frame()
+age_garbage <- create_con_var(
+  var = "age",
+  databaseStart = "minimal-example",
+  variables = vars_age_garbage,
+  variable_details = variable_details,
+  df_mock = df_age,
+  n = 2000,
+  seed = 200
+)
+
+# CORRECT VALIDATION: Extract valid range and missing codes from metadata
+age_details <- variable_details[variable_details$variable == "age", ]
+
+# Get valid range from metadata (where recEnd = "copy")
+valid_range_row <- age_details[age_details$recEnd == "copy", ]
+# Parse interval notation [18,100] to extract min and max
+library(stringr)
+range_str <- valid_range_row$recStart[1]
+range_values <- as.numeric(str_extract_all(range_str, "\\d+")[[1]])
+valid_min <- range_values[1]  # 18
+valid_max <- range_values[2]  # 100
+
+# Get missing codes from metadata (where recEnd contains "NA::")
+missing_codes_rows <- age_details[grepl("NA::", age_details$recEnd), ]
+missing_codes <- as.numeric(missing_codes_rows$recStart)
+
+# Validate: Garbage should be high-range (> 100) AND not a missing code
+is_garbage <- age_garbage$age > valid_max &
+              !age_garbage$age %in% missing_codes &
+              !is.na(age_garbage$age)
+n_garbage <- sum(is_garbage)
+garbage_pct <- round(n_garbage / nrow(age_garbage) * 100, 1)
+
+# Display actual garbage values
+garbage_values <- age_garbage$age[is_garbage]
+```
+
+**Validation results:**
+
+- **Total records**: `r nrow(age_garbage)`
+- **Garbage values found**: `r n_garbage` (`r garbage_pct`%)
+- **Expected**: ~2% (from garbage_high_prop = 0.02)
+- **Sample garbage values**: `r paste(head(sort(garbage_values), 8), collapse = ", ")`
+
+```{r}
+#| label: calculate-age-ranges
+#| echo: false
+
+# Calculate ranges for display
+max_age <- max(age_garbage$age[age_garbage$age < 900], na.rm = TRUE)
+min_age <- min(age_garbage$age, na.rm = TRUE)
+```
+
+**Value ranges:**
+
+- **Overall range**: `r round(min_age, 1)` to `r round(max_age, 1)` years
+- **Valid range (from metadata)**: `r valid_min` to `r valid_max`
+- **Missing codes (from metadata)**: `r paste(missing_codes, collapse = ", ")`
+
+**Key validation principle:** Garbage values are high-range (> 100) AND not missing codes (997, 998, 999). This confirms the validator correctly excludes legitimate missing data from garbage detection.
+
+### Direct modification approach
+
+Instead of using `add_garbage()`, you can modify the variables data frame directly. This approach is useful when building programmatic workflows:
+
+```{r}
+#| label: continuous-direct-modification
+#| message: false
+#| warning: false
+
+# Direct modification approach - add low-range garbage (negative ages)
+vars_age_direct <- variables
+vars_age_direct$garbage_low_prop[vars_age_direct$variable == "age"] <- 0.02
+vars_age_direct$garbage_low_range[vars_age_direct$variable == "age"] <- "[-10, 10]"
+
+# Generate age data with low-range garbage
+df_age2 <- data.frame()
+age_direct <- create_con_var(
+  var = "age",
+  databaseStart = "minimal-example",
+  variables = vars_age_direct,
+  variable_details = variable_details,
+  df_mock = df_age2,
+  n = 2000,
+  seed = 201
+)
+
+# Validate: check for low-range garbage (below minimum valid age)
+low_range_garbage <- age_direct$age < 18 & !age_direct$age %in% c(997, 998, 999)
+n_low_garbage <- sum(low_range_garbage, na.rm = TRUE)
+```
+
+```{r}
+#| label: calculate-low-garbage-percentages
+#| echo: false
+
+low_garbage_pct <- round(n_low_garbage / nrow(age_direct) * 100, 1)
+min_low_garbage <- if(n_low_garbage > 0) min(age_direct$age[low_range_garbage], na.rm = TRUE) else NA
+```
+
+The validator detects:
+
+- **Low-range garbage (< 18)**: `r n_low_garbage` (`r low_garbage_pct`%)
+- **Minimum garbage value**: `r ifelse(is.na(min_low_garbage), "none", round(min_low_garbage, 1))`
+
+Both approaches (`add_garbage()` helper and direct modification) produce identical results when using the same parameters.
+
+## Date variable garbage
+
+Date variables use the same garbage generation pattern as categorical and continuous variables. Common date quality issues include:
+
+**Out-of-range dates**: Dates outside valid collection periods. Example: Interview date in 2050.
+
+**Impossible dates**: Dates that violate temporal logic. Example: Death date before birth date.
+
+**Format issues**: Dates stored incorrectly. Example: "2020-13-45" (invalid month/day).
+
+### Generating date garbage with helper function
+
+Let's generate interview dates with some far-future garbage dates to test validation logic:
+
+```{r}
+#| label: generate-date-garbage-helper
+#| message: false
+#| warning: false
+
+# Add high-range garbage to interview_date (future dates for testing)
+vars_date_garbage <- add_garbage(variables, "interview_date",
+  garbage_high_prop = 0.03, garbage_high_range = "[2030-01-01, 2050-12-31]")
+
+# Generate interview dates with garbage
+df_dates <- data.frame()
+interview_garbage <- create_date_var(
+  var = "interview_date",
+  databaseStart = "minimal-example",
+  variables = vars_date_garbage,
+  variable_details = variable_details,
+  df_mock = df_dates,
+  n = 1000,
+  seed = 300
+)
+
+# Validate: check for future dates (impossible interviews)
+future_threshold <- as.Date("2030-01-01")
+future_interviews <- interview_garbage$interview_date > future_threshold
+n_future <- sum(future_interviews, na.rm = TRUE)
+future_pct <- round(n_future / nrow(interview_garbage) * 100, 1)
+```
+
+**Validation results:**
+
+- **Total records**: `r nrow(interview_garbage)`
+- **Future interview dates**: `r n_future` (`r future_pct`%)
+- **Expected**: ~3% (from garbage_high_prop = 0.03)
+
+### Direct modification for date variables
+
+You can also modify the variables data frame directly for date garbage:
+
+```{r}
+#| label: date-direct-modification
+#| message: false
+#| warning: false
+
+# Direct modification - add low-range garbage (past dates)
+vars_date_direct <- variables
+vars_date_direct$garbage_low_prop[vars_date_direct$variable == "interview_date"] <- 0.02
+vars_date_direct$garbage_low_range[vars_date_direct$variable == "interview_date"] <- "[1950-01-01, 1990-12-31]"
+
+# Generate with low-range garbage
+interview_direct <- create_date_var(
+  var = "interview_date",
+  databaseStart = "minimal-example",
+  variables = vars_date_direct,
+  variable_details = variable_details,
+  n = 1000,
+  seed = 301
+)
+
+# Validate: check for very old dates
+old_threshold <- as.Date("1990-12-31")
+old_interviews <- interview_direct$interview_date <= old_threshold
+n_old <- sum(old_interviews, na.rm = TRUE)
+```
+
+```{r}
+#| label: calculate-old-percentages
+#| echo: false
+
+old_pct <- round(n_old / nrow(interview_direct) * 100, 1)
+```
+
+Both approaches work identically for date variables:
+
+- **Old interview dates (≤ 1990)**: `r n_old` (`r old_pct`%)
+- **Expected**: ~2% (from garbage_low_prop = 0.02)
+
+For more advanced date generation techniques, see the [Date variables tutorial](tutorial-dates.html).
+
+## Survival data garbage
+
+::: {.callout-note}
+## Creating raw survival data for testing data cleaning pipelines
+
+The [Survival data tutorial](tutorial-survival-data.html) teaches how to create **clean, analysis-ready survival data** with correct temporal ordering. This section teaches how to create **raw survival data with temporal violations** for testing data quality and cleaning pipelines.
+
+Use this approach when you need to:
+- Test temporal validation logic (death before entry, impossible dates)
+- Train analysts to identify date sequence violations
+- Validate data cleaning scripts that fix temporal inconsistencies
+:::
+
+Survival analysis requires coordinated date validation across multiple time points. Garbage data helps test the complex validation rules for temporal consistency.
+
+Common survival data quality issues:
+
+**Date sequence violations**: Death before birth, death before interview
+
+**Impossible survival times**: Negative follow-up time, follow-up exceeding study period
+
+**Censoring inconsistencies**: Status indicates death but no death date recorded
+
+### Generating survival data with temporal violations
+
+The `prop_garbage` parameter in `create_wide_survival_data()` is deprecated. Instead, add garbage to individual date variables using these functions:
+
+```{r}
+#| label: generate-survival-garbage
+#| message: false
+#| warning: false
+
+# Define metadata (pass full data frames)
+surv_variables <- data.frame(
+  variable = c("study_entry", "death_date"),
+  variableType = c("Date", "Date"),
+  rType = c("date", "date"),
+  role = c("enabled", "enabled"),
+  distribution = c("uniform", "gompertz"),
+  rate = c(NA, 0.0001),
+  shape = c(NA, 0.1),
+  followup_min = c(NA, 30),
+  followup_max = c(NA, 3650),
+  event_prop = c(NA, 1.0),
+  sourceFormat = c("analysis", "analysis"),
+  stringsAsFactors = FALSE
+)
+
+surv_variable_details <- data.frame(
+  variable = c("study_entry", "death_date"),
+  recStart = c("[2010-01-01,2015-12-31]", "[30,3650]"),
+  stringsAsFactors = FALSE
+)
+
+# Add garbage to death_date (future dates for temporal violation testing)
+surv_vars_with_garbage <- add_garbage(surv_variables, "death_date",
+  garbage_high_prop = 0.03, garbage_high_range = "[2030-01-01, 2099-12-31]")
+
+# Generate survival dates (create_date_var applies garbage automatically)
+survival_dates <- create_wide_survival_data(
+  var_entry_date = "study_entry",
+  var_event_date = "death_date",
+  var_death_date = NULL,
+  var_ltfu = NULL,
+  var_admin_censor = NULL,
+  databaseStart = "test",
+  variables = surv_vars_with_garbage,  # Uses modified variables with garbage
+  variable_details = surv_variable_details,
+  n = 2000,
+  seed = 400
+)
+
+# Validate: check for impossibly future death dates (temporal violation proxy)
+future_threshold <- as.Date("2030-01-01")
+future_deaths <- survival_dates$death_date > future_threshold
+n_violations <- sum(future_deaths, na.rm = TRUE)
+```
+
+```{r}
+#| label: calculate-violation-percentage
+#| echo: false
+
+violation_pct <- round(n_violations / nrow(survival_dates) * 100, 1)
+```
+
+Validation detects `r n_violations` future death dates (`r violation_pct`%), approximately matching our 3% garbage specification.
+
+**Key points about survival garbage:**
+
+- `create_wide_survival_data()` creates clean, temporally-ordered survival data
+- Add garbage to individual date variables using `add_garbage()` helper
+- `create_date_var()` (called internally) applies garbage automatically
+- Test temporal validation by checking for impossible dates (e.g., far-future death dates)
+- This approach separates concerns: date-level garbage vs. survival data generation
+
+### Testing follow-up time calculations
+
+Temporal violations also produce invalid derived variables like impossibly long follow-up times:
+
+```{r}
+#| label: test-followup-time
+#| message: false
+#| warning: false
+
+# Calculate follow-up time in days (entry to event)
+survival_dates$followup_days <- as.numeric(
+  difftime(
+    survival_dates$death_date,
+    survival_dates$study_entry,
+    units = "days"
+  )
+)
+
+# Validate: follow-up should be within reasonable range (max 20 years = 7300 days)
+max_reasonable_followup <- 7300
+invalid_followup <- survival_dates$followup_days > max_reasonable_followup
+n_invalid_fu <- sum(invalid_followup, na.rm = TRUE)
+```
+
+```{r}
+#| label: calculate-invalid-fu-percentage
+#| echo: false
+
+invalid_fu_pct <- round(n_invalid_fu / nrow(survival_dates) * 100, 1)
+```
+
+Validation results for derived variables:
+
+- **Impossibly long follow-up time (> 20 years)**: `r n_invalid_fu` (`r invalid_fu_pct`%)
+
+The invalid follow-up times correspond to our temporal violations (future garbage dates), confirming validators can catch these derived quality issues.
+
+## Building a validation pipeline
+
+Now that we understand individual garbage patterns, let's build a complete validation pipeline that tests all quality checks systematically. We'll use MockData functions to generate a dataset with multiple garbage types:
+
+```{r}
+#| label: build-validation-pipeline
+#| message: false
+#| warning: false
+
+# Generate complete dataset with multiple garbage types using create_mock_data()
+full_data <- create_mock_data(
+  databaseStart = "minimal-example",
+  variables = system.file("extdata/minimal-example/variables.csv", package = "MockData"),
+  variable_details = system.file("extdata/minimal-example/variable_details.csv", package = "MockData"),
+  n = 5000,
+  seed = 500
+)
+
+# Run validation suite
+# Check 1: Categorical codes (smoking) - exclude NA values
+smoking_details <- variable_details[variable_details$variable == "smoking", ]
+valid_smoking <- unique(smoking_details$recStart[!is.na(smoking_details$recStart)])
+smoking_invalid <- !full_data$smoking %in% valid_smoking & !is.na(full_data$smoking)
+
+# Check 2: Age range (valid: 18-100, excluding missing codes)
+age_invalid <- (full_data$age < 18 | full_data$age > 100) & !full_data$age %in% c(997, 998, 999)
+
+# Check 3: Combined validation (any record with any issue)
+any_issue <- smoking_invalid | age_invalid
+
+# Build results table
+validation_results <- data.frame(
+  check = c("smoking: invalid codes", "age: out of range", "Any validation failure"),
+  n_fail = c(sum(smoking_invalid), sum(age_invalid, na.rm = TRUE), sum(any_issue, na.rm = TRUE)),
+  pct_fail = c(
+    round(sum(smoking_invalid) / nrow(full_data) * 100, 2),
+    round(sum(age_invalid, na.rm = TRUE) / nrow(full_data) * 100, 2),
+    round(sum(any_issue, na.rm = TRUE) / nrow(full_data) * 100, 2)
+  )
+)
+
+# Display results
+validation_results
+```
+
+This validation suite detects intentional garbage patterns if they exist in the dataset, confirming each validator works correctly.
+
+## What you learned
+
+In this tutorial, you learned how to:
+
+- **Use the unified garbage approach** with `garbage_low_prop/range` and `garbage_high_prop/range` for all variable types
+- **Generate categorical garbage** by treating valid codes as ordinal and specifying out-of-range values
+- **Use the `add_garbage()` helper** to easily add garbage specifications to variables metadata
+- **Create continuous garbage patterns** using these functions for precise control
+- **Test date validation logic** by generating out-of-period dates using garbage parameters
+- **Add temporal violations in survival data** by adding garbage to individual date variables (not via `create_wide_survival_data()` function parameter)
+- **Build comprehensive validation pipelines** that test multiple quality checks systematically
+- **Verify validator accuracy** by comparing detected rates to known garbage proportions
+
+The key principle: generate mock data with **known** quality issues, run your validators, and confirm they detect **exactly** what you expect. This approach gives you confidence that your validation pipeline will catch real data quality problems in production.
+
+## Next steps
+
+- **Practice with your project**: Generate garbage data matching your specific validation rules
+- **Test edge cases**: Create scenarios that stress-test validator boundary conditions
+- **Document expected rates**: Use garbage data to establish baseline error rate expectations
+- **Automate validation testing**: Integrate garbage data generation into your CI/CD pipeline
+
+**Related vignettes**:
+
+- [Date variables tutorial](tutorial-dates.html): Learn advanced date generation techniques
+- [Missing data tutorial](tutorial-missing-data.html): Learn about survey missing data codes
+- [Getting started](getting-started.html): Review MockData fundamentals
