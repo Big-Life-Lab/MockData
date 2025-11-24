@@ -1,0 +1,17 @@
+pandoc: 3.1.11
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  advanced-topics: advanced-topics.html
+  for-recodeflow-users: for-recodeflow-users.html
+  getting-started: getting-started.html
+  reference-config: reference-config.html
+  tutorial-categorical-continuous: tutorial-categorical-continuous.html
+  tutorial-dates: tutorial-dates.html
+  tutorial-garbage-data: tutorial-garbage-data.html
+  tutorial-missing-data: tutorial-missing-data.html
+  tutorial-survival-data: tutorial-survival-data.html
+last_built: 2025-11-24T21:08Z
+urls:
+  reference: https://big-life-lab.github.io/MockData/reference
+  article: https://big-life-lab.github.io/MockData/articles
