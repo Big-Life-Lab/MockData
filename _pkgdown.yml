@@ -21,6 +21,7 @@ reference:
   - create_cat_var
   - create_con_var
   - create_date_var
+  - create_survival_dates
   - create_wide_survival_data
   - create_mock_data
 
