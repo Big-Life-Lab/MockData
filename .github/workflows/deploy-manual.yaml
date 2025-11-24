@@ -64,3 +64,25 @@ jobs:
           branch: gh-pages
           target-folder: ${{ inputs.target }}
           clean: false
+
+      - name: Deployment Summary
+        run: |
+          if [ "${{ inputs.target }}" = "." ]; then
+            TARGET_PATH=""
+            TARGET_DESC="root"
+          else
+            TARGET_PATH="${{ inputs.target }}/"
+            TARGET_DESC="${{ inputs.target }}"
+          fi
+
+          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Branch** | \`${{ inputs.branch }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Target** | \`${TARGET_DESC}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **URL** | https://big-life-lab.github.io/MockData/${TARGET_PATH} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ℹ️ Target options" >> $GITHUB_STEP_SUMMARY
+          echo "- Use \`.\` to deploy to the site root" >> $GITHUB_STEP_SUMMARY
+          echo "- Use \`dev\` or other path for subfolder deployment" >> $GITHUB_STEP_SUMMARY
