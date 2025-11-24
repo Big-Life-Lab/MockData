@@ -4,12 +4,11 @@ on:
       branch:
         description: 'Branch to deploy'
         required: true
-        default: 'create-date-var'
+        default: 'v030-refactor'
         type: choice
         options:
           - main
-          - create-date-var
-          - master
+          - v030-refactor
       target:
         description: 'Deployment target (root, dev, or custom path)'
         required: true
