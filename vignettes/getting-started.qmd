@@ -1,0 +1,312 @@
+---
+title: "Getting started with MockData"
+format: html
+vignette: >
+  %\VignetteIndexEntry{Getting started with MockData}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+# Load package - works in both local dev and pkgdown build
+if (file.exists("../DESCRIPTION")) {
+  devtools::load_all("../", quiet = TRUE)
+} else {
+  library(MockData)
+}
+```
+
+::: {.vignette-about}
+**About this vignette:** This tutorial teaches MockData through progressive examples, starting with single variables and building to complete datasets. All code runs during vignette build to ensure accuracy.
+:::
+
+## Overview
+
+MockData generates fake data from variable specifications, such as what is published in a "*Table 1 - Description of study data*". This tutorial shows three approaches, from simplest to most powerful. All approaches build from the recodeflow approach of using two "worksheets" to describe variables used in your project: `variables.csv` (or data frame) and `variable_details.csv`:
+
+1. Generate a single variable using the worksheets and manually defining the mock data specifications
+2. Generate the same variable using mock data configuration added to the worksheets
+3. Generate a complete dataset from configuration files
+
+## Approach 1: Single variable with inline specifications
+
+Let's generate a smoking status variable with three categories:
+
+```{r}
+#| warning: false
+#| message: false
+
+# Create variables data frame with variable-level metadata
+variables <- data.frame(
+  variable = "smoking",
+  label = "Smoking status",
+  variableType = "Categorical",
+  role = "enabled",  # Required: tells MockData to generate this variable
+  stringsAsFactors = FALSE
+)
+
+# Create variable_details data frame with category definitions
+variable_details <- data.frame(
+  variable = c("smoking", "smoking", "smoking"),
+  recStart = c("1", "2", "3"),
+  catLabel = c("Never", "Former", "Current"),
+  proportion = c(0.5, 0.3, 0.2), ### make mock data with these proportions! ###
+  stringsAsFactors = FALSE
+)
+
+# Generate smoking variable
+smoking_data <- create_cat_var(
+  var = "smoking",
+  databaseStart = "tutorial",
+  variables = variables,
+  variable_details = variable_details,
+  df_mock = data.frame(),
+  n = 100, # how many rows
+  seed = 123 # to ensure the mock data is reproducible
+)
+
+# View results
+head(smoking_data)
+table(smoking_data$smoking)
+```
+
+**What happened:**
+
+- We started with standard `recodeflow` worksheets, but we added `proportion`
+- Called `create_cat_var()` to generate 100 random smoking values
+- Values are distributed according to specified proportions (50%, 30%, 20%)
+- Used a seed for reproducibility
+
+**Limitations of this approach:**
+
+- "proportions" are hardcoded in your script
+- Difficult to maintain for multiple variables
+- Better to add mock data configurations to `variables` and `variable_details` for anything beyond simple examples
+
+## Approach 2: Same variable using metadata files
+
+Instead of hardcoding metadata, we can read it from CSV files. This makes it easier to specify proportions and maintain consistency:
+
+::: {.callout-note}
+## About example data paths
+
+These examples use `system.file()` to load example metadata included with the MockData package. In your own projects, you'll use regular file paths:
+
+```r
+# Package examples use:
+variables <- read.csv(
+  system.file("extdata/minimal-example/variables.csv", package = "MockData"),
+  stringsAsFactors = FALSE, check.names = FALSE
+)
+
+# Your code will use:
+variables <- read.csv(
+  "path/to/your/variables.csv",
+  stringsAsFactors = FALSE, check.names = FALSE
+)
+```
+:::
+
+```{r}
+#| warning: false
+#| message: false
+
+# Read metadata from files
+config_path <- system.file("extdata/minimal-example/variables.csv", package = "MockData")
+details_path <- system.file("extdata/minimal-example/variable_details.csv", package = "MockData")
+
+# Load the metadata
+variables_from_file <- read.csv(config_path, stringsAsFactors = FALSE, check.names = FALSE)
+details_from_file <- read.csv(details_path, stringsAsFactors = FALSE, check.names = FALSE)
+
+# View the smoking variable specification
+smoking_details <- details_from_file[details_from_file$variable == "smoking",
+                                      c("uid_detail", "variable", "recStart", "catLabel", "proportion")]
+print(smoking_details, row.names = FALSE)
+```
+
+Notice how the metadata file includes proportions:
+
+- Never smoker (code 1): 50%
+- Former smoker (code 2): 30%
+- Current smoker (code 3): 17%
+- Don't know (code 7): 3%
+
+```{r}
+#| warning: false
+#| message: false
+
+# Generate using metadata files (pass full data frames)
+smoking_data_v2 <- create_cat_var(
+  var = "smoking",
+  databaseStart = "tutorial",
+  variables = variables_from_file,
+  variable_details = details_from_file,
+  df_mock = data.frame(),
+  n = 1000,
+  seed = 456
+)
+
+# View distribution
+table(smoking_data_v2$smoking)
+
+# View proportions
+round(prop.table(table(smoking_data_v2$smoking)), 2)
+```
+
+**What improved:**
+
+- Metadata lives in CSV files (easy to edit, version control)
+- Proportions specified in metadata (50%, 30%, 17%, 3%)
+- Same function call, but reads specifications from files
+- Generated distribution matches specified proportions
+
+## Approach 3: Complete dataset from metadata
+
+The most powerful approach: generate multiple variables in a single call using `create_mock_data()`:
+
+```{r}
+#| warning: false
+#| message: false
+
+# Generate complete dataset
+mock_data <- create_mock_data(
+  databaseStart = "minimal-example",
+  variables = system.file("extdata/minimal-example/variables.csv", package = "MockData"),
+  variable_details = system.file("extdata/minimal-example/variable_details.csv", package = "MockData"),
+  n = 100,
+  seed = 789
+)
+
+# View dataset structure
+str(mock_data)
+```
+
+**What's garbage data?**
+
+MockData is designed to test your *realistic* workflow — including data cleaning and QA processes. Notice the `garbage_*` columns in the metadata below? These add intentional invalid values (like negative ages or impossible dates) so you can test your validation code before using real data. Move through the tutorials to learn about this advanced feature: [Garbage data tutorial](tutorial-garbage-data.html).
+
+**What's in this dataset:**
+
+Age distribution:
+
+```{r}
+#| echo: false
+summary(mock_data$age)
+```
+
+Smoking status distribution:
+
+```{r}
+#| echo: false
+table(mock_data$smoking)
+```
+
+Interview date range:
+
+```{r}
+#| echo: false
+# Convert to Date class first (dates are returned as character)
+interview_dates <- as.Date(mock_data$interview_date)
+date_range <- c(
+  Earliest = format(min(interview_dates, na.rm = TRUE), "%Y-%m-%d"),
+  Latest = format(max(interview_dates, na.rm = TRUE), "%Y-%m-%d")
+)
+date_range
+```
+
+**Why this approach is best:**
+
+1. **One function call** generates all variables
+2. **Metadata-driven** - specifications live in CSV files
+3. **Reproducible** - same metadata always produces same structure
+4. **Maintainable** - update CSV files, not R code
+5. **Testable** - version control metadata files
+
+## What's in those metadata files?
+
+Let's look at the minimal example metadata:
+
+**variables.csv** (7 variables):
+
+```{r}
+#| echo: false
+# Show key columns including garbage data parameters
+vars_display <- variables_from_file[, c("variable", "variableType", "distribution", "mean", "sd", "garbage_low_prop", "garbage_low_range", "garbage_high_prop", "garbage_high_range")]
+knitr::kable(vars_display)
+```
+
+**variable_details.csv** (10 detail rows):
+
+```{r}
+#| echo: false
+# Show key columns
+details_display <- details_from_file[, c("variable", "recStart", "catLabel", "proportion")]
+knitr::kable(details_display)
+```
+
+**Key columns in variables.csv:**
+
+- `variable`: Name of the variable in the generated dataset
+- `variableType`: Categorical, Continuous, or Date
+- `distribution`: Distribution type (normal, uniform, gompertz)
+- `mean`, `sd`: Parameters for normal distribution (continuous variables)
+- `garbage_*`: Advanced feature for adding invalid values (see tutorial)
+
+**Key columns in variable_details.csv:**
+
+- `variable`: Links to variable name in variables.csv
+- `recStart`: Category code (categorical) or range `[min,max]` (continuous/date)
+- `catLabel`: Category label or range description
+- `proportion`: Probability of each category (categorical variables only)
+
+See [inst/extdata/minimal-example/](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example) for the complete files and v0.2.1 schema documentation.
+
+## Working with the generated data
+
+Once you have mock data, you can use it to test your analysis pipeline:
+
+```{r}
+#| warning: false
+#| message: false
+
+library(dplyr)
+
+# Test data manipulation
+mock_data %>%
+  mutate(
+    age_group = cut(age, breaks = c(0, 40, 60, 100), labels = c("18-39", "40-59", "60+")),
+    smoking_binary = ifelse(smoking == 1, "Never", "Ever")
+  ) %>%
+  select(age, age_group, smoking, smoking_binary, interview_date) %>%
+  head(10)
+```
+
+**Common use cases:**
+
+- Test harmonisation workflows (cchsflow, chmsflow)
+- Develop analysis scripts before accessing real data
+- Create reproducible examples for documentation
+- Train new team members on survey data structure
+
+**Limitations:**
+
+- No real-world statistical relationships between variables
+- Joint distributions may differ from actual survey data
+- **Never use for research, modelling, or population inference**
+
+## Next steps
+
+**Tutorials:**
+
+- [Configuration files](tutorial-config-files.html) - Detailed guide to creating metadata files
+- [Date variables](tutorial-dates.html) - Working with survival data and time-to-event distributions
+- [Garbage data](tutorial-garbage-data.html) - Adding invalid values and garbage data for QA testing
+- [Missing data](tutorial-missing-data.html) - Controlling missing value patterns
+
+**Reference:**
+
+- [Configuration reference](reference-config.html) - Complete v0.2.1 schema specification
+- [Advanced topics](advanced-topics.html) - Data quality testing, distributions, validation

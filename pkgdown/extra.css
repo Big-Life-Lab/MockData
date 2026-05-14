@@ -1,0 +1,33 @@
+/* Quarto-style callouts for pkgdown */
+/* Styles blockquotes in article content to look like Quarto callout-note */
+
+.page-body blockquote {
+  margin: 1.5em 0;
+  padding: 1em 1em 1em 3em;
+  border-left: 5px solid #2196F3;
+  background-color: #e3f2fd;
+  border-radius: 0.25rem;
+  position: relative;
+}
+
+.page-body blockquote::before {
+  content: "ℹ️";
+  position: absolute;
+  left: 0.75em;
+  top: 1em;
+  font-size: 1.2em;
+}
+
+.page-body blockquote p:first-child {
+  margin-top: 0;
+  font-weight: 600;
+  color: #1976D2;
+}
+
+.page-body blockquote p {
+  margin-bottom: 0.5em;
+}
+
+.page-body blockquote p:last-child {
+  margin-bottom: 0;
+}

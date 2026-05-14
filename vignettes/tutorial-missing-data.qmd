@@ -1,0 +1,362 @@
+---
+title: "Missing data in health surveys"
+format: html
+vignette: >
+  %\VignetteIndexEntry{Missing data in health surveys}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+# Load package - works in both local dev and pkgdown build
+if (file.exists("../DESCRIPTION")) {
+  devtools::load_all("../", quiet = TRUE)
+} else {
+  library(MockData)
+}
+```
+
+::: {.vignette-about}
+**About this vignette:** This tutorial teaches you how to generate realistic missing data in mock health survey datasets. You'll learn how to add missing data codes commonly used in Canadian health surveys (like the CCHS and CHMS), including valid skip, don't know, refusal, and not stated. All code examples run during vignette build to ensure accuracy.
+:::
+
+## Understanding missing data in health surveys
+
+Health surveys use structured missing data codes to distinguish between different types of non-response. Unlike general R data where `NA` represents any missing value, survey data differentiates between several categories of missingness. This distinction is crucial for accurate statistical analysis.
+
+Consider a simple example: calculating smoking prevalence from survey data. If you treat all missing values the same way, you'll get biased estimates. Let's see why.
+
+```{r}
+#| message: false
+#| warning: false
+
+# Generate smoking data with two approaches
+set.seed(123)
+
+# Wrong approach: treating all missing as NA
+smoking_wrong <- data.frame(
+  smoker = sample(c("Yes", "No", NA), 1000,
+                  replace = TRUE,
+                  prob = c(0.20, 0.70, 0.10))
+)
+
+# Correct approach: using survey missing codes
+smoking_correct <- data.frame(
+  smoker = sample(c("1", "2", "6", "7", "9"), 1000,
+                  replace = TRUE,
+                  prob = c(0.20, 0.70, 0.05, 0.03, 0.02))
+)
+```
+
+Now let's calculate prevalence both ways:
+
+```{r}
+#| message: false
+#| warning: false
+
+# Wrong calculation (naive approach)
+wrong_prevalence <- mean(smoking_wrong$smoker == "Yes", na.rm = TRUE)
+
+# Correct calculation (excluding valid skip, including DK/RF/NS in denominator)
+valid_responses <- smoking_correct$smoker %in% c("1", "2", "7", "9")
+correct_prevalence <- sum(smoking_correct$smoker == "1") / sum(valid_responses)
+```
+
+```{r}
+#| echo: false
+
+# Calculate for inline display
+wrong_pct <- round(wrong_prevalence * 100, 1)
+correct_pct <- round(correct_prevalence * 100, 1)
+```
+
+The naive approach gives us a prevalence of `r wrong_pct`%, while the correct approach gives `r correct_pct`%. This difference matters when making population-level estimates or comparing across surveys.
+
+### Why missing data codes matter
+
+In health surveys, not all missing values mean the same thing. Canadian health surveys like the Canadian Community Health Survey (CCHS) and Canadian Health Measures Survey (CHMS) use standardized systems of missing data codes:
+
+- **Valid skip (996)**: The question was not asked because skip logic determined it wasn't applicable
+- **Don't know (997)**: The question was asked but the respondent didn't know the answer
+- **Refusal (998)**: The question was asked but the respondent refused to answer
+- **Not stated (999)**: The question was asked but no response was recorded
+
+Each type has different statistical implications. Valid skips should be excluded from your denominator (they weren't part of the eligible population for that question). But don't know, refusal, and not stated should be included in the denominator when calculating response rates, even though they're excluded from the numerator when calculating prevalence.
+
+Let's generate some realistic data to see this in action:
+
+```{r}
+#| message: false
+#| warning: false
+
+# Load metadata for examples
+variable_details <- read.csv(
+  system.file("extdata/minimal-example/variable_details.csv",
+              package = "MockData"),
+  stringsAsFactors = FALSE
+)
+
+variables <- read.csv(
+  system.file("extdata/minimal-example/variables.csv",
+              package = "MockData"),
+  stringsAsFactors = FALSE
+)
+
+# Create smoking data using MockData
+# smoking has categories: 1=Never, 2=Former, 3=Current, 7=Don't know
+df_mock <- data.frame()
+smoking_data <- create_cat_var(
+  var = "smoking",
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  df_mock = df_mock,
+  n = 1000,
+  seed = 456
+)
+
+# Show distribution
+table(smoking_data$smoking)
+```
+
+### The three types of missing data codes
+
+Health surveys categorize missing data into three main types, each requiring different statistical treatment.
+
+**Valid skip (code 996)**
+
+A valid skip occurs when skip logic determines a question should not be asked. For example, if someone reports they've never smoked, they won't be asked "How many cigarettes per day do you smoke?" This isn't truly missing data—it's a logical consequence of their previous answer.
+
+Statistical treatment: Exclude from both the numerator and denominator. These respondents weren't eligible for the question.
+
+**Don't know / Refusal / Not stated (codes 997, 998, 999)**
+
+These codes represent questions that were asked but didn't receive valid responses:
+
+- **997 (Don't know)**: Respondent was uncertain about the answer
+- **998 (Refusal)**: Respondent declined to answer
+- **999 (Not stated)**: Question was asked but no response was recorded
+
+Statistical treatment: Include in the denominator when calculating response rates (they were eligible and asked), but exclude from the numerator when calculating prevalence (we don't know their true status).
+
+**Not applicable (code 996)**
+
+This is similar to valid skip—the question doesn't apply to the respondent's situation. The statistical treatment is the same as valid skip.
+
+Let's demonstrate the difference with a worked example using smoking status:
+
+```{r}
+#| message: false
+#| warning: false
+
+# Calculate response rate (includes DK in denominator, excludes any skip codes)
+asked <- smoking_data$smoking %in% c("1", "2", "3", "7")
+valid_response <- smoking_data$smoking %in% c("1", "2", "3")
+response_rate <- sum(valid_response) / sum(asked)
+
+# Calculate prevalence of current smoking (excludes DK from numerator, but includes in denominator)
+current_smoker <- smoking_data$smoking == "3"
+prevalence <- sum(current_smoker) / sum(asked)
+```
+
+```{r}
+#| echo: false
+
+# Format for display
+response_pct <- round(response_rate * 100, 1)
+prevalence_pct <- round(prevalence * 100, 1)
+n_asked <- sum(asked)
+n_dk <- sum(smoking_data$smoking == "7")
+```
+
+In this dataset:
+
+- **Sample size**: `r nrow(smoking_data)` respondents
+- **Asked**: `r n_asked` (all respondents for this variable)
+- **Response rate**: `r response_pct`% (valid responses ÷ asked)
+- **Current smoking prevalence**: `r prevalence_pct`% (current smokers ÷ asked)
+- **Don't know responses**: `r n_dk` (`r round(n_dk/n_asked*100, 1)`% of those asked)
+
+Notice how "Don't know" (code 7) is included in the denominator when calculating response rate but excluded from the numerator when calculating current smoking prevalence.
+
+### Example with both skip and missing codes
+
+Let's look at the BMI variable, which demonstrates both valid skip (NA::a) and missing codes (NA::b):
+
+```{r}
+#| message: false
+#| warning: false
+
+# Look at BMI variable metadata
+bmi_details <- variable_details[variable_details$variable == "BMI", ]
+print(bmi_details[, c("variable", "recStart", "recEnd", "catLabel", "proportion")], row.names = FALSE)
+```
+
+This shows how missing codes appear in survey metadata. The `recStart` column contains the category codes, including continuous range ([15,50]), valid skip (996 for not applicable, mapped to NA::a), and missing data codes ([997,999] for don't know/refusal/not stated, mapped to NA::b).
+
+We can use this metadata to generate mock data with realistic proportions:
+
+```{r}
+#| message: false
+#| warning: false
+
+# Generate age data with missing codes
+df_mock_age <- data.frame()
+age_data <- create_con_var(
+  var = "age",
+  databaseStart = "minimal-example",
+  variables = variables,
+  variable_details = variable_details,
+  df_mock = df_mock_age,
+  n = 5000,
+  seed = 789
+)
+
+# Calculate response rate excluding missing codes
+valid_ages <- !is.na(age_data$age) & age_data$age >= 18 & age_data$age <= 100
+missing_codes <- age_data$age %in% c(997, 998, 999)
+asked_age <- valid_ages | missing_codes
+response_rate_age <- sum(valid_ages) / sum(asked_age)
+
+# Summary statistics on valid ages only
+mean_age <- mean(age_data$age[valid_ages], na.rm = TRUE)
+```
+
+```{r}
+#| echo: false
+
+response_age_pct <- round(response_rate_age * 100, 1)
+n_asked_age <- sum(asked_age)
+n_dk_age <- sum(age_data$age == 997, na.rm = TRUE)
+n_refusal_age <- sum(age_data$age == 998, na.rm = TRUE)
+n_ns_age <- sum(age_data$age == 999, na.rm = TRUE)
+mean_age_rounded <- round(mean_age, 1)
+```
+
+For this age variable:
+
+- **Sample size**: `r nrow(age_data)` respondents
+- **Response rate**: `r response_age_pct`% (`r sum(valid_ages)` valid responses ÷ `r n_asked_age` asked)
+- **Mean age** (valid responses only): `r mean_age_rounded` years
+- **Don't know responses**: `r n_dk_age` (`r round(n_dk_age/n_asked_age*100, 1)`% of those asked)
+- **Refusal**: `r n_refusal_age` (`r round(n_refusal_age/n_asked_age*100, 1)`% of those asked)
+- **Not stated**: `r n_ns_age` (`r round(n_ns_age/n_asked_age*100, 1)`% of those asked)
+
+This demonstrates how health survey data includes measurable proportions of missing data codes, and why distinguishing between them matters for accurate statistical reporting.
+
+## The recEnd column: Enabling missing data classification
+
+To generate realistic missing data, MockData needs to distinguish between **valid response codes** (1, 2, 3) and **missing data codes** (6-9, 96-99). The `recEnd` column in variable_details.csv provides this classification. We follow the recodeflow approach that supports tagged NA using the `haven` and other packages.  `recodeflow` can add tagged_NA when recoding and tranforming variables. `NA::a` is assigned 'not applicable' and `NA::b` is assing 'missing/refused/not stated'.
+
+### How recEnd works
+
+The `recEnd` column maps input codes to their classification:
+
+**Valid responses:** Map codes to themselves using numeric values
+
+```r
+# variable_details.csv
+uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
+v_002,d_002,smoking,1,1,Daily smoker,0.25
+v_002,d_003,smoking,2,2,Occasional,0.15
+v_002,d_004,smoking,3,3,Never,0.57
+```
+
+**Missing codes:** Use NA::b for don't know, refusal, not stated
+
+```r
+# variable_details.csv (continued)
+v_002,d_005,smoking,7,NA::b,Don't know,0.03
+```
+
+**Skip codes:** Use NA::a for valid skip/not applicable
+
+```r
+v_002,d_006,smoking,6,NA::a,Valid skip,0.01
+```
+
+### Why recEnd is required
+
+Without recEnd, MockData cannot tell the difference between:
+
+- Code 1 (valid: Daily smoker)
+- Code 7 (missing: Don't know)
+
+Both are just numbers in `recStart`. The `recEnd` column provides explicit classification:
+
+- `recEnd = "1"` → Valid response code
+- `recEnd = "NA::b"` → Missing data (DK/Refusal/NS)
+- `recEnd = "NA::a"` → Skip code (not applicable)
+
+### Conditional requirement
+
+The recEnd column is **conditionally required** when your variable_details.csv contains missing data codes (6-9, 96-99):
+
+**Validation error:** If you use codes like 7, 8, or 9 in `recStart` without a recEnd column, you'll get this error:
+
+```
+recEnd column required in variable_details when using missing data codes (6-9, 96-99).
+  Use 'NA::a' for skip codes (6, 96, 996),
+  Use 'NA::b' for missing codes (7-9, 97-99) representing DK/Refusal/NS,
+  and numeric codes (e.g., '1', '2', '3') for valid responses.
+```
+
+**When recEnd is optional:** For simple variables without missing codes, recEnd can be omitted:
+
+```r
+# Simple categorical variable (no missing codes) - recEnd optional
+uid,uid_detail,variable,recStart,catLabel,proportion
+v_010,d_100,gender,1,Male,0.5
+v_010,d_101,gender,2,Female,0.5
+```
+
+### Complete example with recEnd
+
+```{r}
+#| message: false
+#| warning: false
+
+# Create variable_details with recEnd column
+smoking_details_recEnd <- data.frame(
+  uid = "cchsflow_v0002",
+  uid_detail = c("cchsflow_d00005", "cchsflow_d00006", "cchsflow_d00007", "cchsflow_d00008"),
+  variable = "smoking",
+  recStart = c("1", "2", "3", "7"),
+  recEnd = c("1", "2", "3", "NA::b"),  # Explicit classification
+  catLabel = c("Never smoker", "Former smoker", "Current smoker", "Don't know"),
+  proportion = c(0.5, 0.3, 0.17, 0.03),
+  stringsAsFactors = FALSE
+)
+
+# Show the configuration
+print(smoking_details_recEnd, row.names = FALSE)
+```
+
+This configuration tells MockData:
+
+- Codes 1, 2, 3 are **valid responses** (recEnd maps to themselves)
+- Code 7 is a **missing code** (recEnd = "NA::b")
+- When generating data, 3% will be "Don't know" responses
+
+### NA:: conventions
+
+MockData uses recodeflow's NA:: convention for missing data classification:
+
+**NA::a (skip codes):**
+
+- Question not asked due to skip logic
+- Example: "Have you smoked in the last 30 days?" is skipped for never smokers
+- **Statistical treatment:** Exclude from denominator (not eligible)
+- Common codes: 6, 96, 996
+
+**NA::b (missing codes):**
+
+- Question asked but no valid response given
+- Includes: Don't know (7, 97), Refusal (8, 98), Not stated (9, 99)
+- **Statistical treatment:** Include in denominator for response rates
+- Common codes: 7-9, 97-99
+
+This convention enables automatic missing data handling throughout MockData's generation functions.
+

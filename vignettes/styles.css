@@ -1,0 +1,7 @@
+/* Styling for inline R output - wrapped with .r-output class */
+.r-output code {
+  background-color: #fffbf0;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  border: none;
+}

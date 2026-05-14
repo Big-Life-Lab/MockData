@@ -5,12 +5,20 @@
 .Rhistory
 .RData
 .Ruserdata
+.Renviron
+
+# Temporary files and development artifacts
+.tmp/
+
+# Claude Code local orientation file (per-developer)
+CLAUDE.md
 
 # macOS
 .DS_Store
 
 # Generated documentation
 man/*.Rd
+docs/
 
 # Quarto/HTML output
 Generate_mock_data.html
