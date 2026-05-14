@@ -58,7 +58,7 @@ Validation checks:
 - Population proportions (valid + missing codes) must sum to 1.0 ±0.001
   per variable
 
-- Contamination proportions (corrupt\_\*) are excluded from sum
+- Garbage proportions (garbage\_\*) are excluded from sum
 
 - Auto-normalizes with warning if sum ≠ 1.0
 

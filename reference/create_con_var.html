@@ -98,7 +98,7 @@ variable_details to the specified database.</p></dd>
 
 <dt id="arg-variable-details">variable_details<a class="anchor" aria-label="anchor" href="#arg-variable-details"></a></dt>
 <dd><p>data.frame or character. Detail-level metadata containing:</p><ul><li><p><code>variable</code>: Variable name (for joining)</p></li>
-<li><p><code>recStart</code>: Valid range in interval notation (e.g., 18,100)</p></li>
+<li><p><code>recStart</code>: Valid range in interval notation (e.g., <code>[18,100]</code>)</p></li>
 <li><p><code>recEnd</code>: Classification (copy, NA::a, NA::b)</p></li>
 <li><p><code>proportion</code>: Category proportion for missing codes</p></li>
 </ul><p>Can also be a file path (character) to variable_details.csv.</p></dd>
@@ -141,7 +141,7 @@ where filtering is handled inside the function.</p>
 </ol><p><strong>Type coercion (rType)</strong>:
 The rType column in variables.csv controls output data type:</p><ul><li><p><code>\"integer\"</code>: Rounds and converts to integer (for age, counts)</p></li>
 <li><p><code>\"double\"</code>: Double precision (default for continuous)</p></li>
-</ul><p><strong>Distribution types</strong>:</p><ul><li><p><code>\"uniform\"</code>: Uniform distribution over min, max from recStart</p></li>
+</ul><p><strong>Distribution types</strong>:</p><ul><li><p><code>\"uniform\"</code>: Uniform distribution over <code>[min, max]</code> from recStart</p></li>
 <li><p><code>\"normal\"</code>: Normal distribution (requires mean, sd in variables.csv)</p></li>
 <li><p><code>\"exponential\"</code>: Exponential distribution (requires rate in variables.csv)</p></li>
 </ul><p><strong>Missing data</strong>:
@@ -205,7 +205,7 @@ Garbage parameters are read from variables.csv:</p><ul><li><p><code>garbage_low_
 
     <footer><div class="pkgdown-footer-left">
   <p>
-Developed by Juan Li and recodeflow contributors.
+Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </p>
 </div>
 

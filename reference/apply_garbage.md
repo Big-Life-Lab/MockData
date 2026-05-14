@@ -53,12 +53,13 @@ Vector with garbage data applied.
 
 - garbage_low_prop: Proportion for low garbage values (0-1)
 
-- garbage_low_range: Range for low values (interval notation "min,max")
+- garbage_low_range: Range for low values (interval notation
+  `[min,max]`)
 
 - garbage_high_prop: Proportion for high garbage values (0-1)
 
 - garbage_high_range: Range for high values (interval notation
-  "min,max")
+  `[min,max]`)
 
 **Application order:**
 

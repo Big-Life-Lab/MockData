@@ -105,9 +105,9 @@ calculations. If NULL, uses hardcoded fallback for backward compatibility.</p></
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p><strong>Garbage data fields (in variables.csv):</strong></p>
 <p><strong>Garbage parameters:</strong></p><ul><li><p>garbage_low_prop: Proportion for low garbage values (0-1)</p></li>
-<li><p>garbage_low_range: Range for low values (interval notation "min,max")</p></li>
+<li><p>garbage_low_range: Range for low values (interval notation <code>[min,max]</code>)</p></li>
 <li><p>garbage_high_prop: Proportion for high garbage values (0-1)</p></li>
-<li><p>garbage_high_range: Range for high values (interval notation "min,max")</p></li>
+<li><p>garbage_high_range: Range for high values (interval notation <code>[min,max]</code>)</p></li>
 </ul><p><strong>Application order:</strong></p><ol><li><p>Apply garbage_low (if specified)</p></li>
 <li><p>Apply garbage_high (if specified)</p></li>
 <li><p>No overlap - indices removed after each application</p></li>
@@ -152,7 +152,7 @@ If var_row is NULL or missing garbage fields, no garbage data applied.</p>
 
     <footer><div class="pkgdown-footer-left">
   <p>
-Developed by Juan Li and recodeflow contributors.
+Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </p>
 </div>
 

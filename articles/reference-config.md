@@ -18,21 +18,21 @@ files](https://big-life-lab.github.io/MockData/articles/tutorial-config-files.md
 
 Essential columns for getting started:
 
-| Column              | File                 | Required        | Purpose                                                  | Example                     |
-|---------------------|----------------------|-----------------|----------------------------------------------------------|-----------------------------|
-| `uid`               | variables.csv        | Yes             | Unique variable identifier                               | `"v001"`                    |
-| `variable`          | variables.csv        | Yes             | Output column name                                       | `"age"`                     |
-| `variableType`      | variables.csv        | Yes             | Categorical or Continuous (from recodeflow)              | `"Continuous"`              |
-| `rType`             | variables.csv        | No              | R output type (integer, double, character, date, factor) | `"integer"`                 |
-| `distribution`      | variables.csv        | Continuous/Date | normal, uniform, gompertz                                | `"normal"`                  |
-| `mean`, `sd`        | variables.csv        | Normal dist     | Distribution parameters                                  | `50`, `15`                  |
-| `garbage_low_prop`  | variables.csv        | No              | QA testing (low values)                                  | `0.01`                      |
-| `garbage_high_prop` | variables.csv        | No              | QA testing (high values)                                 | `0.03`                      |
-| `uid_detail`        | variable_details.csv | Yes             | Unique detail identifier                                 | `"d001"`                    |
-| `recStart`          | variable_details.csv | Yes             | Category code or range                                   | `"1"` or `"[18,100]"`       |
-| `recEnd`            | variable_details.csv | Conditional     | Missing data classification                              | `"1"`, `"NA::a"`, `"NA::b"` |
-| `catLabel`          | variable_details.csv | No              | Category label                                           | `"Never smoker"`            |
-| `proportion`        | variable_details.csv | Categorical     | Category probability (0-1)                               | `0.5`                       |
+| Column | File | Required | Purpose | Example |
+|----|----|----|----|----|
+| `uid` | variables.csv | Yes | Unique variable identifier | `"v001"` |
+| `variable` | variables.csv | Yes | Output column name | `"age"` |
+| `variableType` | variables.csv | Yes | Categorical or Continuous (from recodeflow) | `"Continuous"` |
+| `rType` | variables.csv | No | R output type (integer, double, character, date, factor) | `"integer"` |
+| `distribution` | variables.csv | Continuous/Date | normal, uniform, gompertz | `"normal"` |
+| `mean`, `sd` | variables.csv | Normal dist | Distribution parameters | `50`, `15` |
+| `garbage_low_prop` | variables.csv | No | QA testing (low values) | `0.01` |
+| `garbage_high_prop` | variables.csv | No | QA testing (high values) | `0.03` |
+| `uid_detail` | variable_details.csv | Yes | Unique detail identifier | `"d001"` |
+| `recStart` | variable_details.csv | Yes | Category code or range | `"1"` or `"[18,100]"` |
+| `recEnd` | variable_details.csv | Conditional | Missing data classification | `"1"`, `"NA::a"`, `"NA::b"` |
+| `catLabel` | variable_details.csv | No | Category label | `"Never smoker"` |
+| `proportion` | variable_details.csv | Categorical | Category probability (0-1) | `0.5` |
 
 For complete column documentation, see sections below.
 
@@ -70,12 +70,12 @@ extension columns, interval notation, and validation rules.
 
 ### Core columns (from recodeflow)
 
-| Column         | Type      | Required | Description                                        | Example          |
-|----------------|-----------|----------|----------------------------------------------------|------------------|
-| `uid`          | character | Yes      | Unique identifier for this variable                | `"v001"`         |
-| `variable`     | character | Yes      | Variable name (column in output)                   | `"age"`          |
-| `label`        | character | No       | Human-readable description                         | `"Age in years"` |
-| `variableType` | character | Yes      | From recodeflow: `"Categorical"` or `"Continuous"` | `"Continuous"`   |
+| Column | Type | Required | Description | Example |
+|----|----|----|----|----|
+| `uid` | character | Yes | Unique identifier for this variable | `"v001"` |
+| `variable` | character | Yes | Variable name (column in output) | `"age"` |
+| `label` | character | No | Human-readable description | `"Age in years"` |
+| `variableType` | character | Yes | From recodeflow: `"Categorical"` or `"Continuous"` | `"Continuous"` |
 
 **UID format:** Use pattern `vNNN` with zero-padded numbers (e.g.,
 `v001`, `v002`, `v010`)
@@ -84,12 +84,12 @@ extension columns, interval notation, and validation rules.
 
 #### Type and generation control
 
-| Column     | Type      | Description                             | Values                                                       | Example               |
-|------------|-----------|-----------------------------------------|--------------------------------------------------------------|-----------------------|
-| `rType`    | character | R data type for output                  | `"integer"`, `"double"`, `"character"`, `"date"`, `"factor"` | `"integer"`           |
-| `role`     | character | Multi-valued roles (comma-separated)    | `"enabled,predictor,table1"`                                 | `"enabled,predictor"` |
-| `position` | integer   | Generation order (use increments of 10) | `10`, `20`, `30`                                             | `10`                  |
-| `seed`     | integer   | Random seed for this variable           | Any integer                                                  | `100`                 |
+| Column | Type | Description | Values | Example |
+|----|----|----|----|----|
+| `rType` | character | R data type for output | `"integer"`, `"double"`, `"character"`, `"date"`, `"factor"` | `"integer"` |
+| `role` | character | Multi-valued roles (comma-separated) | `"enabled,predictor,table1"` | `"enabled,predictor"` |
+| `position` | integer | Generation order (use increments of 10) | `10`, `20`, `30` | `10` |
+| `seed` | integer | Random seed for this variable | Any integer | `100` |
 
 **Role values:**
 
@@ -104,13 +104,13 @@ reproducibility and prevents correlation artifacts)
 
 #### Garbage data (data quality testing)
 
-| Column               | Type      | Description                                 | Values            | Example       |
-|----------------------|-----------|---------------------------------------------|-------------------|---------------|
-| `garbage_low_prop`   | numeric   | Proportion of low-range garbage data        | 0 to 1            | `0.01`        |
-| `garbage_low_range`  | character | Range for low garbage data                  | Interval notation | `"[-5,10]"`   |
-| `garbage_high_prop`  | numeric   | Proportion of high-range garbage data       | 0 to 1            | `0.03`        |
-| `garbage_high_range` | character | Range for high garbage data                 | Interval notation | `"[120,150]"` |
-| `prop_garbage`       | numeric   | Proportion of auto-generated invalid values | 0 to 1            | `0.05`        |
+| Column | Type | Description | Values | Example |
+|----|----|----|----|----|
+| `garbage_low_prop` | numeric | Proportion of low-range garbage data | 0 to 1 | `0.01` |
+| `garbage_low_range` | character | Range for low garbage data | Interval notation | `"[-5,10]"` |
+| `garbage_high_prop` | numeric | Proportion of high-range garbage data | 0 to 1 | `0.03` |
+| `garbage_high_range` | character | Range for high garbage data | Interval notation | `"[120,150]"` |
+| `prop_garbage` | numeric | Proportion of auto-generated invalid values | 0 to 1 | `0.05` |
 
 **Two garbage data modes:**
 
@@ -157,13 +157,13 @@ ranges.
 
 #### Distribution parameters (continuous and date variables)
 
-| Column         | Type      | Description                           | Values                                                 | Example    |
-|----------------|-----------|---------------------------------------|--------------------------------------------------------|------------|
-| `distribution` | character | Distribution type                     | `"normal"`, `"uniform"`, `"gompertz"`, `"exponential"` | `"normal"` |
-| `mean`         | numeric   | Mean (normal distribution)            | Any number                                             | `50`       |
-| `sd`           | numeric   | Standard deviation (normal)           | Positive number                                        | `15`       |
-| `rate`         | numeric   | Rate parameter (gompertz/exponential) | Positive number                                        | `0.0001`   |
-| `shape`        | numeric   | Shape parameter (gompertz)            | Any number                                             | `0.1`      |
+| Column | Type | Description | Values | Example |
+|----|----|----|----|----|
+| `distribution` | character | Distribution type | `"normal"`, `"uniform"`, `"gompertz"`, `"exponential"` | `"normal"` |
+| `mean` | numeric | Mean (normal distribution) | Any number | `50` |
+| `sd` | numeric | Standard deviation (normal) | Positive number | `15` |
+| `rate` | numeric | Rate parameter (gompertz/exponential) | Positive number | `0.0001` |
+| `shape` | numeric | Shape parameter (gompertz) | Any number | `0.1` |
 
 **Distribution types:**
 
@@ -205,11 +205,11 @@ v005,primary_event_date,gompertz,NA,NA,0.0001,0.1
 
 #### Survival parameters (date variables with events)
 
-| Column         | Type    | Description                   | Values           | Example |
-|----------------|---------|-------------------------------|------------------|---------|
-| `followup_min` | integer | Minimum follow-up days        | Positive integer | `365`   |
-| `followup_max` | integer | Maximum follow-up days        | Positive integer | `5475`  |
-| `event_prop`   | numeric | Proportion experiencing event | 0 to 1           | `0.1`   |
+| Column | Type | Description | Values | Example |
+|----|----|----|----|----|
+| `followup_min` | integer | Minimum follow-up days | Positive integer | `365` |
+| `followup_max` | integer | Maximum follow-up days | Positive integer | `5475` |
+| `event_prop` | numeric | Proportion experiencing event | 0 to 1 | `0.1` |
 
 **When to use:**
 
@@ -235,11 +235,11 @@ v_007,ltfu_date,uniform,365,7300,0.1
 
 #### Versioning
 
-| Column                 | Type      | Description      | Format              | Example             |
-|------------------------|-----------|------------------|---------------------|---------------------|
-| `mockDataVersion`      | character | Semantic version | `MAJOR.MINOR.PATCH` | `"1.0.0"`           |
-| `mockDataLastUpdated`  | character | Last update date | `YYYY-MM-DD`        | `"2025-11-09"`      |
-| `mockDataVersionNotes` | character | Version notes    | Free text           | `"Initial version"` |
+| Column | Type | Description | Format | Example |
+|----|----|----|----|----|
+| `mockDataVersion` | character | Semantic version | `MAJOR.MINOR.PATCH` | `"1.0.0"` |
+| `mockDataLastUpdated` | character | Last update date | `YYYY-MM-DD` | `"2025-11-09"` |
+| `mockDataVersionNotes` | character | Version notes | Free text | `"Initial version"` |
 
 **Use cases:**
 
@@ -272,12 +272,12 @@ v_007,ltfu_date,uniform,365,7300,0.1
 
 ### Core columns (from recodeflow)
 
-| Column       | Type      | Required | Description                          | Example               |
-|--------------|-----------|----------|--------------------------------------|-----------------------|
-| `uid`        | character | Yes      | Foreign key to variables.csv         | `"v001"`              |
-| `uid_detail` | character | Yes      | Unique identifier for this row       | `"d001"`              |
-| `variable`   | character | Yes      | Must match variable in variables.csv | `"age"`               |
-| `recStart`   | character | Yes      | Input value or range                 | `"[18,100]"` or `"1"` |
+| Column | Type | Required | Description | Example |
+|----|----|----|----|----|
+| `uid` | character | Yes | Foreign key to variables.csv | `"v001"` |
+| `uid_detail` | character | Yes | Unique identifier for this row | `"d001"` |
+| `variable` | character | Yes | Must match variable in variables.csv | `"age"` |
+| `recStart` | character | Yes | Input value or range | `"[18,100]"` or `"1"` |
 
 **UID relationships:**
 
@@ -287,10 +287,10 @@ v_007,ltfu_date,uniform,365,7300,0.1
 
 ### Extension columns (MockData-specific)
 
-| Column       | Type      | Description                   | Example                                 |
-|--------------|-----------|-------------------------------|-----------------------------------------|
-| `catLabel`   | character | Category label or description | `"Valid age range"` or `"Never smoker"` |
-| `proportion` | numeric   | Population proportion (0-1)   | `0.5`                                   |
+| Column | Type | Description | Example |
+|----|----|----|----|
+| `catLabel` | character | Category label or description | `"Valid age range"` or `"Never smoker"` |
+| `proportion` | numeric | Population proportion (0-1) | `0.5` |
 
 **Proportion rules:**
 
@@ -632,13 +632,13 @@ v010,BMI
 
 **Valid values (comma-separated):**
 
-| Value       | Meaning                          | Use case                             |
-|-------------|----------------------------------|--------------------------------------|
-| `enabled`   | **Required for generation**      | Must be present to generate variable |
-| `predictor` | Independent/explanatory variable | Regression models, Table 1           |
-| `outcome`   | Dependent/response variable      | Primary/secondary outcomes           |
-| `metadata`  | Administrative/tracking          | IDs, dates, survey metadata          |
-| `table1`    | Summary table variable           | Baseline characteristics             |
+| Value | Meaning | Use case |
+|----|----|----|
+| `enabled` | **Required for generation** | Must be present to generate variable |
+| `predictor` | Independent/explanatory variable | Regression models, Table 1 |
+| `outcome` | Dependent/response variable | Primary/secondary outcomes |
+| `metadata` | Administrative/tracking | IDs, dates, survey metadata |
+| `table1` | Summary table variable | Baseline characteristics |
 
 **Examples:**
 
@@ -679,6 +679,7 @@ v001,age,"enabled,predictor,table1"
 **Multi-role filtering example:**
 
 ``` r
+
 # Get only variables for Table 1
 table1_vars <- variables[grepl("table1", variables$role), ]
 
@@ -773,11 +774,11 @@ testing
 
 **Valid values:**
 
-| Value      | Output type      | Simulates            | Example                         |
-|------------|------------------|----------------------|---------------------------------|
-| `analysis` | R Date object    | Analysis-ready dates | `as.Date("2001-01-01")`         |
-| `csv`      | Character string | CSV file dates       | `"2001-01-01"`                  |
-| `sas`      | Numeric          | SAS date numeric     | `14975` (days since 1960-01-01) |
+| Value | Output type | Simulates | Example |
+|----|----|----|----|
+| `analysis` | R Date object | Analysis-ready dates | `as.Date("2001-01-01")` |
+| `csv` | Character string | CSV file dates | `"2001-01-01"` |
+| `sas` | Numeric | SAS date numeric | `14975` (days since 1960-01-01) |
 
 **Use case:** Test date parsing/harmonization logic
 
@@ -800,6 +801,7 @@ v004,interview_date,sas
 **Conversion examples:**
 
 ``` r
+
 # CSV to Date
 dates_csv <- "2001-01-01"
 as.Date(dates_csv)
@@ -824,18 +826,18 @@ proportions in variable_details.csv)
 
 **For continuous variables:**
 
-| Distribution | Parameters required        | Use case                                    | Example                        |
-|--------------|----------------------------|---------------------------------------------|--------------------------------|
-| `normal`     | `mean`, `sd`               | Age, BMI, normally-distributed measurements | Age: mean=50, sd=15            |
-| `uniform`    | None (uses recStart range) | Equal probability across range              | Income brackets, uniform codes |
+| Distribution | Parameters required | Use case | Example |
+|----|----|----|----|
+| `normal` | `mean`, `sd` | Age, BMI, normally-distributed measurements | Age: mean=50, sd=15 |
+| `uniform` | None (uses recStart range) | Equal probability across range | Income brackets, uniform codes |
 
 **For date variables:**
 
-| Distribution  | Parameters required                                           | Use case                             | Example                                 |
-|---------------|---------------------------------------------------------------|--------------------------------------|-----------------------------------------|
-| `uniform`     | None                                                          | Index dates, enrollment dates        | Interview date                          |
-| `gompertz`    | `rate`, `shape`, `followup_min`, `followup_max`, `event_prop` | Age-related events (death, dementia) | Mortality with increasing hazard by age |
-| `exponential` | `rate`, `followup_min`, `followup_max`, `event_prop`          | Constant hazard events               | Loss to follow-up                       |
+| Distribution | Parameters required | Use case | Example |
+|----|----|----|----|
+| `uniform` | None | Index dates, enrollment dates | Interview date |
+| `gompertz` | `rate`, `shape`, `followup_min`, `followup_max`, `event_prop` | Age-related events (death, dementia) | Mortality with increasing hazard by age |
+| `exponential` | `rate`, `followup_min`, `followup_max`, `event_prop` | Constant hazard events | Loss to follow-up |
 
 **Complete examples:**
 
@@ -890,12 +892,12 @@ v002,smoking,,
 
 ### Distribution comparison table
 
-| Distribution    | Shape        | Median location      | Skewness  | Best for                                            |
-|-----------------|--------------|----------------------|-----------|-----------------------------------------------------|
-| **normal**      | Bell curve   | At mean              | Symmetric | Age, BMI, height, normally-distributed measurements |
-| **uniform**     | Flat         | Middle of range      | Symmetric | Dates without temporal pattern, random assignment   |
-| **gompertz**    | Right-skewed | Shifted toward end   | Positive  | Mortality, age-related disease onset                |
-| **exponential** | Right-skewed | Shifted toward start | Positive  | Time to first event, loss to follow-up              |
+| Distribution | Shape | Median location | Skewness | Best for |
+|----|----|----|----|----|
+| **normal** | Bell curve | At mean | Symmetric | Age, BMI, height, normally-distributed measurements |
+| **uniform** | Flat | Middle of range | Symmetric | Dates without temporal pattern, random assignment |
+| **gompertz** | Right-skewed | Shifted toward end | Positive | Mortality, age-related disease onset |
+| **exponential** | Right-skewed | Shifted toward start | Positive | Time to first event, loss to follow-up |
 
 **Visual interpretation (for 2001-2020 date range):**
 
@@ -1243,6 +1245,7 @@ v002,smoking,my_study,1
 Then generate with:
 
 ``` r
+
 create_mock_data(
   databaseStart = "my_study",
   variables = variables,
@@ -1264,6 +1267,7 @@ create_mock_data(
 **Fix:** Check proportions in variable_details.csv for that variable:
 
 ``` r
+
 # Identify the problem
 var_details %>%
   filter(variable == "smoking") %>%
@@ -1282,6 +1286,7 @@ variables.csv”**
 **Fix:** Check for typos or missing rows:
 
 ``` r
+
 # Find orphaned uids
 details_uids <- unique(variable_details$uid)
 vars_uids <- unique(variables$uid)
@@ -1301,6 +1306,7 @@ variable_details.csv”**
 **Fix:** Add the missing column:
 
 ``` r
+
 # Check what columns exist
 names(variable_details)
 
@@ -1387,6 +1393,7 @@ v005,event_date,500
 **Fix:**
 
 ``` r
+
 # Check which variables are enabled
 enabled <- variables[grepl("enabled", variables$role), ]
 nrow(enabled)  # Should be > 0
@@ -1460,6 +1467,7 @@ uniform
 3.  Simplify metadata (fewer variables, fewer categories)
 
 ``` r
+
 # Batch generation example
 batch_size <- 100000
 n_batches <- 10
@@ -1646,6 +1654,7 @@ v006,d_016,BMI_derived,"DerivedVar::[height, weight]","Func::bmi_fun",BMI calcul
 **Generation workflow:**
 
 ``` r
+
 # 1. Generate height and weight
 mock_data <- create_mock_data(
   databaseStart = "my_study",
@@ -1949,6 +1958,7 @@ columns:
 **1. Add required extension columns to variables.csv:**
 
 ``` r
+
 # Minimal additions
 variables$rType <- "double"  # Or appropriate type
 variables$role <- "enabled"
@@ -1959,6 +1969,7 @@ variables$seed <- variables$position * 10
 **2. Add distribution columns (if needed):**
 
 ``` r
+
 # For continuous variables
 continuous_vars <- variables$variableType == "Continuous"
 variables$distribution[continuous_vars] <- "uniform"
@@ -1971,6 +1982,7 @@ variables$distribution[date_vars] <- "uniform"
 **3. Add recEnd to variable_details.csv:**
 
 ``` r
+
 # For continuous/date variables with ranges
 variable_details$recEnd[is.na(variable_details$recEnd)] <- "copy"
 
@@ -1981,6 +1993,7 @@ variable_details$recEnd[is.na(variable_details$recEnd)] <- "copy"
 **4. Validate and test:**
 
 ``` r
+
 # Load and validate
 mock_data <- create_mock_data(
   databaseStart = "your_database",
@@ -2013,6 +2026,7 @@ garbage_low_prop,garbage_low_range,garbage_high_prop,garbage_high_range
 **Migration:**
 
 ``` r
+
 # Rename columns
 names(variables)[names(variables) == "corrupt_low_prop"] <- "garbage_low_prop"
 names(variables)[names(variables) == "corrupt_low_range"] <- "garbage_low_range"
@@ -2059,6 +2073,7 @@ time.
 **3. Batch generation:**
 
 ``` r
+
 # Generate in chunks
 batch_size <- 100000
 n_batches <- ceiling(total_n / batch_size)
@@ -2089,6 +2104,7 @@ final_data <- bind_rows(results)
 **For n \> 10M rows:**
 
 ``` r
+
 # Generate in batches and write to disk
 for (i in 1:n_batches) {
   batch <- create_mock_data(

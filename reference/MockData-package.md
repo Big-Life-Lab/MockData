@@ -1,11 +1,10 @@
-# MockData: Generate Mock Data from Recodeflow Metadata
+# MockData: Generate Mock Data from Metadata Specifications
 
-Generates mock testing data from recodeflow metadata (variables.csv and
-variable-details.csv). Supports categorical and continuous variables
-with metadata-driven specifications. Designed for testing harmonization
-workflows across CHMS, CCHS, and other recodeflow projects. Uses
-recodeflow-standard notation for parsing variable specifications and
-range notation.
+Generates mock testing data from small metadata specifications, supplied
+as in-memory data frames or CSV files. Supports categorical, continuous,
+date, garbage-data, and survival-style variables for testing data
+pipelines and documentation examples. Designed for recodeflow-style
+metadata while also supporting lightweight standalone use.
 
 ## See also
 
@@ -19,7 +18,13 @@ Useful links:
 
 ## Author
 
-**Maintainer**: Juan Li <juli@ohri.ca>
+**Maintainer**: Douglas Manuel <dmanuel@ohri.ca>
+
+Authors:
+
+- Douglas Manuel <dmanuel@ohri.ca>
+
+- Juan Li <juli@ohri.ca>
 
 Other contributors:
 

@@ -96,7 +96,7 @@ requirements, and optionally validates links to config file.</p>
 </ul><p><strong>Uniqueness:</strong></p><ul><li><p>uid_detail values must be unique (if column present)</p></li>
 </ul><p><strong>Proportion validation:</strong></p><ul><li><p>Values must be in range <code>[0, 1]</code></p></li>
 <li><p>Population proportions (valid + missing codes) must sum to 1.0 ±0.001 per variable</p></li>
-<li><p>Contamination proportions (corrupt_*) are excluded from sum</p></li>
+<li><p>Garbage proportions (garbage_*) are excluded from sum</p></li>
 <li><p>Auto-normalizes with warning if sum ≠ 1.0</p></li>
 </ul><p><strong>Parameter validation:</strong></p><ul><li><p>Distribution-specific requirements:</p><ul><li><p>normal → mean + sd</p></li>
 <li><p>gompertz → rate + shape</p></li>
@@ -127,7 +127,7 @@ requirements, and optionally validates links to config file.</p>
 
     <footer><div class="pkgdown-footer-left">
   <p>
-Developed by Juan Li and recodeflow contributors.
+Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </p>
 </div>
 

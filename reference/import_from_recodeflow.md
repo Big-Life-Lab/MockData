@@ -79,8 +79,8 @@ Generated:
 - rType: NA (user must fill in:
   integer/double/factor/date/logical/character)
 
-- corrupt_low_prop, corrupt_low_range, corrupt_high_prop,
-  corrupt_high_range: NA
+- garbage_low_prop, garbage_low_range, garbage_high_prop,
+  garbage_high_range: NA
 
 - mockDataVersion, mockDataVersionNotes: NA
 

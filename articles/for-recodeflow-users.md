@@ -12,6 +12,7 @@ If you already have recodeflow metadata files, you’re one function call
 away from generating mock data:
 
 ``` r
+
 library(MockData)
 
 # Point MockData at your existing metadata files
@@ -84,6 +85,7 @@ generate data for. This is the same identifier you use in recodeflow
 workflows.
 
 ``` r
+
 # Generate data for CCHS 2001
 mock_cchs2001 <- create_mock_data(
   databaseStart = "cchs2001_p",  # Match your database identifier
@@ -110,6 +112,7 @@ Let’s generate mock data using the minimal-example metadata included
 with MockData:
 
 ``` r
+
 # Load recodeflow-compatible metadata
 variables <- read.csv(
   system.file("extdata/minimal-example/variables.csv", package = "MockData"),
@@ -136,17 +139,17 @@ mock_data <- create_mock_data(
 cat("Generated", nrow(mock_data), "observations across", ncol(mock_data), "variables\n\n")
 ```
 
-    Generated 100 observations across 5 variables
+    Generated 100 observations across 6 variables
 
 **View sample data:**
 
-      age smoking    height    weight interview_date
-    1  30       1 0.5259396  52.05418     2004-08-20
-    2  59       1 1.2789355 104.37787     2001-12-09
-    3  62       2 0.2535377  87.96214     2003-07-30
-    4  29       1 0.3669026  65.09685     2002-03-22
-    5  39       2 0.6075947  89.62049     2004-03-26
-    6  45       1 1.2702433  88.92887     2005-07-24
+      age smoking      BMI    height    weight
+    1  30       1 31.39358 0.5259396  52.05418
+    2  59       1 35.41517 1.1281644 104.37787
+    3  62       2 19.94430 0.4244376  87.96214
+    4  29       1 33.79594 0.9694859  65.09685
+    5  39       2 22.77140 0.6075947  89.62049
+    6  45       1 33.74213 1.2702433  88.92887
 
 ## Common workflows
 
@@ -156,6 +159,7 @@ Use mock data to test cchsflow or chmsflow harmonisation before
 accessing real data:
 
 ``` r
+
 library(cchsflow)
 
 # 1. Generate mock raw data
@@ -185,6 +189,7 @@ mock_harmonised %>%
 Write and debug analysis scripts before data access:
 
 ``` r
+
 library(dplyr)
 
 # Generate mock data
@@ -217,6 +222,7 @@ ggplot(mock_data, aes(x = age, fill = smoking)) +
 Generate safe, non-sensitive data for training:
 
 ``` r
+
 # Generate training dataset
 training_data <- create_mock_data(
   databaseStart = "cchs2001_p",

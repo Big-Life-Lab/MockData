@@ -43,6 +43,7 @@ cchsflow_v0006,cchsflow_d00016,BMI_derived,"DerivedVar::[height, weight]","Func:
 ### How it works
 
 ``` r
+
 # During create_mock_data(), derived variables are excluded
 enabled_vars <- variables[grepl("enabled", variables$role), ]
 
@@ -62,6 +63,7 @@ After generating mock data, calculate derived variables using your
 custom functions:
 
 ``` r
+
 # 1. Generate raw variables
 mock_data <- create_mock_data(
   databaseStart = "minimal-example",
@@ -84,6 +86,7 @@ summary(mock_data$BMI_derived)
 ### Example: Custom BMI calculation
 
 ``` r
+
 # Define custom function
 bmi_fun <- function(height, weight) {
   # BMI = weight (kg) / height (m)^2
@@ -156,6 +159,7 @@ cchsflow_v0002,cchsflow_d00006,smoking,"2","2","Former smoker"
 ### Example: Tracking variable evolution
 
 ``` r
+
 # Load current metadata
 variables_v2 <- read.csv("variables_v2.csv")
 
@@ -190,6 +194,7 @@ cchsflow_v0001,cchsflow_d00001,age,"cchs2001_p,cchs2005_p","[18,100]","copy","Va
 **Single database:**
 
 ``` r
+
 # Generate for specific database
 mock_cchs2001 <- create_mock_data(
   databaseStart = "cchs2001_p",
@@ -202,6 +207,7 @@ mock_cchs2001 <- create_mock_data(
 **Multiple databases:**
 
 ``` r
+
 # Generate for multiple cycles
 databases <- c("cchs2001_p", "cchs2005_p", "cchs2009_p")
 
@@ -249,6 +255,7 @@ All generator functions check if a variable already exists before
 creating it:
 
 ``` r
+
 # From create_cat_var.R (lines 174-178)
 if (!is.null(df_mock) && var %in% names(df_mock)) {
   return(NULL)
@@ -260,6 +267,7 @@ if (!is.null(df_mock) && var %in% names(df_mock)) {
 **Without duplicate checking:**
 
 ``` r
+
 # Dangerous - creates duplicate columns
 for (i in 1:3) {
   df <- cbind(df, create_cat_var("SMK_01", ...))
@@ -270,6 +278,7 @@ for (i in 1:3) {
 **With duplicate checking:**
 
 ``` r
+
 # Safe - only creates variable once
 for (i in 1:3) {
   col <- create_cat_var("SMK_01", ..., df_mock = df)
@@ -311,6 +320,7 @@ MockData is designed to work with the CCHS/CHMS harmonization ecosystem
 ### Example: Testing harmonization code
 
 ``` r
+
 # 1. Generate mock raw data
 mock_raw <- create_mock_data(
   databaseStart = "cchs2001_p",
@@ -363,6 +373,7 @@ For large-scale mock data generation:
 **1. Generate in batches:**
 
 ``` r
+
 # Instead of one large generation
 result <- create_con_var(..., n = 1000000)
 
@@ -384,6 +395,7 @@ result <- bind_rows(result_list)
 **2. Simplify distributions:**
 
 ``` r
+
 # Uniform is faster than normal (for continuous variables)
 distribution = "uniform"  # Faster
 distribution = "normal"    # Slower (normal distribution centered at range midpoint)
@@ -392,6 +404,7 @@ distribution = "normal"    # Slower (normal distribution centered at range midpo
 **3. Minimize metadata:**
 
 ``` r
+
 # Only include variables you need
 variable_details_subset <- variable_details %>%
   filter(variable %in% needed_vars)
@@ -411,6 +424,7 @@ Use different seeds for different variables to ensure independence while
 maintaining reproducibility:
 
 ``` r
+
 # Generate multiple date variables with different seeds
 birth_dates <- create_date_var(
   var = "birth_date",
@@ -449,6 +463,7 @@ diagnosis_dates <- create_date_var(
 **Recommended seed strategy:**
 
 ``` r
+
 # Use sequential seeds starting from a base value
 base_seed <- 1000
 
@@ -479,6 +494,7 @@ your exact mock datasets.
 **Issue: “Variable not found in metadata”**
 
 ``` r
+
 # Check variable names match
 unique(variable_details$variable)
 unique(variables$variable)
@@ -487,6 +503,7 @@ unique(variables$variable)
 **Issue: “No valid categories found”**
 
 ``` r
+
 # Check recStart values
 var_details %>% filter(variable == "problem_var") %>% select(recStart, recEnd)
 
@@ -496,6 +513,7 @@ var_details %>% filter(variable == "problem_var") %>% select(recStart, recEnd)
 **Issue: “prop_NA doesn’t work”**
 
 ``` r
+
 # Verify NA codes exist in metadata
 na_codes <- get_variable_categories(variable_details, include_na = TRUE)
 ```

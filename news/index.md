@@ -8,6 +8,7 @@
 data frames instead of pre-filtered subsets:
 
 ``` r
+
 # Before (v0.2.x)
 var_row <- variables[variables$variable == "age", ]
 details_subset <- variable_details[variable_details$variable == "age", ]
@@ -35,6 +36,7 @@ result <- create_con_var(
 Use garbage parameters in metadata instead:
 
 ``` r
+
 # Old way (no longer supported)
 surv <- create_wide_survival_data(..., prop_garbage = 0.03)
 
@@ -59,6 +61,7 @@ continuous, date, survival):
   out-of-range values)
 
 ``` r
+
 # Add garbage to any variable type
 vars_with_garbage <- add_garbage(variables, "smoking",
   garbage_low_prop = 0.02, garbage_low_range = "[-2, 0]")

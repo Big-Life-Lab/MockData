@@ -25,6 +25,7 @@ variables used in your project: `variables.csv` (or data frame) and
 Let’s generate a smoking status variable with three categories:
 
 ``` r
+
 # Create variables data frame with variable-level metadata
 variables <- data.frame(
   variable = "smoking",
@@ -67,8 +68,10 @@ head(smoking_data)
     6       1
 
 ``` r
+
 table(smoking_data$smoking)
 ```
+
 
      1  2  3
     53 29 18 
@@ -104,6 +107,7 @@ makes it easier to specify proportions and maintain consistency:
 > projects, you’ll use regular file paths:
 >
 > ``` r
+>
 > # Package examples use:
 > variables <- read.csv(
 >   system.file("extdata/minimal-example/variables.csv", package = "MockData"),
@@ -118,6 +122,7 @@ makes it easier to specify proportions and maintain consistency:
 > ```
 
 ``` r
+
 # Read metadata from files
 config_path <- system.file("extdata/minimal-example/variables.csv", package = "MockData")
 details_path <- system.file("extdata/minimal-example/variable_details.csv", package = "MockData")
@@ -146,6 +151,7 @@ Notice how the metadata file includes proportions:
 - Don’t know (code 7): 3%
 
 ``` r
+
 # Generate using metadata files (pass full data frames)
 smoking_data_v2 <- create_cat_var(
   var = "smoking",
@@ -161,13 +167,16 @@ smoking_data_v2 <- create_cat_var(
 table(smoking_data_v2$smoking)
 ```
 
+
       1   2   3   7
     466 309 195  30 
 
 ``` r
+
 # View proportions
 round(prop.table(table(smoking_data_v2$smoking)), 2)
 ```
+
 
        1    2    3    7
     0.47 0.31 0.20 0.03 
@@ -186,6 +195,7 @@ using
 [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md):
 
 ``` r
+
 # Generate complete dataset
 mock_data <- create_mock_data(
   databaseStart = "minimal-example",
@@ -199,9 +209,10 @@ mock_data <- create_mock_data(
 str(mock_data)
 ```
 
-    'data.frame':   100 obs. of  5 variables:
+    'data.frame':   100 obs. of  6 variables:
      $ age           : int  58 18 50 53 45 43 40 47 35 61 ...
      $ smoking       : Factor w/ 4 levels "1","2","3","7": 3 1 2 2 1 1 2 1 3 1 ...
+     $ BMI           : num  23.3 30.2 33.7 37.1 24 ...
      $ height        : num  1.161 1.374 0.857 0.416 0.809 ...
      $ weight        : num  67.9 60.3 69.5 96.7 79.6 ...
      $ interview_date: Date, format: "2003-09-21" "2003-11-16" ...
@@ -225,6 +236,7 @@ Age distribution:
 
 Smoking status distribution:
 
+
      1  2  3  7
     44 34 19  3 
 
@@ -247,50 +259,50 @@ Let’s look at the minimal example metadata:
 
 **variables.csv** (7 variables):
 
-| variable           | variableType | distribution | mean |   sd | garbage_low_prop | garbage_low_range | garbage_high_prop | garbage_high_range        |
-|:-------------------|:-------------|:-------------|-----:|-----:|-----------------:|:------------------|------------------:|:--------------------------|
-| age                | Continuous   | normal       | 50.0 | 15.0 |               NA | \[;\]             |                NA | \[;\]                     |
-| smoking            | Categorical  |              |   NA |   NA |               NA |                   |                NA |                           |
-| BMI                | Continuous   | normal       | 27.5 |  5.2 |             0.02 | \[-10;15\])       |              0.01 | \[60;150\]                |
-| height             | Continuous   | normal       |  1.7 |  0.1 |             1.00 | \[0;1.4)          |              0.01 | (2.1;inf\]                |
-| weight             | Continuous   | normal       | 75.0 | 15.0 |               NA | \[;\]             |                NA | \[;\]                     |
-| BMI_derived        | Continuous   |              |   NA |   NA |               NA | \[;\]             |                NA | \[;\]                     |
-| interview_date     | Continuous   | uniform      |   NA |   NA |             0.00 | \[;\]             |              0.00 | \[;\]                     |
-| primary_event_date | Continuous   | gompertz     |   NA |   NA |             0.00 | \[;\]             |              0.03 | \[2021-01-01;2099-12-31\] |
-| death_date         | Continuous   | gompertz     |   NA |   NA |             0.00 | \[;\]             |              0.03 | \[2025-01-01;2099-12-31\] |
-| ltfu_date          | Continuous   | uniform      |   NA |   NA |             0.00 | \[;\]             |              0.03 | \[2025-01-01;2099-12-31\] |
-| admin_censor_date  | Continuous   |              |   NA |   NA |             0.00 | \[;\]             |              0.00 | \[;\]                     |
+| variable | variableType | distribution | mean | sd | garbage_low_prop | garbage_low_range | garbage_high_prop | garbage_high_range |
+|:---|:---|:---|---:|---:|---:|:---|---:|:---|
+| age | Continuous | normal | 50.0 | 15.0 | NA | \[;\] | NA | \[;\] |
+| smoking | Categorical |  | NA | NA | NA |  | NA |  |
+| BMI | Continuous | normal | 27.5 | 5.2 | 0.02 | \[-10;15\]) | 0.01 | \[60;150\] |
+| height | Continuous | normal | 1.7 | 0.1 | 1.00 | \[0;1.4) | 0.01 | (2.1;inf\] |
+| weight | Continuous | normal | 75.0 | 15.0 | NA | \[;\] | NA | \[;\] |
+| BMI_derived | Continuous |  | NA | NA | NA | \[;\] | NA | \[;\] |
+| interview_date | Continuous | uniform | NA | NA | 0.00 | \[;\] | 0.00 | \[;\] |
+| primary_event_date | Continuous | gompertz | NA | NA | 0.00 | \[;\] | 0.03 | \[2021-01-01;2099-12-31\] |
+| death_date | Continuous | gompertz | NA | NA | 0.00 | \[;\] | 0.03 | \[2025-01-01;2099-12-31\] |
+| ltfu_date | Continuous | uniform | NA | NA | 0.00 | \[;\] | 0.03 | \[2025-01-01;2099-12-31\] |
+| admin_censor_date | Continuous |  | NA | NA | 0.00 | \[;\] | 0.00 | \[;\] |
 
 **variable_details.csv** (10 detail rows):
 
-| variable           | recStart                       | catLabel                              | proportion |
-|:-------------------|:-------------------------------|:--------------------------------------|-----------:|
-| age                | \[18,100\]                     | Valid age range                       |       0.90 |
-| age                | 997                            | Don’t know                            |       0.05 |
-| age                | 998                            | Refusal                               |       0.03 |
-| age                | 999                            | Not stated                            |       0.02 |
-| smoking            | 1                              | Never smoker                          |       0.50 |
-| smoking            | 2                              | Former smoker                         |       0.30 |
-| smoking            | 3                              | Current smoker                        |       0.17 |
-| smoking            | 7                              | Don’t know                            |       0.03 |
-| BMI                | \[15,50\]                      | Valid BMI range                       |         NA |
-| BMI                | 996                            | Not applicable                        |       0.30 |
-| BMI                | \[997,999\]                    | Don’t know, refusal, not stated       |       0.10 |
-| height             | \[1.4,2.1\]                    | Valid height range (meters)           |         NA |
-| height             | else                           | Missing height                        |       0.02 |
-| weight             | \[35,150\]                     | Valid weight range (kg)               |         NA |
-| weight             | else                           | Missing weight                        |       0.03 |
-| BMI_derived        | DerivedVar::\[height, weight\] | BMI calculated from height and weight |         NA |
-| interview_date     | \[2001-01-01,2005-12-31\]      | Interview date range                  |       1.00 |
-| interview_date     | else                           | Missing interview date                |       0.00 |
-| primary_event_date | \[2002-01-01,2021-01-01\]      | Primary event date range              |       0.10 |
-| primary_event_date | else                           | Missing event date                    |       0.00 |
-| death_date         | \[2002-01-01,2024-12-31\]      | Death date range                      |       0.20 |
-| death_date         | else                           | Missing death date                    |       0.05 |
-| ltfu_date          | \[2002-01-01,2024-12-31\]      | Loss to follow-up date range          |       0.05 |
-| ltfu_date          | else                           | Missing ltfu date                     |         NA |
-| admin_censor_date  | 2024-12-31                     | Administrative censor date            |       1.00 |
-| admin_censor_date  | else                           | Missing administrative censor date    |       0.00 |
+| variable | recStart | catLabel | proportion |
+|:---|:---|:---|---:|
+| age | \[18,100\] | Valid age range | 0.90 |
+| age | 997 | Don’t know | 0.05 |
+| age | 998 | Refusal | 0.03 |
+| age | 999 | Not stated | 0.02 |
+| smoking | 1 | Never smoker | 0.50 |
+| smoking | 2 | Former smoker | 0.30 |
+| smoking | 3 | Current smoker | 0.17 |
+| smoking | 7 | Don’t know | 0.03 |
+| BMI | \[15,50\] | Valid BMI range | NA |
+| BMI | 996 | Not applicable | 0.30 |
+| BMI | \[997,999\] | Don’t know, refusal, not stated | 0.10 |
+| height | \[1.4,2.1\] | Valid height range (meters) | NA |
+| height | else | Missing height | 0.02 |
+| weight | \[35,150\] | Valid weight range (kg) | NA |
+| weight | else | Missing weight | 0.03 |
+| BMI_derived | DerivedVar::\[height, weight\] | BMI calculated from height and weight | NA |
+| interview_date | \[2001-01-01,2005-12-31\] | Interview date range | 1.00 |
+| interview_date | else | Missing interview date | 0.00 |
+| primary_event_date | \[2002-01-01,2021-01-01\] | Primary event date range | 0.10 |
+| primary_event_date | else | Missing event date | 0.00 |
+| death_date | \[2002-01-01,2024-12-31\] | Death date range | 0.20 |
+| death_date | else | Missing death date | 0.05 |
+| ltfu_date | \[2002-01-01,2024-12-31\] | Loss to follow-up date range | 0.05 |
+| ltfu_date | else | Missing ltfu date | NA |
+| admin_censor_date | 2024-12-31 | Administrative censor date | 1.00 |
+| admin_censor_date | else | Missing administrative censor date | 0.00 |
 
 **Key columns in variables.csv:**
 
@@ -319,6 +331,7 @@ for the complete files and v0.2.1 schema documentation.
 Once you have mock data, you can use it to test your analysis pipeline:
 
 ``` r
+
 library(dplyr)
 
 # Test data manipulation

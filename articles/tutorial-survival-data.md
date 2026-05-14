@@ -44,6 +44,7 @@ The simplest survival data has two dates: cohort entry and a single
 event.
 
 ``` r
+
 # Load minimal-example metadata
 variables <- read.csv(
   system.file("extdata/minimal-example/variables.csv", package = "MockData"),
@@ -105,6 +106,7 @@ Death is a competing risk - individuals who die cannot experience the
 primary event. MockData handles this temporal logic automatically.
 
 ``` r
+
 # Generate entry + event + death
 surv_compete <- create_wide_survival_data(
   var_entry_date = "interview_date",
@@ -142,6 +144,7 @@ MockData applies these rules:
     death_date
 
 ``` r
+
 # Verify temporal ordering
 # Note: Dates are already R Date objects (sourceFormat = "analysis" in variables.csv)
 interview_dates <- surv_compete$interview_date
@@ -176,6 +179,7 @@ Real cohort studies have multiple censoring mechanisms:
 - **Administrative censoring**: Study ends on specific date
 
 ``` r
+
 # Generate complete survival data (all 5 date variables)
 surv_complete <- create_wide_survival_data(
   var_entry_date = "interview_date",
@@ -213,6 +217,7 @@ Observation ends at the earliest of: primary event, death, loss to
 follow-up, or administrative censoring.
 
 ``` r
+
 # Dates are already R Date objects (sourceFormat = "analysis")
 # Calculate end date (earliest of all outcomes)
 # Build list of existing date columns
@@ -258,6 +263,7 @@ Event indicator identifies why observation ended:
 - **2**: Death occurred (competing risk)
 
 ``` r
+
 # Create event indicator
 surv_complete$event_indicator <- ifelse(
   !is.na(surv_complete$primary_event_date) & surv_complete$primary_event_date == surv_complete$t_end, 1,  # Event
@@ -268,6 +274,7 @@ surv_complete$event_indicator <- ifelse(
 # Tabulate outcomes
 table(surv_complete$event_indicator)
 ```
+
 
        0    1    2
     1132  582  286 
@@ -287,12 +294,14 @@ Survival dates use realistic distributions to match real-world patterns:
 follow-up)
 
 ``` r
+
 distribution = "uniform"
 ```
 
 **Gompertz**: Age-dependent hazard (death, chronic disease)
 
 ``` r
+
 distribution = "gompertz"
 rate = 0.0001
 shape = 0.1
@@ -301,6 +310,7 @@ shape = 0.1
 **Exponential**: Constant hazard with early concentration
 
 ``` r
+
 distribution = "exponential"
 rate = 0.001
 ```
@@ -339,6 +349,7 @@ Let’s generate interview_date in SAS numeric format while keeping other
 dates in analysis format:
 
 ``` r
+
 # Modify only interview_date to use SAS format
 vars_sas <- variables
 vars_sas$sourceFormat[vars_sas$variable == "interview_date"] <- "sas"
@@ -375,6 +386,7 @@ simulates mixed-format raw data that requires harmonization.
 To convert SAS dates to R Date format:
 
 ``` r
+
 # Convert SAS numeric dates to R Date
 interview_converted <- as.Date(surv_sas$interview_date, origin = "1960-01-01")
 head(interview_converted)
@@ -391,6 +403,7 @@ future dates that violate temporal constraints for testing validation
 pipelines:
 
 ``` r
+
 # Generate survival data with configured garbage dates
 surv_qa <- create_wide_survival_data(
   var_entry_date = "interview_date",
@@ -434,15 +447,15 @@ logic by generating realistic data quality issues.
 
 ## Key concepts summary
 
-| Concept               | Implementation                    | Details                                              |
-|-----------------------|-----------------------------------|------------------------------------------------------|
-| **Competing risks**   | Death prevents primary event      | If death \< event, set event to NA                   |
-| **Event proportions** | `event_prop` in variables.csv     | Controls % experiencing each outcome                 |
-| **Temporal ordering** | Automatic constraint enforcement  | All dates ≥ entry date                               |
-| **Distributions**     | Gompertz, uniform, exponential    | Specified in variables.csv                           |
-| **End date**          | `pmin(event, death, ltfu, admin)` | Earliest outcome defines observation end             |
-| **Event indicator**   | Derived from date comparison      | 0=censored, 1=event, 2=death                         |
-| **QA testing**        | `prop_garbage` parameter          | Generates temporal violations for validation testing |
+| Concept | Implementation | Details |
+|----|----|----|
+| **Competing risks** | Death prevents primary event | If death \< event, set event to NA |
+| **Event proportions** | `event_prop` in variables.csv | Controls % experiencing each outcome |
+| **Temporal ordering** | Automatic constraint enforcement | All dates ≥ entry date |
+| **Distributions** | Gompertz, uniform, exponential | Specified in variables.csv |
+| **End date** | `pmin(event, death, ltfu, admin)` | Earliest outcome defines observation end |
+| **Event indicator** | Derived from date comparison | 0=censored, 1=event, 2=death |
+| **QA testing** | `prop_garbage` parameter | Generates temporal violations for validation testing |
 
 ## What you learned
 

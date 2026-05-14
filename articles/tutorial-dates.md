@@ -35,9 +35,9 @@ Date variables use the same two-file structure as other variables, with
 
 **variable_details.csv:**
 
-| uid      | uid_detail | variable       | recStart                  | catLabel             |
-|----------|------------|----------------|---------------------------|----------------------|
-| ices_v01 | ices_d001  | interview_date | \[2001-01-01,2005-12-31\] | Interview date range |
+| uid | uid_detail | variable | recStart | catLabel |
+|----|----|----|----|----|
+| ices_v01 | ices_d001 | interview_date | \[2001-01-01,2005-12-31\] | Interview date range |
 
 **Key points:**
 
@@ -50,6 +50,7 @@ Date variables use the same two-file structure as other variables, with
 ### Generating date variables
 
 ``` r
+
 # Load minimal-example metadata
 variables <- read.csv(
   system.file("extdata/minimal-example/variables.csv", package = "MockData"),
@@ -78,6 +79,7 @@ head(interview_data$interview_date)
     [6] "2005-04-24"
 
 ``` r
+
 summary(as.Date(interview_data$interview_date))
 ```
 
@@ -97,6 +99,7 @@ For interactive development or testing, use
 to generate a single date variable without creating an entire dataset:
 
 ``` r
+
 # Generate just the interview_date variable
 interview_dates_only <- create_date_var(
   var = "interview_date",
@@ -120,6 +123,7 @@ head(interview_dates_only)
     6     2004-06-29
 
 ``` r
+
 summary(as.Date(interview_dates_only$interview_date))
 ```
 
@@ -169,6 +173,7 @@ Different distributions create different temporal patterns. Here’s how
 they compare using the same date range:
 
 ``` r
+
 # Generate dates with uniform distribution (default)
 uniform_dates <- create_date_var(
   var = "interview_date",
@@ -194,11 +199,11 @@ dates.
 
 **Distribution patterns:**
 
-| Distribution    | Median location                   | Best for                                           |
-|-----------------|-----------------------------------|----------------------------------------------------|
-| **Uniform**     | Middle of range (~2003)           | Calendar dates, recruitment periods, random events |
-| **Gompertz**    | Shifted toward end (~2004-2005)   | Mortality data, age-related events                 |
-| **Exponential** | Shifted toward start (~2001-2002) | First diagnosis, early treatment, rapid events     |
+| Distribution | Median location | Best for |
+|----|----|----|
+| **Uniform** | Middle of range (~2003) | Calendar dates, recruitment periods, random events |
+| **Gompertz** | Shifted toward end (~2004-2005) | Mortality data, age-related events |
+| **Exponential** | Shifted toward start (~2001-2002) | First diagnosis, early treatment, rapid events |
 
 **Choosing a distribution:**
 
@@ -224,6 +229,7 @@ Let’s generate death dates where only 30% of individuals die during the
 study period:
 
 ``` r
+
 # Create simple death date configuration
 death_vars <- data.frame(
   uid = "death_v1",
@@ -281,6 +287,7 @@ observed_prop <- n_deaths / nrow(death_data)
 **Sample of first 10 observations (showing NA for censored cases):**
 
 ``` r
+
 # Display first 10 rows to show mixture of dates and NA values
 head(death_data, 10)
 ```
@@ -344,6 +351,7 @@ Let’s generate the same date variable in all three formats by modifying
 the metadata:
 
 ``` r
+
 # Format 1: analysis (R Date objects) - DEFAULT
 # Variables already has sourceFormat = "analysis" by default
 dates_analysis <- create_date_var(
@@ -362,12 +370,14 @@ class(dates_analysis$interview_date)
     [1] "Date"
 
 ``` r
+
 head(dates_analysis$interview_date, 3)
 ```
 
     [1] "2005-10-04" "2002-05-18" "2004-10-13"
 
 ``` r
+
 # Format 2: csv (character strings)
 vars_csv <- variables
 vars_csv$sourceFormat <- "csv"
@@ -388,12 +398,14 @@ class(dates_csv$interview_date)
     [1] "character"
 
 ``` r
+
 head(dates_csv$interview_date, 3)
 ```
 
     [1] "2005-10-04" "2002-05-18" "2004-10-13"
 
 ``` r
+
 # Format 3: sas (numeric days since 1960-01-01)
 vars_sas <- variables
 vars_sas$sourceFormat <- "sas"
@@ -414,6 +426,7 @@ class(dates_sas$interview_date)
     [1] "numeric"
 
 ``` r
+
 head(dates_sas$interview_date, 3)
 ```
 
@@ -429,6 +442,7 @@ All three formats represent identical dates. You can convert between
 them:
 
 ``` r
+
 # Convert CSV format (character) to Date
 csv_to_date <- as.Date(dates_csv$interview_date)
 
@@ -442,6 +456,7 @@ all(csv_to_date == dates_analysis$interview_date)
     [1] TRUE
 
 ``` r
+
 all(sas_to_date == dates_analysis$interview_date)
 ```
 
@@ -454,6 +469,7 @@ date parsing and harmonization code. Generate mock data in the format
 matching your raw source files:
 
 ``` r
+
 # Example: Testing harmonization from CSV source
 vars_csv_source <- variables
 vars_csv_source$sourceFormat <- "csv"
@@ -502,6 +518,7 @@ Simulate data entry errors where dates are in the future using
 **garbage_high** parameters in variables.csv:
 
 ``` r
+
 # Create configuration with future date garbage
 birth_config <- data.frame(
   uid = "birth_date_v1",
@@ -559,6 +576,7 @@ in variables.csv, not in variable_details.csv.
 Simulate impossibly old dates using **garbage_low** parameters:
 
 ``` r
+
 # Create configuration with old date garbage
 diag_config <- data.frame(
   uid = "diagnosis_date_v1",
@@ -625,6 +643,7 @@ files](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-e
 After generating dates, validate the results:
 
 ``` r
+
 # Check interview date range
 interview_dates <- as.Date(interview_data$interview_date)
 
@@ -652,14 +671,14 @@ specifications.
 
 ## Key concepts summary
 
-| Concept               | Implementation                                      | Details                                                                                                                                                                   |
-|-----------------------|-----------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Date ranges**       | Interval notation in `recStart`                     | `[2001-01-01,2005-12-31]` format (ISO dates)                                                                                                                              |
-| **Distributions**     | Uniform, Gompertz, Exponential                      | Specified in `distribution` column of variables.csv                                                                                                                       |
-| **Event proportions** | `event_prop` column in variables.csv                | Controls % experiencing event vs. censored (NA)                                                                                                                           |
-| **Garbage dates**     | `garbage_low_prop/range`, `garbage_high_prop/range` | Specified in variables.csv for data quality testing                                                                                                                       |
-| **Validation**        | Check ranges and distributions                      | Use [`summary()`](https://rdrr.io/r/base/summary.html), [`min()`](https://rdrr.io/r/base/Extremes.html), [`max()`](https://rdrr.io/r/base/Extremes.html) after generation |
-| **Source formats**    | `sourceFormat` column in variables.csv              | Values: “csv” (character), “sas” (numeric), “analysis” (Date)                                                                                                             |
+| Concept | Implementation | Details |
+|----|----|----|
+| **Date ranges** | Interval notation in `recStart` | `[2001-01-01,2005-12-31]` format (ISO dates) |
+| **Distributions** | Uniform, Gompertz, Exponential | Specified in `distribution` column of variables.csv |
+| **Event proportions** | `event_prop` column in variables.csv | Controls % experiencing event vs. censored (NA) |
+| **Garbage dates** | `garbage_low_prop/range`, `garbage_high_prop/range` | Specified in variables.csv for data quality testing |
+| **Validation** | Check ranges and distributions | Use [`summary()`](https://rdrr.io/r/base/summary.html), [`min()`](https://rdrr.io/r/base/Extremes.html), [`max()`](https://rdrr.io/r/base/Extremes.html) after generation |
+| **Source formats** | `sourceFormat` column in variables.csv | Values: “csv” (character), “sas” (numeric), “analysis” (Date) |
 
 ## What you learned
 

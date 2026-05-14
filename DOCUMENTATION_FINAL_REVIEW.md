@@ -49,13 +49,13 @@ cre) - recodeflow contributors (ctb) - Removed Doug Manuel per request
 
 ✅ Expanded 5 short function titles from 3-8 words to 13-15 words:
 
-| Function                                                                                                                        | Old title (words) | New title (words) |
-|---------------------------------------------------------------------------------------------------------------------------------|-------------------|-------------------|
-| [`read_mock_data_config()`](https://big-life-lab.github.io/MockData/reference/read_mock_data_config.md)                         | 4                 | 14                |
-| [`validate_mock_data_config()`](https://big-life-lab.github.io/MockData/reference/validate_mock_data_config.md)                 | 3                 | 13                |
-| [`read_mock_data_config_details()`](https://big-life-lab.github.io/MockData/reference/read_mock_data_config_details.md)         | 5                 | 14                |
-| [`validate_mock_data_config_details()`](https://big-life-lab.github.io/MockData/reference/validate_mock_data_config_details.md) | 4                 | 14                |
-| [`import_from_recodeflow()`](https://big-life-lab.github.io/MockData/reference/import_from_recodeflow.md)                       | 8                 | 15                |
+| Function | Old title (words) | New title (words) |
+|----|----|----|
+| [`read_mock_data_config()`](https://big-life-lab.github.io/MockData/reference/read_mock_data_config.md) | 4 | 14 |
+| [`validate_mock_data_config()`](https://big-life-lab.github.io/MockData/reference/validate_mock_data_config.md) | 3 | 13 |
+| [`read_mock_data_config_details()`](https://big-life-lab.github.io/MockData/reference/read_mock_data_config_details.md) | 5 | 14 |
+| [`validate_mock_data_config_details()`](https://big-life-lab.github.io/MockData/reference/validate_mock_data_config_details.md) | 4 | 14 |
+| [`import_from_recodeflow()`](https://big-life-lab.github.io/MockData/reference/import_from_recodeflow.md) | 8 | 15 |
 
 **Files modified:** - R/read_mock_data_config.R (2 @title tags) -
 R/read_mock_data_config_details.R (2 @title tags) -
@@ -66,6 +66,7 @@ R/import_from_recodeflow.R (1 @title tag)
 ### 1. Rebuild pkgdown site
 
 ``` r
+
 # In R console
 pkgdown::build_site()
 ```

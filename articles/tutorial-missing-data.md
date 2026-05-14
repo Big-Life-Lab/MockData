@@ -19,6 +19,7 @@ data. If you treat all missing values the same way, you’ll get biased
 estimates. Let’s see why.
 
 ``` r
+
 # Generate smoking data with two approaches
 set.seed(123)
 
@@ -40,6 +41,7 @@ smoking_correct <- data.frame(
 Now let’s calculate prevalence both ways:
 
 ``` r
+
 # Wrong calculation (naive approach)
 wrong_prevalence <- mean(smoking_wrong$smoker == "Yes", na.rm = TRUE)
 
@@ -78,6 +80,7 @@ prevalence.
 Let’s generate some realistic data to see this in action:
 
 ``` r
+
 # Load metadata for examples
 variable_details <- read.csv(
   system.file("extdata/minimal-example/variable_details.csv",
@@ -107,6 +110,7 @@ smoking_data <- create_cat_var(
 # Show distribution
 table(smoking_data$smoking)
 ```
+
 
       1   2   3   7
     466 309 195  30 
@@ -149,6 +153,7 @@ Let’s demonstrate the difference with a worked example using smoking
 status:
 
 ``` r
+
 # Calculate response rate (includes DK in denominator, excludes any skip codes)
 asked <- smoking_data$smoking %in% c("1", "2", "3", "7")
 valid_response <- smoking_data$smoking %in% c("1", "2", "3")
@@ -177,6 +182,7 @@ Let’s look at the BMI variable, which demonstrates both valid skip
 (NA::a) and missing codes (NA::b):
 
 ``` r
+
 # Look at BMI variable metadata
 bmi_details <- variable_details[variable_details$variable == "BMI", ]
 print(bmi_details[, c("variable", "recStart", "recEnd", "catLabel", "proportion")], row.names = FALSE)
@@ -197,6 +203,7 @@ We can use this metadata to generate mock data with realistic
 proportions:
 
 ``` r
+
 # Generate age data with missing codes
 df_mock_age <- data.frame()
 age_data <- create_con_var(
@@ -309,6 +316,7 @@ v_010,d_101,gender,2,Female,0.5
 ### Complete example with recEnd
 
 ``` r
+
 # Create variable_details with recEnd column
 smoking_details_recEnd <- data.frame(
   uid = "cchsflow_v0002",

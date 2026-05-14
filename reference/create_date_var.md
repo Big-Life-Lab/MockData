@@ -55,7 +55,7 @@ create_date_var(
 
   - `variable`: Variable name (for joining)
 
-  - `recStart`: Date range (e.g., 01JAN2001,31DEC2020) or followup
+  - `recStart`: Date range (e.g., `[01JAN2001,31DEC2020]`) or followup
     period
 
   - `recEnd`: Classification (copy, NA::a, NA::b)

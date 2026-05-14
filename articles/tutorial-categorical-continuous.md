@@ -50,6 +50,7 @@ Let’s generate smoking status from the minimal-example metadata:
 > projects, you’ll use regular file paths:
 >
 > ``` r
+>
 > # Package examples use:
 > variables <- read.csv(
 >   system.file("extdata/minimal-example/variables.csv", package = "MockData"),
@@ -64,6 +65,7 @@ Let’s generate smoking status from the minimal-example metadata:
 > ```
 
 ``` r
+
 # Load minimal-example metadata
 variables <- read.csv(
   system.file("extdata/minimal-example/variables.csv", package = "MockData"),
@@ -100,6 +102,7 @@ head(smoking)
     6       1
 
 ``` r
+
 str(smoking)
 ```
 
@@ -123,16 +126,20 @@ distribution of categories:
 **Observed distribution:**
 
 ``` r
+
 # Check the distribution
 table(smoking$smoking)
 ```
+
 
       1   2   3   7
     505 305 160  30 
 
 ``` r
+
 prop.table(table(smoking$smoking))
 ```
+
 
         1     2     3     7
     0.505 0.305 0.160 0.030 
@@ -168,6 +175,7 @@ Examples: age, BMI, blood pressure, income.
 Let’s generate age from the minimal-example metadata:
 
 ``` r
+
 # Generate age (continuous variable with integer output)
 age <- create_con_var(
   var = "age",
@@ -191,6 +199,7 @@ head(age)
     6  45
 
 ``` r
+
 str(age)
 ```
 
@@ -203,6 +212,7 @@ Continuous variables use statistical distributions to generate realistic
 values:
 
 ``` r
+
 # Check the distribution
 summary(age$age)
 ```
@@ -211,6 +221,7 @@ summary(age$age)
       18.00   42.00   52.00  145.52   65.25  999.00 
 
 ``` r
+
 hist(age$age, breaks = 30, main = "Age Distribution", xlab = "Age (years)", col = "lightblue")
 ```
 
@@ -255,6 +266,7 @@ ages are generated.
 Let’s generate weight, which requires decimal precision:
 
 ``` r
+
 # Generate weight (continuous variable with double precision)
 weight <- create_con_var(
   var = "weight",
@@ -278,6 +290,7 @@ head(weight)
     6 67.73274
 
 ``` r
+
 str(weight)
 ```
 
@@ -285,6 +298,7 @@ str(weight)
      $ weight: num  82.9 41.1 74.7 77.7 69.6 ...
 
 ``` r
+
 # Check the distribution
 summary(weight$weight)
 ```
@@ -293,6 +307,7 @@ summary(weight$weight)
       35.00   64.40   75.41   74.88   84.59  120.78 
 
 ``` r
+
 hist(weight$weight, breaks = 30, main = "Weight Distribution", xlab = "Weight (kg)", col = "lightgreen")
 ```
 
@@ -311,15 +326,15 @@ for whole numbers (e.g., 45, 67).
 
 ## Comparing categorical vs continuous
 
-| Aspect                | Categorical                      | Continuous                       |
-|-----------------------|----------------------------------|----------------------------------|
-| **Use case**          | Discrete categories              | Numeric measurements             |
-| **Examples**          | Smoking status, education        | Age, weight, income              |
-| **Distribution**      | Proportions                      | Statistical (normal, uniform)    |
-| **variable_details**  | Multiple rows (one per category) | Single row (range specification) |
-| **proportion column** | Required (must sum to 1.0)       | NA (not applicable)              |
-| **recStart**          | Category codes (“1”, “2”, “3”)   | Interval notation (“\[18,100\]”) |
-| **Output types**      | factor, character                | integer, double                  |
+| Aspect | Categorical | Continuous |
+|----|----|----|
+| **Use case** | Discrete categories | Numeric measurements |
+| **Examples** | Smoking status, education | Age, weight, income |
+| **Distribution** | Proportions | Statistical (normal, uniform) |
+| **variable_details** | Multiple rows (one per category) | Single row (range specification) |
+| **proportion column** | Required (must sum to 1.0) | NA (not applicable) |
+| **recStart** | Category codes (“1”, “2”, “3”) | Interval notation (“\[18,100\]”) |
+| **Output types** | factor, character | integer, double |
 
 ## When to use individual functions vs create_mock_data()
 
@@ -345,6 +360,7 @@ when:**
 **Example: Batch generation**
 
 ``` r
+
 # Generate multiple variables at once
 mock_data <- create_mock_data(
   databaseStart = "minimal-example",
@@ -358,10 +374,11 @@ mock_data <- create_mock_data(
 names(mock_data)
 ```
 
-    [1] "age"            "smoking"        "height"         "weight"
-    [5] "interview_date"
+    [1] "age"            "smoking"        "BMI"            "height"
+    [5] "weight"         "interview_date"
 
 ``` r
+
 head(mock_data[, c("smoking", "age", "weight")])
 ```
 
@@ -502,6 +519,7 @@ output:
 **Example comparison:**
 
 ``` r
+
 # Age: integer (no decimals)
 head(age$age)
 ```
@@ -509,6 +527,7 @@ head(age$age)
     [1] 30 59 62 29 39 45
 
 ``` r
+
 # Weight: double (decimal precision)
 head(weight$weight)
 ```
@@ -522,6 +541,7 @@ Always verify that generated data matches your expectations:
 ### For categorical variables
 
 ``` r
+
 # Check factor levels
 levels(smoking$smoking)
 ```
@@ -529,14 +549,17 @@ levels(smoking$smoking)
     [1] "1" "2" "3" "7"
 
 ``` r
+
 # Check proportions
 prop.table(table(smoking$smoking))
 ```
+
 
         1     2     3     7
     0.505 0.305 0.160 0.030 
 
 ``` r
+
 # Verify data type
 class(smoking$smoking)
 ```
@@ -546,6 +569,7 @@ class(smoking$smoking)
 ### For continuous variables
 
 ``` r
+
 # Check range
 range(age$age, na.rm = TRUE)
 ```
@@ -553,6 +577,7 @@ range(age$age, na.rm = TRUE)
     [1]  18 999
 
 ``` r
+
 # Check distribution parameters
 mean(age$age, na.rm = TRUE)
 ```
@@ -560,12 +585,14 @@ mean(age$age, na.rm = TRUE)
     [1] 145.52
 
 ``` r
+
 sd(age$age, na.rm = TRUE)
 ```
 
     [1] 284.5324
 
 ``` r
+
 # Verify data type
 class(age$age)
 ```
@@ -586,15 +613,15 @@ Distribution shape looks reasonable (histogram)
 
 ## Key concepts summary
 
-| Concept                   | Implementation                                                                                | Details                                 |
-|---------------------------|-----------------------------------------------------------------------------------------------|-----------------------------------------|
-| **Categorical variables** | [`create_cat_var()`](https://big-life-lab.github.io/MockData/reference/create_cat_var.md)     | Discrete categories with proportions    |
-| **Continuous variables**  | [`create_con_var()`](https://big-life-lab.github.io/MockData/reference/create_con_var.md)     | Numeric measurements with distributions |
-| **Proportions**           | In variable_details.csv                                                                       | Must sum to 1.0 for categorical         |
-| **Distributions**         | normal, uniform                                                                               | Specified in variables.csv              |
-| **Output types**          | rType column                                                                                  | factor, character, integer, double      |
-| **Metadata validation**   | Automatic                                                                                     | Proportions, ranges, types checked      |
-| **Batch generation**      | [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md) | Multiple variables at once              |
+| Concept | Implementation | Details |
+|----|----|----|
+| **Categorical variables** | [`create_cat_var()`](https://big-life-lab.github.io/MockData/reference/create_cat_var.md) | Discrete categories with proportions |
+| **Continuous variables** | [`create_con_var()`](https://big-life-lab.github.io/MockData/reference/create_con_var.md) | Numeric measurements with distributions |
+| **Proportions** | In variable_details.csv | Must sum to 1.0 for categorical |
+| **Distributions** | normal, uniform | Specified in variables.csv |
+| **Output types** | rType column | factor, character, integer, double |
+| **Metadata validation** | Automatic | Proportions, ranges, types checked |
+| **Batch generation** | [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md) | Multiple variables at once |
 
 ## What you learned
 

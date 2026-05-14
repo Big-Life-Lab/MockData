@@ -99,8 +99,8 @@ low-range garbage (0-1). If NULL, no low-range garbage is added.</p></dd>
 
 <dt id="arg-garbage-low-range">garbage_low_range<a class="anchor" aria-label="anchor" href="#arg-garbage-low-range"></a></dt>
 <dd><p>Character. Interval notation specifying the range for
-low-range garbage values (e.g., "-2, 0" for categorical, "[0, 1.4)" for
-continuous, "1900-01-01, 1950-12-31" for dates). If NULL, no low-range
+low-range garbage values (e.g., <code>[-2, 0]</code> for categorical, <code>[0, 1.4)</code> for
+continuous, <code>[1900-01-01, 1950-12-31]</code> for dates). If NULL, no low-range
 garbage is added.</p></dd>
 
 
@@ -111,8 +111,8 @@ high-range garbage (0-1). If NULL, no high-range garbage is added.</p></dd>
 
 <dt id="arg-garbage-high-range">garbage_high_range<a class="anchor" aria-label="anchor" href="#arg-garbage-high-range"></a></dt>
 <dd><p>Character. Interval notation specifying the range for
-high-range garbage values (e.g., "10, 15" for categorical, "60, 150"
-for continuous, "2025-01-01, 2099-12-31" for dates). If NULL, no
+high-range garbage values (e.g., <code>[10, 15]</code> for categorical, <code>[60, 150]</code>
+for continuous, <code>[2025-01-01, 2099-12-31]</code> for dates). If NULL, no
 high-range garbage is added.</p></dd>
 
 </dl></div>
@@ -196,7 +196,7 @@ pipe-friendly:</p>
 <span class="r-in"><span><span class="va">vars</span> <span class="op">&lt;-</span> <span class="fu">add_garbage</span><span class="op">(</span><span class="va">vars</span>, <span class="st">"smoking"</span>,</span></span>
 <span class="r-in"><span>  garbage_low_prop <span class="op">=</span> <span class="fl">0.02</span>, garbage_low_range <span class="op">=</span> <span class="st">"[-2, 0]"</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Add garbage to BMI (two-sided contamination)</span></span></span>
+<span class="r-in"><span><span class="co"># Add garbage to BMI (two-sided invalid values)</span></span></span>
 <span class="r-in"><span><span class="va">vars</span> <span class="op">&lt;-</span> <span class="fu">add_garbage</span><span class="op">(</span><span class="va">vars</span>, <span class="st">"BMI"</span>,</span></span>
 <span class="r-in"><span>  garbage_low_prop <span class="op">=</span> <span class="fl">0.02</span>, garbage_low_range <span class="op">=</span> <span class="st">"[-10, 15)"</span>,</span></span>
 <span class="r-in"><span>  garbage_high_prop <span class="op">=</span> <span class="fl">0.01</span>, garbage_high_range <span class="op">=</span> <span class="st">"[60, 150]"</span><span class="op">)</span></span></span>
@@ -218,7 +218,7 @@ pipe-friendly:</p>
 
     <footer><div class="pkgdown-footer-left">
   <p>
-Developed by Juan Li and recodeflow contributors.
+Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </p>
 </div>
 

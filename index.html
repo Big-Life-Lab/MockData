@@ -5,15 +5,15 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Generate Mock Data from Recodeflow Metadata • MockData</title>
+<title>Generate Mock Data from Metadata Specifications • MockData</title>
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
 <script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><link href="extra.css" rel="stylesheet">
-<meta property="og:title" content="Generate Mock Data from Recodeflow Metadata">
-<meta name="description" content="Generates mock testing data from recodeflow metadata (variables.csv and variable-details.csv). Supports categorical and continuous variables with metadata-driven specifications. Designed for testing harmonization workflows across CHMS, CCHS, and other recodeflow projects. Uses recodeflow-standard notation for parsing variable specifications and range notation.">
-<meta property="og:description" content="Generates mock testing data from recodeflow metadata (variables.csv and variable-details.csv). Supports categorical and continuous variables with metadata-driven specifications. Designed for testing harmonization workflows across CHMS, CCHS, and other recodeflow projects. Uses recodeflow-standard notation for parsing variable specifications and range notation.">
+<meta property="og:title" content="Generate Mock Data from Metadata Specifications">
+<meta name="description" content="Generates mock testing data from small metadata specifications, supplied as in-memory data frames or CSV files. Supports categorical, continuous, date, garbage-data, and survival-style variables for testing data pipelines and documentation examples. Designed for recodeflow-style metadata while also supporting lightweight standalone use.">
+<meta property="og:description" content="Generates mock testing data from small metadata specifications, supplied as in-memory data frames or CSV files. Supports categorical, continuous, date, garbage-data, and survival-style variables for testing data pipelines and documentation examples. Designed for recodeflow-style metadata while also supporting lightweight standalone use.">
 <link rel="stylesheet" href="extra.css">
 </head>
 <body>
@@ -73,14 +73,119 @@
   <main id="main" class="col-md-9"><div class="section level1">
 <div class="page-header"><h1 id="mockdata">MockData<a class="anchor" aria-label="anchor" href="#mockdata"></a>
 </h1></div>
-<div class="vignette-about">
-<p>Generate realistic test data from <code>recodeflow</code> variable configuration files (<code>variables.csv</code> and <code>variable-details.csv</code>).</p>
-</div>
-<p>30-second example</p>
+<!-- badges: start -->
+
+<!-- badges: end -->
+<p><strong>Status: Experimental, pre-release software</strong></p>
+<p>MockData is a work-in-progress R package for generating mock testing data from small metadata specifications. Those specifications can be provided as <code>variables.csv</code> and <code>variable_details.csv</code> files, or as simple in-memory data frames when you just want to create one variable or a small example. It is useful today for some development and documentation workflows, especially when paired with recodeflow-style metadata, but it should be treated as experimental infrastructure rather than a stable released package.</p>
+<p>People are using MockData and reporting that it is helpful. We take that as an encouraging signal, not as evidence that the package is mature. Please review the generated data before using it in any workflow that matters.</p>
+<p><strong>What MockData can currently help with:</strong></p>
+<ul>
+<li>Generate metadata-driven mock variables for development and testing</li>
+<li>Use inline metadata for small examples, without creating separate CSV files</li>
+<li>Create categorical, continuous, and date-like fields from simple specifications</li>
+<li>Add intentional invalid or out-of-range “garbage” values for QA testing</li>
+<li>Generate basic time-to-event style mock dates for survival-analysis workflows</li>
+<li>Support examples and tutorials without exposing real person-level data</li>
+</ul>
+<p><strong>Current development limitations:</strong></p>
+<ul>
+<li>APIs may change before a formal release</li>
+<li>Some error handling is too permissive and can fail with warnings instead of stopping</li>
+<li>Some documentation is ahead of the implementation</li>
+<li>The test suite does not yet cover every important edge case</li>
+<li>Generated data should be manually checked against your intended metadata rules</li>
+</ul>
+<p>MockData does not use language models to generate data. The data are generated by R code from metadata and user-specified rules. Some package development has used AI coding tools, with human review; we do not credit a specific model as a package contributor.</p>
+<p><strong>30-second standalone example</strong></p>
+<p>For a quick numeric variable, <code><a href="reference/create_con_var.html">create_con_var()</a></code> can use small in-memory metadata data frames. You do not need a recodeflow package or separate CSV files for a one-off example.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://big-life-lab.github.io/MockData/">MockData</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Generate mock data from metadata files</span></span>
+<span><span class="va">variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  variable <span class="op">=</span> <span class="st">"age"</span>,</span>
+<span>  label <span class="op">=</span> <span class="st">"Age"</span>,</span>
+<span>  variableType <span class="op">=</span> <span class="st">"Continuous"</span>,</span>
+<span>  rType <span class="op">=</span> <span class="st">"integer"</span>,</span>
+<span>  role <span class="op">=</span> <span class="st">"enabled"</span>,</span>
+<span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">variable_details</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  variable <span class="op">=</span> <span class="st">"age"</span>,</span>
+<span>  recStart <span class="op">=</span> <span class="st">"[18,85]"</span>,</span>
+<span>  recEnd <span class="op">=</span> <span class="st">"copy"</span>,</span>
+<span>  proportion <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">age</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/create_con_var.html">create_con_var</a></span><span class="op">(</span></span>
+<span>  var <span class="op">=</span> <span class="st">"age"</span>,</span>
+<span>  databaseStart <span class="op">=</span> <span class="st">"example"</span>,</span>
+<span>  variables <span class="op">=</span> <span class="va">variables</span>,</span>
+<span>  variable_details <span class="op">=</span> <span class="va">variable_details</span>,</span>
+<span>  n <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>  seed <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">age</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   age</span></span>
+<span><span class="co">#&gt; 1  37</span></span>
+<span><span class="co">#&gt; 2  71</span></span>
+<span><span class="co">#&gt; 3  45</span></span>
+<span><span class="co">#&gt; 4  77</span></span>
+<span><span class="co">#&gt; 5  81</span></span>
+<span><span class="co">#&gt; 6  21</span></span></code></pre></div>
+<div class="section level2">
+<h2 id="standalone-example-with-a-continuous-age-range">Standalone example with a continuous age range<a class="anchor" aria-label="anchor" href="#standalone-example-with-a-continuous-age-range"></a>
+</h2>
+<p>Here, <code>rType = "double"</code> keeps age as a continuous numeric value while <code>variable_details</code> defines the valid age range.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://big-life-lab.github.io/MockData/">MockData</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  variable <span class="op">=</span> <span class="st">"age"</span>,</span>
+<span>  label <span class="op">=</span> <span class="st">"Age"</span>,</span>
+<span>  variableType <span class="op">=</span> <span class="st">"Continuous"</span>,</span>
+<span>  rType <span class="op">=</span> <span class="st">"double"</span>,</span>
+<span>  role <span class="op">=</span> <span class="st">"enabled"</span>,</span>
+<span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">variable_details</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  variable <span class="op">=</span> <span class="st">"age"</span>,</span>
+<span>  recStart <span class="op">=</span> <span class="st">"[18,85]"</span>,</span>
+<span>  recEnd <span class="op">=</span> <span class="st">"copy"</span>,</span>
+<span>  proportion <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">age</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/create_con_var.html">create_con_var</a></span><span class="op">(</span></span>
+<span>  var <span class="op">=</span> <span class="st">"age"</span>,</span>
+<span>  databaseStart <span class="op">=</span> <span class="st">"example"</span>,</span>
+<span>  variables <span class="op">=</span> <span class="va">variables</span>,</span>
+<span>  variable_details <span class="op">=</span> <span class="va">variable_details</span>,</span>
+<span>  n <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>  seed <span class="op">=</span> <span class="fl">123</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">age</span><span class="op">)</span></span>
+<span><span class="co">#&gt;        age</span></span>
+<span><span class="co">#&gt; 1 37.26769</span></span>
+<span><span class="co">#&gt; 2 70.81644</span></span>
+<span><span class="co">#&gt; 3 45.40145</span></span>
+<span><span class="co">#&gt; 4 77.16217</span></span>
+<span><span class="co">#&gt; 5 81.01131</span></span>
+<span><span class="co">#&gt; 6 21.05229</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="example-with-metadata-files">Example with metadata files<a class="anchor" aria-label="anchor" href="#example-with-metadata-files"></a>
+</h2>
+<p>For use with the <a href="#the-recodeflow-universe"><code>recodeflow</code> universe</a>, including cchsflow, chmsflow, and other packages.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://big-life-lab.github.io/MockData/">MockData</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Generate mock data from recode metadata files</span></span>
 <span><span class="va">mock_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/create_mock_data.html">create_mock_data</a></span><span class="op">(</span></span>
 <span>  databaseStart <span class="op">=</span> <span class="st">"minimal-example"</span>,</span>
 <span>  variables <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata/minimal-example/variables.csv"</span>, package <span class="op">=</span> <span class="st">"MockData"</span><span class="op">)</span>,</span>
@@ -97,15 +202,17 @@
 <span><span class="co">#&gt; 4  51       1     2005-01-14</span></span>
 <span><span class="co">#&gt; 5  52       1     2001-02-25</span></span>
 <span><span class="co">#&gt; 6  76       3     2004-07-25</span></span></code></pre></div>
-<p><strong>What’s in those CSV files?</strong> See <a href="inst/extdata/minimal-example/README.html">inst/extdata/minimal-example/</a> - just variable names, types, and ranges. Total 9 rows across 2 files.</p>
-<p><strong>Why use variable metadata files?</strong></p>
-<p>Two paths:</p>
+<p><strong>What’s in those CSV files?</strong> See <a href="inst/extdata/minimal-example/README.html">inst/extdata/minimal-example/</a> - just variable names, types, ranges, and optional mock-data parameters.</p>
+<p><strong>When should you use metadata files?</strong></p>
+<p>Two common paths:</p>
 <ol style="list-style-type: decimal">
 <li>
 <strong>Already using recodeflow?</strong> Use MockData with your existing <code>variables.csv</code> and <code>variable_details.csv</code> files. No duplicate specifications needed.</li>
 <li>
-<strong>New to metadata?</strong> Upfront cost to create configuration files, but you get reproducible data pipelines and documentation that stays in sync with your code.</li>
+<strong>Building a repeatable mock dataset?</strong> Upfront cost to create configuration files, but you get reproducible data pipelines and documentation that stays in sync with your code.</li>
 </ol>
+<p>For one-off examples, tutorials, and quick tests, defining <code>variables</code> and <code>variable_details</code> directly in R is often enough.</p>
+</div>
 <div class="section level2">
 <h2 id="what-is-mock-data">What is mock data?<a class="anchor" aria-label="anchor" href="#what-is-mock-data"></a>
 </h2>
@@ -119,7 +226,8 @@
 <li>
 <strong>Dummy data</strong>: Placeholder or minimal test data, often hardcoded or randomly generated without metadata constraints.</li>
 </ul>
-<p>MockData creates data that <em>looks</em> realistic (appropriate variable types, value ranges, category labels, tagged NAs) but has <strong>no relationship to any actual population</strong>. Joint distributions and correlations may differ significantly from real-world data.</p>
+<p>MockData creates data that <em>looks</em> realistic (appropriate variable types, value ranges, category labels, tagged NAs) but has <strong>no relationship to any actual population</strong>. Joint distributions and correlations will purposely differ from real-world data.</p>
+<p>MockData is used to test data analyses pipelines, including data transformation, cleaning, analyses, and modelling. For example, mockData allow you to create out of range and invalid data (what we call ‘garbage’ data) to test data cleaning processes.</p>
 <div class="section level3">
 <h3 id="use-cases">Use cases<a class="anchor" aria-label="anchor" href="#use-cases"></a>
 </h3>
@@ -129,7 +237,7 @@
 <li>Data harmonisation logic checks (cchsflow, chmsflow)</li>
 <li>Developing analysis scripts before data access</li>
 <li>Creating reproducible examples for documentation</li>
-<li>Training new analysts on survey data structure</li>
+<li>Training new analysts on data structure</li>
 </ul>
 <p><strong>Not appropriate for:</strong></p>
 <ul>
@@ -150,11 +258,11 @@
 </h2>
 <ul>
 <li>
-<strong>Metadata-driven</strong>: Uses existing <code>variables.csv</code> and <code>variable_details.csv</code> from recodeflow projects</li>
+<strong>Metadata-driven</strong>: Uses simple variable specifications supplied as data frames or CSV files</li>
 <li>
-<strong>Universal</strong>: Works across CHMS, CCHS, and future recodeflow projects</li>
+<strong>Recodeflow-compatible</strong>: Works with existing <code>variables.csv</code> and <code>variable_details.csv</code> metadata from recodeflow projects</li>
 <li>
-<strong>Recodeflow-standard</strong>: Supports all recodeflow notation formats (database-prefixed, bracket, mixed)</li>
+<strong>Flexible parsing</strong>: Supports recodeflow notation formats (database-prefixed, bracket, mixed)</li>
 <li>
 <strong>Data quality testing</strong>: Generate invalid/out-of-range values to test validation pipelines</li>
 <li>
@@ -164,9 +272,9 @@
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Install from local directory</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_local.html" class="external-link">install_local</a></span><span class="op">(</span><span class="st">"~/github/mock-data"</span><span class="op">)</span></span>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install-deprecated.html" class="external-link">install_local</a></span><span class="op">(</span><span class="st">"~/github/mock-data"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Or install from GitHub (once published)</span></span>
 <span><span class="co"># devtools::install_github("Big-Life-Lab/MockData")</span></span></code></pre></div>
@@ -182,16 +290,14 @@
 <li>
 <a href="vignettes/for-recodeflow-users.qmd">For recodeflow users</a> - Using MockData with existing metadata</li>
 <li>
-<a href="vignettes/survival-data.qmd">Survival data</a> - Time-to-event data and temporal patterns</li>
+<a href="vignettes/tutorial-survival-data.qmd">Survival data</a> - Time-to-event data and temporal patterns</li>
 </ul>
 <p><strong>Examples:</strong></p>
 <ul>
 <li>
 <a href="inst/extdata/minimal-example/README.html">Minimal example</a> - Simplest possible metadata configuration</li>
-<li>
-<a href="vignettes/cchs-example.qmd">CCHS example</a> - CCHS workflow demonstration</li>
-<li>
-<a href="vignettes/chms-example.qmd">CHMS example</a> - CHMS workflow demonstration</li>
+<li>CHMS sample metadata is included in <a href="inst/extdata/chms/">inst/extdata/chms/</a>
+</li>
 </ul>
 </div>
 <div class="section level2">
@@ -293,7 +399,7 @@
 <h3 id="for-new-contributors">For new contributors<a class="anchor" aria-label="anchor" href="#for-new-contributors"></a>
 </h3>
 <p>After cloning the repository:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Restore the package environment (installs all dependencies)</span></span>
 <span><span class="fu">renv</span><span class="fu">::</span><span class="fu"><a href="https://rstudio.github.io/renv/reference/restore.html" class="external-link">restore</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
@@ -318,7 +424,7 @@
 <div class="section level3">
 <h3 id="daily-development-workflow">Daily development workflow<a class="anchor" aria-label="anchor" href="#daily-development-workflow"></a>
 </h3>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Install new packages as normal</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"packagename"</span><span class="op">)</span></span>
 <span></span>
@@ -333,7 +439,7 @@
 <div class="section level3">
 <h3 id="building-documentation-and-site">Building documentation and site<a class="anchor" aria-label="anchor" href="#building-documentation-and-site"></a>
 </h3>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Generate function documentation</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/document.html" class="external-link">document</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
@@ -349,7 +455,7 @@
 <div class="section level3">
 <h3 id="troubleshooting">Troubleshooting<a class="anchor" aria-label="anchor" href="#troubleshooting"></a>
 </h3>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># If packages seem out of sync:</span></span>
 <span><span class="fu">renv</span><span class="fu">::</span><span class="fu"><a href="https://rstudio.github.io/renv/reference/status.html" class="external-link">status</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
@@ -398,12 +504,21 @@
 <div class="developers">
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
-<li>Juan Li <br><small class="roles"> Author, maintainer </small>   </li>
+<li>Juan Li <br><small class="roles"> Author </small>   </li>
+<li>Douglas Manuel <br><small class="roles"> Author, maintainer </small>   </li>
 <li><a href="authors.html">More about authors...</a></li>
 </ul>
 </div>
 
-
+<div class="dev-status">
+<h2 data-toc-skip>Dev status</h2>
+<ul class="list-unstyled">
+<li><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a></li>
+<li><a href="https://github.com/Big-Life-Lab/MockData" class="external-link"><img src="https://img.shields.io/badge/version-0.3.0-blue.svg" alt="Version: 0.3.0"></a></li>
+<li><a href="https://github.com/Big-Life-Lab/MockData/actions/workflows/pkgdown.yaml" class="external-link"><img src="https://github.com/Big-Life-Lab/MockData/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"></a></li>
+<li><a href="https://opensource.org/licenses/MIT" class="external-link"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a></li>
+</ul>
+</div>
 
   </aside>
 </div>
@@ -411,7 +526,7 @@
 
     <footer><div class="pkgdown-footer-left">
   <p>
-Developed by Juan Li and recodeflow contributors.
+Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </p>
 </div>
 

@@ -27,6 +27,7 @@ Let’s start with a motivating example. Suppose you’re validating smoking
 status coding in a health survey dataset:
 
 ``` r
+
 # Load minimal-example metadata
 variable_details <- read.csv(
   system.file("extdata/minimal-example/variable_details.csv",
@@ -77,6 +78,7 @@ helper)
 **Helper function for easy setup:**
 
 ``` r
+
 # Add garbage to any variable type
 vars_with_garbage <- add_garbage(variables, "smoking",
   garbage_low_prop = 0.02, garbage_low_range = "[-2, 0]")
@@ -104,6 +106,7 @@ example shows how to properly validate categorical data by excluding NA
 values (which represent legitimate missing data, not garbage):
 
 ``` r
+
 # Generate smoking variable (clean data from metadata)
 df_smoking <- data.frame()
 smoking_clean2 <- create_cat_var(
@@ -146,6 +149,7 @@ these garbage functions. For smoking (valid codes: 1, 2, 3, 7), we’ll
 generate invalid codes below the valid range:
 
 ``` r
+
 # Add garbage to smoking using helper function
 vars_smoking_garbage <- add_garbage(variables, "smoking",
   garbage_low_prop = 0.03, garbage_low_range = "[-2, 0]")
@@ -190,6 +194,7 @@ Instead of using
 you can modify the variables data frame directly:
 
 ``` r
+
 # Direct modification approach (equivalent to add_garbage)
 vars_smoking_direct <- variables
 vars_smoking_direct$garbage_low_prop[vars_smoking_direct$variable == "smoking"] <- 0.03
@@ -246,6 +251,7 @@ Let’s generate age data with out-of-range garbage. The valid range is
 helper:
 
 ``` r
+
 # Add high-range garbage to age using helper function
 vars_age_garbage <- add_garbage(variables, "age",
   garbage_high_prop = 0.02, garbage_high_range = "[120, 200]")
@@ -314,6 +320,7 @@ you can modify the variables data frame directly. This approach is
 useful when building programmatic workflows:
 
 ``` r
+
 # Direct modification approach - add low-range garbage (negative ages)
 vars_age_direct <- variables
 vars_age_direct$garbage_low_prop[vars_age_direct$variable == "age"] <- 0.02
@@ -366,6 +373,7 @@ Let’s generate interview dates with some far-future garbage dates to
 test validation logic:
 
 ``` r
+
 # Add high-range garbage to interview_date (future dates for testing)
 vars_date_garbage <- add_garbage(variables, "interview_date",
   garbage_high_prop = 0.03, garbage_high_range = "[2030-01-01, 2050-12-31]")
@@ -400,6 +408,7 @@ future_pct <- round(n_future / nrow(interview_garbage) * 100, 1)
 You can also modify the variables data frame directly for date garbage:
 
 ``` r
+
 # Direct modification - add low-range garbage (past dates)
 vars_date_direct <- variables
 vars_date_direct$garbage_low_prop[vars_date_direct$variable == "interview_date"] <- 0.02
@@ -467,6 +476,7 @@ is deprecated. Instead, add garbage to individual date variables using
 these functions:
 
 ``` r
+
 # Define metadata (pass full data frames)
 surv_variables <- data.frame(
   variable = c("study_entry", "death_date"),
@@ -536,6 +546,7 @@ Temporal violations also produce invalid derived variables like
 impossibly long follow-up times:
 
 ``` r
+
 # Calculate follow-up time in days (entry to event)
 survival_dates$followup_days <- as.numeric(
   difftime(
@@ -567,6 +578,7 @@ systematically. We’ll use MockData functions to generate a dataset with
 multiple garbage types:
 
 ``` r
+
 # Generate complete dataset with multiple garbage types using create_mock_data()
 full_data <- create_mock_data(
   databaseStart = "minimal-example",

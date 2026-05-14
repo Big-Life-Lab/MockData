@@ -31,7 +31,7 @@ Named list with:
   0.03)
 
 - garbage: Named list. Proportion for each garbage type (e.g.,
-  corrupt_low = 0.02)
+  garbage_low = 0.02)
 
 - categories: Character vector. All non-garbage recStart values
 

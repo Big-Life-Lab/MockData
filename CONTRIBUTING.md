@@ -28,12 +28,14 @@ cd MockData
 3.  Install development dependencies:
 
 ``` r
+
 devtools::install_dev_deps()
 ```
 
 4.  Load the package:
 
 ``` r
+
 devtools::load_all()
 ```
 
@@ -64,6 +66,7 @@ git checkout -b feature/your-feature-name
 5.  **Run checks**:
 
 ``` r
+
 devtools::check()
 ```
 
@@ -112,6 +115,7 @@ guidelines).
 #### Running Tests
 
 ``` r
+
 # Run all tests
 devtools::test()
 
@@ -150,6 +154,7 @@ brew install quarto
 2.  **Ensure pkgdown and roxygen2 are available**:
 
 ``` r
+
 # These are in Suggests, install if needed
 renv::install(c("pkgdown", "roxygen2"))
 ```
@@ -166,6 +171,7 @@ Then restart your R session.
 #### Building the pkgdown site
 
 ``` r
+
 # 1. Regenerate .Rd files from roxygen comments (after editing R documentation)
 roxygen2::roxygenize()
 

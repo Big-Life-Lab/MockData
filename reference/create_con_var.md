@@ -56,7 +56,7 @@ create_con_var(
 
   - `variable`: Variable name (for joining)
 
-  - `recStart`: Valid range in interval notation (e.g., 18,100)
+  - `recStart`: Valid range in interval notation (e.g., `[18,100]`)
 
   - `recEnd`: Classification (copy, NA::a, NA::b)
 
@@ -124,7 +124,7 @@ output data type:
 
 **Distribution types**:
 
-- `\"uniform\"`: Uniform distribution over min, max from recStart
+- `\"uniform\"`: Uniform distribution over `[min, max]` from recStart
 
 - `\"normal\"`: Normal distribution (requires mean, sd in variables.csv)
 
