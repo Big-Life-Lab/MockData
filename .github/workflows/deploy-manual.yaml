@@ -40,16 +40,13 @@ jobs:
       - name: Install Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
-      - name: Install roxygen2
-        run: Rscript -e "install.packages('roxygen2')"
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::roxygen2, any::pkgdown, local::.
+          needs: website
 
       - name: Generate documentation
         run: Rscript -e "roxygen2::roxygenize()"
-
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          extra-packages: any::pkgdown, local::.
-          needs: website
 
       - name: Build pkgdown site
         run: |
