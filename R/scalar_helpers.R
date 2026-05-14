@@ -52,7 +52,9 @@ get_variable_details_for_raw <- function(var_raw, cycle, variable_details, varia
 
     if (nrow(bracket_matches) > 0) {
       # Filter by databaseStart to ensure correct cycle
-      bracket_matches <- bracket_matches[grepl(cycle, bracket_matches$databaseStart, fixed = TRUE), ]
+      bracket_matches <- bracket_matches[
+        .database_start_matches(bracket_matches$databaseStart, cycle),
+      ]
       matches <- bracket_matches
     }
   }
@@ -62,7 +64,7 @@ get_variable_details_for_raw <- function(var_raw, cycle, variable_details, varia
     # Only match if variableStart is EXACTLY the var_raw
     plain_matches <- variable_details[
       variable_details$variableStart == var_raw &
-        grepl(cycle, variable_details$databaseStart, fixed = TRUE),
+        .database_start_matches(variable_details$databaseStart, cycle),
     ]
     matches <- plain_matches
   }

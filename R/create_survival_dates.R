@@ -155,6 +155,32 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
   use_v02 <- !is.null(entry_var_row) && is.data.frame(entry_var_row) && nrow(entry_var_row) == 1 &&
              !is.null(event_var_row) && is.data.frame(event_var_row) && nrow(event_var_row) == 1
 
+  sample_values <- function(x, size, replace = FALSE) {
+    if (size <= 0 || length(x) == 0) {
+      return(x[integer(0)])
+    }
+
+    x[sample.int(length(x), size = size, replace = replace)]
+  }
+
+  sample_day_offsets <- function(min_days, max_days, size, replace = TRUE) {
+    days <- seq.int(as.integer(min_days), as.integer(max_days))
+    sample_values(days, size, replace = replace)
+  }
+
+  get_detail_value <- function(row, preferred) {
+    for (column in c(preferred, "value", "recStart")) {
+      if (column %in% names(row)) {
+        value <- row[[column]][1]
+        if (length(value) > 0 && !is.na(value) && value != "") {
+          return(as.character(value))
+        }
+      }
+    }
+
+    NA_character_
+  }
+
   if (use_v02) {
     # ========== v0.2 IMPLEMENTATION ==========
     entry_var_name <- entry_var_row$variable
@@ -170,6 +196,10 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
 
     # FALLBACK MODE: Default ranges if details_subset is NULL
     if (is.null(entry_details_subset) || nrow(entry_details_subset) == 0) {
+      warning(paste0(
+        "Missing entry date details for ", entry_var_name,
+        ". Using default entry range 2000-01-01 to 2005-12-31."
+      ))
       entry_start <- as.Date("2000-01-01")
       entry_end <- as.Date("2005-12-31")
     } else {
@@ -182,8 +212,8 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
         entry_start <- as.Date("2000-01-01")
         entry_end <- as.Date("2005-12-31")
       } else {
-        entry_start <- as.Date(date_start_row$date_start[1])
-        entry_end <- as.Date(date_end_row$date_end[1])
+        entry_start <- as.Date(get_detail_value(date_start_row, "date_start"))
+        entry_end <- as.Date(get_detail_value(date_end_row, "date_end"))
 
         if (is.na(entry_start) || is.na(entry_end)) {
           warning(paste0("Invalid date_start or date_end for ", entry_var_name, ". Using defaults."))
@@ -195,6 +225,10 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
 
     # For event dates, extract follow-up range if available
     if (is.null(event_details_subset) || nrow(event_details_subset) == 0) {
+      warning(paste0(
+        "Missing event date details for ", event_var_name,
+        ". Using default follow-up range 365 to 3650 days."
+      ))
       # Default: 1-10 years follow-up
       followup_min <- 365
       followup_max <- 3650
@@ -213,6 +247,10 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
           followup_max <- 3650
         }
       } else {
+        warning(paste0(
+          "Missing followup_min or followup_max for ", event_var_name,
+          ". Using defaults."
+        ))
         # Fallback: 1-10 years
         followup_min <- 365
         followup_max <- 3650
@@ -221,11 +259,11 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
 
     # Generate entry dates (uniform distribution)
     entry_range_days <- as.numeric(entry_end - entry_start)
-    entry_days <- sample(0:entry_range_days, n, replace = TRUE)
+    entry_days <- sample_day_offsets(0, entry_range_days, n, replace = TRUE)
     entry_dates <- entry_start + entry_days
 
     # Generate follow-up times (uniform distribution for v0.2)
-    followup_days <- sample(followup_min:followup_max, n, replace = TRUE)
+    followup_days <- sample_day_offsets(followup_min, followup_max, n, replace = TRUE)
 
     # Calculate event dates
     event_dates <- entry_dates + round(followup_days)
@@ -252,7 +290,7 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
 
           if (prop_invalid > 0) {
             n_invalid <- floor(n * prop_invalid)
-            invalid_indices <- sample(1:n, n_invalid, replace = FALSE)
+            invalid_indices <- sample_values(seq_len(n), n_invalid, replace = FALSE)
 
             # Swap entry and event dates to create temporal violations
             for (idx in invalid_indices) {
@@ -297,12 +335,12 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
 
     # Generate entry dates (uniform distribution)
     entry_range_days <- as.numeric(entry_end - entry_start)
-    entry_days <- sample(0:entry_range_days, length, replace = TRUE)
+    entry_days <- sample_day_offsets(0, entry_range_days, length, replace = TRUE)
     entry_dates <- entry_start + entry_days
 
     # Generate follow-up times based on distribution
     if (event_distribution == "uniform") {
-      followup_days <- sample(followup_min:followup_max, length, replace = TRUE)
+      followup_days <- sample_day_offsets(followup_min, followup_max, length, replace = TRUE)
 
     } else if (event_distribution == "gompertz") {
       # Gompertz: increasing hazard over time
@@ -342,7 +380,7 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
     # Add censoring if requested
     if (prop_censored > 0) {
       n_censored <- floor(length * prop_censored)
-      censored_indices <- sample(1:length, n_censored, replace = FALSE)
+      censored_indices <- sample_values(seq_len(length), n_censored, replace = FALSE)
 
       result$event_status <- 1
       result$event_status[censored_indices] <- 0
@@ -351,7 +389,7 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
       # (administratively censored at random point in follow-up)
       for (i in censored_indices) {
         max_censor_days <- as.numeric(result$event[i] - result$entry[i])
-        censor_days <- sample(followup_min:max_censor_days, 1)
+        censor_days <- sample_day_offsets(followup_min, max_censor_days, 1)
         result$event[i] <- result$entry[i] + censor_days
       }
     }
@@ -359,7 +397,7 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
     # Add missing values if requested
     if (!is.null(prop_NA) && prop_NA > 0) {
       n_na <- floor(length * prop_NA)
-      na_indices <- sample(1:length, n_na, replace = FALSE)
+      na_indices <- sample_values(seq_len(length), n_na, replace = FALSE)
 
       # Set both dates to NA for missing records
       result$entry[na_indices] <- NA
@@ -369,7 +407,7 @@ create_survival_dates <- function(entry_var_row = NULL, entry_details_subset = N
     # Add temporal violations if requested (entry > event)
     if (!is.null(prop_invalid) && prop_invalid > 0) {
       n_invalid <- floor(length * prop_invalid)
-      invalid_indices <- sample(1:length, n_invalid, replace = FALSE)
+      invalid_indices <- sample_values(seq_len(length), n_invalid, replace = FALSE)
 
       # Swap entry and event dates to create temporal violations
       for (idx in invalid_indices) {

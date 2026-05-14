@@ -20,7 +20,7 @@
 #' @param variable_details data.frame or character. Detail-level metadata containing:
 #'   \itemize{
 #'     \item \code{variable}: Variable name (for joining)
-#'     \item \code{recStart}: Valid range in interval notation (e.g., [18,100])
+#'     \item \code{recStart}: Valid range in interval notation (e.g., `[18,100]`)
 #'     \item \code{recEnd}: Classification (copy, NA::a, NA::b)
 #'     \item \code{proportion}: Category proportion for missing codes
 #'   }
@@ -62,7 +62,7 @@
 #'
 #' **Distribution types**:
 #' \itemize{
-#'   \item \code{\"uniform\"}: Uniform distribution over [min, max] from recStart
+#'   \item \code{\"uniform\"}: Uniform distribution over `[min, max]` from recStart
 #'   \item \code{\"normal\"}: Normal distribution (requires mean, sd in variables.csv)
 #'   \item \code{\"exponential\"}: Exponential distribution (requires rate in variables.csv)
 #' }
@@ -159,7 +159,11 @@ create_con_var <- function(var,
       variable_details$variable == var &
       (is.na(variable_details$databaseStart) |
        variable_details$databaseStart == "" |
-       grepl(databaseStart, variable_details$databaseStart, fixed = TRUE)),
+       .database_start_matches(
+         variable_details$databaseStart,
+         databaseStart,
+         allow_empty = TRUE
+       )),
     ]
   } else {
     # Fallback: no databaseStart filtering (for simple configs)
@@ -179,6 +183,11 @@ create_con_var <- function(var,
   # ========== FALLBACK MODE: Uniform [0, 100] if no details ==========
 
   if (nrow(details_subset) == 0) {
+    warning(paste0(
+      "No variable_details rows found for variable '", var,
+      "' and databaseStart '", databaseStart,
+      "'. Using fallback uniform range [0, 100]."
+    ))
     values <- runif(n, min = 0, max = 100)
 
     col <- data.frame(
@@ -198,10 +207,25 @@ create_con_var <- function(var,
     "uniform"  # default
   }
 
-  mean_val <- if ("mean" %in% names(var_row)) as.numeric(var_row$mean) else NULL
-  sd_val <- if ("sd" %in% names(var_row)) as.numeric(var_row$sd) else NULL
-  rate_val <- if ("rate" %in% names(var_row)) as.numeric(var_row$rate) else NULL
-  shape_val <- if ("shape" %in% names(var_row)) as.numeric(var_row$shape) else NULL
+  get_numeric_param <- function(row, name) {
+    if (!name %in% names(row)) {
+      return(NA_real_)
+    }
+    value <- suppressWarnings(as.numeric(row[[name]][1]))
+    if (length(value) == 0 || is.na(value)) {
+      return(NA_real_)
+    }
+    value
+  }
+
+  has_param <- function(value) {
+    length(value) == 1 && !is.na(value)
+  }
+
+  mean_val <- get_numeric_param(var_row, "mean")
+  sd_val <- get_numeric_param(var_row, "sd")
+  rate_val <- get_numeric_param(var_row, "rate")
+  shape_val <- get_numeric_param(var_row, "shape")
 
   # Extract range from details_subset recStart (interval notation like [18,100])
   range_min <- NULL
@@ -210,7 +234,7 @@ create_con_var <- function(var,
     # Parse first recStart that looks like interval notation
     for (i in seq_len(nrow(details_subset))) {
       rec_val <- details_subset$recStart[i]
-      if (!is.na(rec_val) && grepl("^\\[.*,.*\\]$", rec_val)) {
+      if (!is.na(rec_val) && grepl("^(\\[|\\().+[,;].+(\\]|\\))$", rec_val)) {
         parsed <- parse_range_notation(rec_val)
         if (!is.null(parsed) && !is.null(parsed$min) && !is.null(parsed$max)) {
           range_min <- parsed$min
@@ -228,7 +252,7 @@ create_con_var <- function(var,
   n_valid <- floor(n * props$valid)
 
   # Generate based on distribution type
-  if (distribution_type == "normal" && !is.na(mean_val) && !is.na(sd_val)) {
+  if (distribution_type == "normal" && has_param(mean_val) && has_param(sd_val)) {
     # Normal distribution
     values <- rnorm(n_valid, mean = mean_val, sd = sd_val)
 
@@ -237,7 +261,7 @@ create_con_var <- function(var,
       values <- pmax(range_min, pmin(range_max, values))
     }
 
-  } else if (distribution_type == "exponential" && !is.na(rate_val)) {
+  } else if (distribution_type == "exponential" && has_param(rate_val)) {
     # Exponential distribution
     values <- rexp(n_valid, rate = rate_val)
 
@@ -247,6 +271,20 @@ create_con_var <- function(var,
     }
 
   } else {
+    if (distribution_type == "normal") {
+      warning(paste0(
+        "Variable '", var,
+        "' requested normal distribution but mean and/or sd are missing. ",
+        "Using uniform distribution instead."
+      ))
+    } else if (distribution_type == "exponential") {
+      warning(paste0(
+        "Variable '", var,
+        "' requested exponential distribution but rate is missing. ",
+        "Using uniform distribution instead."
+      ))
+    }
+
     # Uniform distribution (default)
     if (is.null(range_min)) range_min <- 0
     if (is.null(range_max)) range_max <- 100

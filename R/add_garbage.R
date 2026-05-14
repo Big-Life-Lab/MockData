@@ -13,14 +13,14 @@
 #' @param garbage_low_prop Numeric. Proportion of observations to generate as
 #'   low-range garbage (0-1). If NULL, no low-range garbage is added.
 #' @param garbage_low_range Character. Interval notation specifying the range for
-#'   low-range garbage values (e.g., "[-2, 0]" for categorical, "[0, 1.4)" for
-#'   continuous, "[1900-01-01, 1950-12-31]" for dates). If NULL, no low-range
+#'   low-range garbage values (e.g., `[-2, 0]` for categorical, `[0, 1.4)` for
+#'   continuous, `[1900-01-01, 1950-12-31]` for dates). If NULL, no low-range
 #'   garbage is added.
 #' @param garbage_high_prop Numeric. Proportion of observations to generate as
 #'   high-range garbage (0-1). If NULL, no high-range garbage is added.
 #' @param garbage_high_range Character. Interval notation specifying the range for
-#'   high-range garbage values (e.g., "[10, 15]" for categorical, "[60, 150]"
-#'   for continuous, "[2025-01-01, 2099-12-31]" for dates). If NULL, no
+#'   high-range garbage values (e.g., `[10, 15]` for categorical, `[60, 150]`
+#'   for continuous, `[2025-01-01, 2099-12-31]` for dates). If NULL, no
 #'   high-range garbage is added.
 #'
 #' @return Modified variables data frame with garbage specifications added.
@@ -98,7 +98,7 @@
 #' vars <- add_garbage(vars, "smoking",
 #'   garbage_low_prop = 0.02, garbage_low_range = "[-2, 0]")
 #'
-#' # Add garbage to BMI (two-sided contamination)
+#' # Add garbage to BMI (two-sided invalid values)
 #' vars <- add_garbage(vars, "BMI",
 #'   garbage_low_prop = 0.02, garbage_low_range = "[-10, 15)",
 #'   garbage_high_prop = 0.01, garbage_high_range = "[60, 150]")

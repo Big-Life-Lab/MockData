@@ -13,6 +13,29 @@
 # Note: Leverages parse_range_notation() from mockdata-parsers.R
 # ==============================================================================
 
+.sample_values <- function(x, size, replace = FALSE) {
+  if (size <= 0 || length(x) == 0) {
+    return(x[integer(0)])
+  }
+
+  x[sample.int(length(x), size = size, replace = replace)]
+}
+
+.database_start_matches <- function(database_start, database, allow_empty = FALSE) {
+  if (is.null(database) || length(database) == 0) {
+    return(rep(TRUE, length(database_start)))
+  }
+
+  vapply(database_start, function(value) {
+    if (is.na(value) || trimws(value) == "") {
+      return(isTRUE(allow_empty))
+    }
+
+    tokens <- trimws(unlist(strsplit(as.character(value), ",")))
+    any(tokens %in% database)
+  }, logical(1))
+}
+
 
 # 1. VARIABLE DETAILS OPERATIONS ====
 
@@ -89,7 +112,7 @@ get_variable_details <- function(details, variable_name = NULL, uid = NULL) {
 #' @return Named list with:
 #'   - valid: Numeric. Proportion for valid values (sum of all non-missing, non-garbage)
 #'   - missing: Named list. Proportion for each missing code (e.g., "7" = 0.03)
-#'   - garbage: Named list. Proportion for each garbage type (e.g., corrupt_low = 0.02)
+#'   - garbage: Named list. Proportion for each garbage type (e.g., garbage_low = 0.02)
 #'   - categories: Character vector. All non-garbage recStart values
 #'   - category_proportions: Numeric vector. Proportions for sampling (aligned with categories)
 #'
@@ -167,7 +190,7 @@ extract_proportions <- function(details_subset, variable_name = "variable") {
   has_label_long <- "catLabelLong" %in% names(pop_rows)
 
   # Detect interval notation (ranges for continuous variables): [min,max]
-  is_interval_notation <- grepl("^\\[.*,.*\\]$", pop_rows$recStart)
+  is_interval_notation <- grepl("^(\\[|\\().+[,;].+(\\]|\\))$", pop_rows$recStart)
 
   # Missing codes: explicit label OR numeric codes ending in 7,8,9 (but not interval notation)
   # Check catLabelLong column if it exists
@@ -415,7 +438,7 @@ apply_missing_codes <- function(values, category_assignments, missing_code_map) 
 
       # If code_value is a vector (e.g., c(997, 998, 999)), sample from it
       if (length(code_value) > 1) {
-        values[missing_idx] <- sample(code_value, length(missing_idx), replace = TRUE)
+        values[missing_idx] <- .sample_values(code_value, length(missing_idx), replace = TRUE)
       } else {
         values[missing_idx] <- code_value
       }
@@ -538,7 +561,7 @@ make_garbage <- function(values, details_subset, variable_type, seed = NULL) {
 
     # Sample indices to make garbage (without replacement)
     n_garbage <- min(n_garbage, length(remaining_idx))
-    garbage_idx <- sample(remaining_idx, n_garbage)
+    garbage_idx <- .sample_values(remaining_idx, n_garbage)
 
     # Generate garbage values
     garbage_values <- generate_garbage_values(garbage_type, garbage_row, variable_type, n_garbage)
@@ -609,7 +632,8 @@ generate_garbage_values <- function(garbage_type, garbage_row, variable_type, n)
       today <- Sys.Date()
       future_start <- today + 365
       future_end <- today + 365 * 100
-      values <- sample(seq(future_start, future_end, by = "day"), n, replace = TRUE)
+      future_dates <- seq(future_start, future_end, by = "day")
+      values <- .sample_values(future_dates, n, replace = TRUE)
     } else {
       values <- rep(NA, n)
     }
@@ -619,7 +643,8 @@ generate_garbage_values <- function(garbage_type, garbage_row, variable_type, n)
     if (variable_type %in% c("date", "survival")) {
       past_end <- Sys.Date() - 365 * 100
       past_start <- Sys.Date() - 365 * 200
-      values <- sample(seq(past_start, past_end, by = "day"), n, replace = TRUE)
+      past_dates <- seq(past_start, past_end, by = "day")
+      values <- .sample_values(past_dates, n, replace = TRUE)
     } else {
       values <- rep(NA, n)
     }
@@ -654,9 +679,9 @@ generate_garbage_values <- function(garbage_type, garbage_row, variable_type, n)
 #'
 #' **Garbage parameters:**
 #' - garbage_low_prop: Proportion for low garbage values (0-1)
-#' - garbage_low_range: Range for low values (interval notation "[min,max]")
+#' - garbage_low_range: Range for low values (interval notation `[min,max]`)
 #' - garbage_high_prop: Proportion for high garbage values (0-1)
-#' - garbage_high_range: Range for high values (interval notation "[min,max]")
+#' - garbage_high_range: Range for high values (interval notation `[min,max]`)
 #'
 #' **Application order:**
 #' 1. Apply garbage_low (if specified)
@@ -739,7 +764,7 @@ apply_garbage <- function(values, var_row, variable_type, missing_codes = NULL, 
       if (n_garbage > 0 && length(remaining_idx) > 0) {
         # Sample indices
         n_garbage <- min(n_garbage, length(remaining_idx))
-        garbage_idx <- sample(remaining_idx, n_garbage)
+        garbage_idx <- .sample_values(remaining_idx, n_garbage)
 
         # Parse range
         parsed <- parse_range_notation(garbage_low_range)
@@ -748,11 +773,8 @@ apply_garbage <- function(values, var_row, variable_type, missing_codes = NULL, 
           # Generate garbage values
           if (parsed$type == "date") {
             # Date garbage
-            garbage_dates_obj <- sample(
-              seq(parsed$min, parsed$max, by = "day"),
-              n_garbage,
-              replace = TRUE
-            )
+            garbage_dates <- seq(parsed$min, parsed$max, by = "day")
+            garbage_dates_obj <- .sample_values(garbage_dates, n_garbage, replace = TRUE)
             # Convert to character to avoid numeric coercion when assigning to char vector
             garbage_values <- as.character(garbage_dates_obj)
           } else {
@@ -790,7 +812,7 @@ apply_garbage <- function(values, var_row, variable_type, missing_codes = NULL, 
       if (n_garbage > 0 && length(remaining_idx) > 0) {
         # Sample indices
         n_garbage <- min(n_garbage, length(remaining_idx))
-        garbage_idx <- sample(remaining_idx, n_garbage)
+        garbage_idx <- .sample_values(remaining_idx, n_garbage)
 
         # Parse range
         parsed <- parse_range_notation(garbage_high_range)
@@ -799,11 +821,8 @@ apply_garbage <- function(values, var_row, variable_type, missing_codes = NULL, 
           # Generate garbage values
           if (parsed$type == "date") {
             # Date garbage
-            garbage_dates_obj <- sample(
-              seq(parsed$min, parsed$max, by = "day"),
-              n_garbage,
-              replace = TRUE
-            )
+            garbage_dates <- seq(parsed$min, parsed$max, by = "day")
+            garbage_dates_obj <- .sample_values(garbage_dates, n_garbage, replace = TRUE)
             # Convert to character to avoid numeric coercion when assigning to char vector
             garbage_values <- as.character(garbage_dates_obj)
           } else {

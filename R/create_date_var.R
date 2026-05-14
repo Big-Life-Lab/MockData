@@ -20,7 +20,7 @@
 #' @param variable_details data.frame or character. Detail-level metadata containing:
 #'   \itemize{
 #'     \item \code{variable}: Variable name (for joining)
-#'     \item \code{recStart}: Date range (e.g., [01JAN2001,31DEC2020]) or followup period
+#'     \item \code{recStart}: Date range (e.g., `[01JAN2001,31DEC2020]`) or followup period
 #'     \item \code{recEnd}: Classification (copy, NA::a, NA::b)
 #'     \item \code{proportion}: Category proportion for missing codes
 #'   }
@@ -161,7 +161,11 @@ create_date_var <- function(var,
       variable_details$variable == var &
       (is.na(variable_details$databaseStart) |
        variable_details$databaseStart == "" |
-       grepl(databaseStart, variable_details$databaseStart, fixed = TRUE)),
+       .database_start_matches(
+         variable_details$databaseStart,
+         databaseStart,
+         allow_empty = TRUE
+       )),
     ]
   } else {
     # Fallback: no databaseStart filtering (for simple configs)
@@ -205,6 +209,11 @@ create_date_var <- function(var,
   # ========== FALLBACK MODE: Default date range if no details ==========
 
   if (nrow(details_subset) == 0) {
+    warning(paste0(
+      "No variable_details rows found for variable '", var,
+      "' and databaseStart '", databaseStart,
+      "'. Using fallback date range [2000-01-01, 2025-12-31]."
+    ))
     # Default range: 2000-01-01 to 2025-12-31
     date_start <- as.Date("2000-01-01")
     date_end <- as.Date("2025-12-31")

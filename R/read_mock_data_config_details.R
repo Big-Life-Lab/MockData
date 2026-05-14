@@ -115,7 +115,7 @@ read_mock_data_config_details <- function(details_path, validate = TRUE, config 
 #' **Proportion validation:**
 #' - Values must be in range `[0, 1]`
 #' - Population proportions (valid + missing codes) must sum to 1.0 ±0.001 per variable
-#' - Contamination proportions (corrupt_*) are excluded from sum
+#' - Garbage proportions (garbage_*) are excluded from sum
 #' - Auto-normalizes with warning if sum ≠ 1.0
 #'
 #' **Parameter validation:**
@@ -194,8 +194,10 @@ validate_mock_data_config_details <- function(details, config = NULL) {
     for (var in vars) {
       var_rows <- details[details$variable == var, ]
 
-      # Exclude garbage rows (corrupt_*)
-      pop_rows <- var_rows[!grepl("^corrupt_", var_rows$recStart, ignore.case = TRUE), ]
+      # Exclude garbage rows. corrupt_* is kept as a legacy alias.
+      pop_rows <- var_rows[
+        !grepl("^(garbage|corrupt)_", var_rows$recStart, ignore.case = TRUE),
+      ]
 
       # Calculate sum of population proportions (excluding NA)
       prop_sum <- sum(pop_rows$proportion, na.rm = TRUE)
@@ -213,7 +215,7 @@ validate_mock_data_config_details <- function(details, config = NULL) {
           # Auto-normalize
           norm_factor <- 1.0 / prop_sum
           pop_idx <- which(details$variable == var &
-                          !grepl("^corrupt_", details$recStart, ignore.case = TRUE) &
+                          !grepl("^(garbage|corrupt)_", details$recStart, ignore.case = TRUE) &
                           !is.na(details$proportion))
           details$proportion[pop_idx] <- details$proportion[pop_idx] * norm_factor
         }
@@ -237,14 +239,16 @@ validate_mock_data_config_details <- function(details, config = NULL) {
   # Flexible recStart validation (warn on potentially unknown values)
   # Common known values
   known_recStart <- c("copy", "distribution", "mean", "sd", "rate", "shape",
-                      "valid", "censored", "corrupt_low", "corrupt_high", "corrupt_future",
+                      "valid", "censored",
+                      "garbage_low", "garbage_high", "garbage_future",
+                      "corrupt_low", "corrupt_high", "corrupt_future",
                       "followup_min", "followup_max", "event",  # Survival parameters
                       "7", "8", "9", "96", "97", "98", "99",  # Missing codes
                       "-7", "-8", "-9")  # Negative missing codes
 
   # Check for numeric category values (1, 2, 3, etc.) and range notation [min,max] - these are valid
   is_numeric_category <- grepl("^[0-9]+$", details$recStart)
-  is_range_notation <- grepl("^\\[.*,.*\\]$", details$recStart)
+  is_range_notation <- grepl("^(\\[|\\().+[,;].+(\\]|\\))$", details$recStart)
   is_known <- details$recStart %in% known_recStart | is_numeric_category | is_range_notation
 
   unknown_recStart <- unique(details$recStart[!is_known])

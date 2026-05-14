@@ -285,7 +285,7 @@ validate_proportions <- function(variable_details, mode) {
 validate_garbage <- function(variables) {
   result <- list(errors = character(0), warnings = character(0), info = character(0))
 
-  interval_pattern <- "^\\[.+;.+\\]$"
+  interval_pattern <- "^(\\[|\\().+[,;].+(\\]|\\))$"
 
   # Check garbage_low_prop
   if ("garbage_low_prop" %in% names(variables)) {
@@ -306,13 +306,14 @@ validate_garbage <- function(variables) {
   if ("garbage_low_range" %in% names(variables)) {
     non_empty <- variables$garbage_low_range[!is.na(variables$garbage_low_range) &
                                                 variables$garbage_low_range != "" &
-                                                variables$garbage_low_range != "[;]"]  # Allow empty intervals
+                                                variables$garbage_low_range != "[;]" &
+                                                variables$garbage_low_range != "[,]"]  # Allow empty intervals
     if (length(non_empty) > 0) {
       invalid <- non_empty[!grepl(interval_pattern, non_empty)]
 
       if (length(invalid) > 0) {
         result$errors <- c(result$errors,
-          paste("garbage_low_range must use interval notation [min;max]:",
+          paste("garbage_low_range must use interval notation [min,max] or [min;max]:",
                 paste(invalid, collapse = ", ")))
       }
     }
@@ -337,13 +338,14 @@ validate_garbage <- function(variables) {
   if ("garbage_high_range" %in% names(variables)) {
     non_empty <- variables$garbage_high_range[!is.na(variables$garbage_high_range) &
                                                  variables$garbage_high_range != "" &
-                                                 variables$garbage_high_range != "[;]"]  # Allow empty intervals
+                                                 variables$garbage_high_range != "[;]" &
+                                                 variables$garbage_high_range != "[,]"]  # Allow empty intervals
     if (length(non_empty) > 0) {
       invalid <- non_empty[!grepl(interval_pattern, non_empty)]
 
       if (length(invalid) > 0) {
         result$errors <- c(result$errors,
-          paste("garbage_high_range must use interval notation [min;max]:",
+          paste("garbage_high_range must use interval notation [min,max] or [min;max]:",
                 paste(invalid, collapse = ", ")))
       }
     }
@@ -431,7 +433,7 @@ print.mockdata_validation_result <- function(x, ...) {
 
   if (length(x$info) > 0) {
     cat("INFO:\n")
-    for (i in seq_along(x$warnings)) {
+    for (i in seq_along(x$info)) {
       cat(sprintf("%d. %s\n", i, x$info[i]))
     }
     cat("\n")

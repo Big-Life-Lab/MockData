@@ -1,18 +1,20 @@
 Package: MockData
-Title: Generate Mock Data from Recodeflow Metadata
+Title: Generate Mock Data from Metadata Specifications
 Version: 0.3.0
 Authors@R: c(
-    person("Juan", "Li", role = c("aut", "cre"), email = "juli@ohri.ca"),
+    person("Juan", "Li", role = "aut", email = "juli@ohri.ca"),
+    person("Douglas", "Manuel", role = c("aut", "cre"), email = "dmanuel@ohri.ca"),
     person("recodeflow contributors", role = "ctb")
   )
-Author: Juan Li [aut, cre],
+Author: Juan Li [aut],
+  Douglas Manuel [aut, cre],
   recodeflow contributors [ctb]
-Maintainer: Juan Li <juli@ohri.ca>
-Description: Generates mock testing data from recodeflow metadata (variables.csv
-    and variable-details.csv). Supports categorical and continuous variables
-    with metadata-driven specifications. Designed for testing harmonization workflows
-    across CHMS, CCHS, and other recodeflow projects. Uses recodeflow-standard
-    notation for parsing variable specifications and range notation.
+Maintainer: Douglas Manuel <dmanuel@ohri.ca>
+Description: Generates mock testing data from small metadata specifications,
+    supplied as in-memory data frames or CSV files. Supports categorical,
+    continuous, date, garbage-data, and survival-style variables for testing
+    data pipelines and documentation examples. Designed for recodeflow-style
+    metadata while also supporting lightweight standalone use.
 License: MIT + file LICENSE
 URL: https://big-life-lab.github.io/MockData/, https://github.com/Big-Life-Lab/MockData
 BugReports: https://github.com/Big-Life-Lab/MockData/issues
@@ -23,13 +25,14 @@ VignetteBuilder: quarto
 Depends:
     R (>= 4.2.0)
 Imports:
-    stats
+    stats,
+    dplyr
 Suggests:
     testthat (>= 3.0.0),
     readr,
-    dplyr,
     stringr,
     lubridate,
+    knitr,
     quarto,
     devtools,
     pkgdown,

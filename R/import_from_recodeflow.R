@@ -36,7 +36,7 @@
 #' - mockDataLastUpdated: current date
 #' - seed: NA
 #' - rType: NA (user must fill in: integer/double/factor/date/logical/character)
-#' - corrupt_low_prop, corrupt_low_range, corrupt_high_prop, corrupt_high_range: NA
+#' - garbage_low_prop, garbage_low_range, garbage_high_prop, garbage_high_range: NA
 #' - mockDataVersion, mockDataVersionNotes: NA
 #'
 #' ### variable_details.csv -> mock_data_config_details.csv
@@ -148,9 +148,10 @@ import_from_recodeflow <- function(
     message("Filtering to database(s): ", paste(database, collapse = ", "))
   }
 
-  # Filter variables by database
-  database_pattern <- paste(database, collapse = "|")
-  variables_filtered <- variables_filtered[grepl(database_pattern, variables_filtered$databaseStart), ]
+  # Filter variables by exact comma-separated databaseStart token
+  variables_filtered <- variables_filtered[
+    .database_start_matches(variables_filtered$databaseStart, database),
+  ]
 
   if (nrow(variables_filtered) == 0) {
     stop("No variables found for database(s): ", paste(database, collapse = ", "))
@@ -161,7 +162,7 @@ import_from_recodeflow <- function(
   # Filter variable_details by the selected variables AND database
   details_filtered <- variable_details[
     variable_details$variable %in% variables_filtered$variable &
-    grepl(database_pattern, variable_details$databaseStart),
+    .database_start_matches(variable_details$databaseStart, database),
   ]
 
   if (nrow(details_filtered) == 0) {
@@ -191,11 +192,11 @@ import_from_recodeflow <- function(
     last_updated = as.character(Sys.Date()),
     notes = if ("description" %in% names(variables_filtered)) variables_filtered$description else NA,
     seed = NA,
-    # MockData extension fields for contamination
-    corrupt_low_prop = NA,
-    corrupt_low_range = NA,
-    corrupt_high_prop = NA,
-    corrupt_high_range = NA,
+    # MockData extension fields for garbage data
+    garbage_low_prop = NA,
+    garbage_low_range = NA,
+    garbage_high_prop = NA,
+    garbage_high_range = NA,
     # MockData versioning
     mockDataVersion = NA,
     mockDataLastUpdated = as.character(Sys.Date()),
@@ -263,7 +264,7 @@ import_from_recodeflow <- function(
   message("\nNext steps:")
   message("  1. Review ", config_path)
   message("     - Fill in 'rType' for each variable (integer/double/factor/date/logical/character)")
-  message("     - Optionally add contamination parameters (corrupt_low_prop, corrupt_low_range, etc.)")
+  message("     - Optionally add garbage parameters (garbage_low_prop, garbage_low_range, etc.)")
   message("     - Add mockDataVersion and mockDataVersionNotes")
   message("  2. Review ", details_path)
   message("     - Fill in 'proportion' values (must sum to 1.0 per variable)")

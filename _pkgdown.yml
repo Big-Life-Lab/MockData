@@ -10,7 +10,7 @@ footer:
     left: developed_by
     right: built_with
   components:
-    developed_by: <p>Developed by Juan Li and recodeflow contributors.</p>
+    developed_by: <p>Developed by Juan Li, Douglas Manuel, and recodeflow contributors.</p>
 
 reference:
 - title: Main generation functions

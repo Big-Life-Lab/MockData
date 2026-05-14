@@ -162,7 +162,11 @@ create_cat_var <- function(var,
       variable_details$variable == var &
       (is.na(variable_details$databaseStart) |
        variable_details$databaseStart == "" |
-       grepl(databaseStart, variable_details$databaseStart, fixed = TRUE)),
+       .database_start_matches(
+         variable_details$databaseStart,
+         databaseStart,
+         allow_empty = TRUE
+       )),
     ]
   } else {
     # Fallback: no databaseStart filtering (for simple configs)
@@ -182,6 +186,11 @@ create_cat_var <- function(var,
   # ========== FALLBACK MODE: Simple generation if no details ==========
 
   if (nrow(details_subset) == 0) {
+    warning(paste0(
+      "No variable_details rows found for variable '", var,
+      "' and databaseStart '", databaseStart,
+      "'. Using fallback categories c('1', '2')."
+    ))
     # Generate simple 2-category variable with uniform distribution
     values <- sample(c("1", "2"), size = n, replace = TRUE)
 

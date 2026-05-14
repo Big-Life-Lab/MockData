@@ -52,6 +52,19 @@ test_that("parse_range_notation handles date ranges correctly", {
   expect_equal(result$type, "date")
 })
 
+test_that("parse_range_notation parses dates with explicit non-locale formats", {
+  result <- parse_range_notation("[01JAN2001,31DEC2020]")
+
+  expect_s3_class(result$min, "Date")
+  expect_s3_class(result$max, "Date")
+  expect_equal(result$min, as.Date("2001-01-01"))
+  expect_equal(result$max, as.Date("2020-12-31"))
+
+  dashed <- parse_range_notation("[01-Jan-2001,31-Dec-2020]")
+  expect_equal(dashed$min, as.Date("2001-01-01"))
+  expect_equal(dashed$max, as.Date("2020-12-31"))
+})
+
 test_that("parse_range_notation handles decimal values", {
   result <- parse_range_notation("[1.4,2.1]")
   expect_equal(result$min, 1.4)

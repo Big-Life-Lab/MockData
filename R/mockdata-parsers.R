@@ -238,38 +238,65 @@ parse_range_notation <- function(range_string, range_type = "auto", expand_integ
   min_str <- trimws(substr(inner_content, 1, delimiter_pos[1] - 1))
   max_str <- trimws(substr(inner_content, delimiter_pos[1] + 1, nchar(inner_content)))
 
-  # Parse min value (handle "inf", numeric values, and dates)
-  if (tolower(min_str) == "inf") {
-    min_val <- Inf
-  } else {
-    # Try numeric first
-    min_val <- suppressWarnings(as.numeric(min_str))
-    # If numeric parsing fails, try date parsing
-    if (is.na(min_val)) {
-      min_date <- suppressWarnings(as.Date(min_str))
-      if (!is.na(min_date)) {
-        min_val <- min_date
-      } else {
-        return(NULL)
+  parse_date_value <- function(value) {
+    if (grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", value)) {
+      return(as.Date(value, format = "%Y-%m-%d"))
+    }
+
+    compact_match <- regexec("^([0-9]{1,2})([A-Za-z]{3})([0-9]{4})$", value)
+    compact_parts <- regmatches(value, compact_match)[[1]]
+    if (length(compact_parts) == 4) {
+      month_number <- match(toupper(compact_parts[3]), toupper(month.abb))
+      if (!is.na(month_number)) {
+        return(as.Date(sprintf(
+          "%s-%02d-%02d",
+          compact_parts[4],
+          month_number,
+          as.integer(compact_parts[2])
+        ), format = "%Y-%m-%d"))
       }
     }
+
+    dashed_match <- regexec("^([0-9]{1,2})-([A-Za-z]{3})-([0-9]{4})$", value)
+    dashed_parts <- regmatches(value, dashed_match)[[1]]
+    if (length(dashed_parts) == 4) {
+      month_number <- match(toupper(dashed_parts[3]), toupper(month.abb))
+      if (!is.na(month_number)) {
+        return(as.Date(sprintf(
+          "%s-%02d-%02d",
+          dashed_parts[4],
+          month_number,
+          as.integer(dashed_parts[2])
+        ), format = "%Y-%m-%d"))
+      }
+    }
+
+    structure(NA_real_, class = "Date")
   }
 
-  # Parse max value (handle "inf", numeric values, and dates)
-  if (tolower(max_str) == "inf") {
-    max_val <- Inf
-  } else {
-    # Try numeric first
-    max_val <- suppressWarnings(as.numeric(max_str))
-    # If numeric parsing fails, try date parsing
-    if (is.na(max_val)) {
-      max_date <- suppressWarnings(as.Date(max_str))
-      if (!is.na(max_date)) {
-        max_val <- max_date
-      } else {
-        return(NULL)
-      }
+  parse_bound_value <- function(value) {
+    if (tolower(value) == "inf") {
+      return(Inf)
     }
+
+    numeric_value <- suppressWarnings(as.numeric(value))
+    if (!is.na(numeric_value)) {
+      return(numeric_value)
+    }
+
+    date_value <- parse_date_value(value)
+    if (!is.na(date_value)) {
+      return(date_value)
+    }
+
+    NULL
+  }
+
+  min_val <- parse_bound_value(min_str)
+  max_val <- parse_bound_value(max_str)
+
+  if (is.null(min_val) || is.null(max_val)) {
+    return(NULL)
   }
 
   # Determine inclusivity from bracket types
