@@ -4,15 +4,12 @@ on:
       branch:
         description: 'Branch to deploy'
         required: true
-        default: 'v030-refactor'
-        type: choice
-        options:
-          - main
-          - v030-refactor
+        default: 'main'
+        type: string
       target:
-        description: 'Deployment target (root, dev, or custom path)'
+        description: 'Deployment target: "." for root, or preview/name for temporary previews'
         required: true
-        default: 'dev'
+        default: '.'
         type: string
 
 name: Manual Deploy
@@ -82,4 +79,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### ℹ️ Target options" >> $GITHUB_STEP_SUMMARY
           echo "- Use \`.\` to deploy to the site root" >> $GITHUB_STEP_SUMMARY
-          echo "- Use \`dev\` or other path for subfolder deployment" >> $GITHUB_STEP_SUMMARY
+          echo "- Use \`preview/name\` or another explicit path for temporary previews" >> $GITHUB_STEP_SUMMARY

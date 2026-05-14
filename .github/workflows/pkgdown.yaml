@@ -54,9 +54,6 @@ jobs:
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "target_path=." >> $GITHUB_OUTPUT
             echo "Deploying to root (main branch)"
-          elif [[ "${{ github.ref }}" == "refs/heads/v030-refactor" ]]; then
-            echo "target_path=dev" >> $GITHUB_OUTPUT
-            echo "Deploying to /dev (v030-refactor branch)"
           else
             echo "target_path=preview/${{ github.ref_name }}" >> $GITHUB_OUTPUT
             echo "Deploying to /preview/${{ github.ref_name }}"
