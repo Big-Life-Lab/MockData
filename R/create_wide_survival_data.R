@@ -24,7 +24,7 @@
 #'   already exist and to use as anchor_date source. Default: NULL.
 #' @param n integer. Required. Number of observations to generate.
 #' @param seed integer. Optional. Random seed for reproducibility. Default: NULL.
-#' @param prop_garbage numeric. **DEPRECATED in v0.3.1**. This parameter is no
+#' @param prop_garbage numeric. **DEPRECATED in v0.3.0**. This parameter is no
 #'   longer supported. To generate temporal violations for QA testing, use the
 #'   `garbage_high_prop` and `garbage_high_range` parameters in variables.csv
 #'   for individual date variables. See Details section for migration guidance.
@@ -32,6 +32,11 @@
 #'
 #' @return data.frame with 1-5 date columns (depending on which variables are
 #'   specified), or NULL if variables already exist in df_mock.
+#'
+#' @section Deprecated arguments:
+#' `prop_garbage` is deprecated as of v0.3.0. Configure garbage values on
+#' individual date variables with `garbage_high_prop` and `garbage_high_range`
+#' instead.
 #'
 #' @details
 #' This function implements v0.3.0 "recodeflow pattern" API:
@@ -53,7 +58,7 @@
 #' - If death < event, set event to NA (censored, not missing)
 #' - Observation ends at min(event, death, ltfu, admin_censor)
 #'
-#' **Temporal violations for QA testing (v0.3.1+):**
+#' **Temporal violations for QA testing (v0.3.0+):**
 #' This function creates clean, temporally-ordered survival data. To generate
 #' temporal violations for testing data quality pipelines:
 #' - Add `garbage_high_prop` and `garbage_high_range` to individual date variables
@@ -62,12 +67,12 @@
 #' - Test your temporal validation logic separately
 #' - This approach separates concerns: date-level garbage vs. survival data generation
 #'
-#' **Migration from prop_garbage (deprecated in v0.3.1):**
+#' **Migration from prop_garbage (deprecated in v0.3.0):**
 #' ```r
 #' # OLD (v0.3.0):
 #' surv <- create_wide_survival_data(..., prop_garbage = 0.03)
 #'
-#' # NEW (v0.3.1+):
+#' # NEW (v0.3.0+):
 #' # Add garbage to date variables in metadata
 #' variables$garbage_high_prop[variables$variable == "death_date"] <- 0.03
 #' variables$garbage_high_range[variables$variable == "death_date"] <-
@@ -126,17 +131,18 @@
 #'   var_death_date = NULL,
 #'   var_ltfu = NULL,
 #'   var_admin_censor = NULL,
-#'   database = "study",
+#'   databaseStart = "study",
 #'   variables = variables,
 #'   variable_details = variable_details,
 #'   n = 500,
 #'   seed = 456
 #' )
 #'
-#' # Generate with garbage data for QA testing (v0.3.1+)
+#' # Generate with garbage data for QA testing (v0.3.0+)
 #' # Add garbage to death_date in metadata
 #' vars_with_garbage <- add_garbage(variables, "death_date",
-#'   high_prop = 0.05, high_range = "[2025-01-01, 2099-12-31]")
+#'   garbage_high_prop = 0.05,
+#'   garbage_high_range = "[2025-01-01, 2099-12-31]")
 #'
 #' surv_data <- create_wide_survival_data(
 #'   var_entry_date = "interview_date",
@@ -153,6 +159,7 @@
 #' }
 #'
 #' @family generators
+#' @keywords deprecated
 #' @export
 create_wide_survival_data <- function(var_entry_date,
                                        var_event_date = NULL,
@@ -189,7 +196,7 @@ create_wide_survival_data <- function(var_entry_date,
   # Deprecation warning for prop_garbage
   if (!is.null(prop_garbage)) {
     warning(
-      "The 'prop_garbage' parameter is deprecated as of v0.3.1 and will be ignored.\n",
+      "The 'prop_garbage' parameter is deprecated as of v0.3.0 and will be ignored.\n",
       "To generate temporal violations for QA testing:\n",
       "1. Add garbage_high_prop and garbage_high_range to individual date variables in variables.csv\n",
       "2. Example: variables$garbage_high_prop[variables$variable == 'death_date'] <- 0.03\n",

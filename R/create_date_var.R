@@ -156,7 +156,9 @@ create_date_var <- function(var,
 
   # Filter variable_details for this var AND database (using databaseStart)
   # databaseStart is a recodeflow core column containing comma-separated database identifiers
-  if ("databaseStart" %in% names(variable_details)) {
+  if (is.null(variable_details)) {
+    details_subset <- data.frame(variable = character(0), stringsAsFactors = FALSE)
+  } else if ("databaseStart" %in% names(variable_details)) {
     details_subset <- variable_details[
       variable_details$variable == var &
       (is.na(variable_details$databaseStart) |

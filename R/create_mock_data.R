@@ -26,10 +26,13 @@
 #'     \item \code{catLabel}: Category label/description
 #'   }
 #'   Can also be a file path (character) to variable_details.csv.
-#'   If NULL, uses fallback mode (uniform distributions).
+#'   If NULL, uses simple fallback generation.
 #' @param n Integer. Number of observations to generate (default 1000).
 #' @param seed Integer. Optional random seed for reproducibility.
-#' @param validate Logical. Whether to validate configuration files (default TRUE).
+#' @param validate Logical. Whether to use strict generation checks (default
+#'   TRUE). When TRUE, unsupported variable types and generator errors stop
+#'   generation. When FALSE, those errors are converted to warnings and the
+#'   affected variable is skipped.
 #' @param verbose Logical. Whether to print progress messages (default FALSE).
 #'
 #' @return Data frame with n rows and one column per enabled variable.
@@ -41,7 +44,7 @@
 #' **Generation process**:
 #' \enumerate{
 #'   \item Load metadata from file paths or accept data frames
-#'   \item Filter for enabled variables (role contains "enabled")
+#'   \item Filter for enabled variables (role has an exact "enabled" token)
 #'   \item Set global seed (if provided)
 #'   \item Loop through variables in position order:
 #'     - Dispatch to create_cat_var, create_con_var, or create_date_var
@@ -50,8 +53,9 @@
 #'   \item Return complete dataset
 #' }
 #'
-#' **Fallback mode**: If variable_details = NULL, uses uniform distributions for all
-#' enabled variables.
+#' **Fallback mode**: If variable_details = NULL, uses simple default generators
+#' for enabled variables (two-category categorical values, continuous values from
+#' [0, 100], and dates from 2000-01-01 to 2025-12-31).
 #'
 #' **Variable types supported**:
 #' \itemize{
@@ -132,8 +136,10 @@ create_mock_data <- function(databaseStart,
       variable_details <- read.csv(variable_details, stringsAsFactors = FALSE, check.names = FALSE)
     }
   } else {
-    if (verbose) message("No details file provided - using fallback mode (uniform distributions)")
+    if (verbose) message("No details file provided - using simple fallback generation")
   }
+
+  variables <- .migrate_garbage_aliases(variables)
 
   # ========== VALIDATE INPUT ==========
 
@@ -153,9 +159,9 @@ create_mock_data <- function(databaseStart,
 
   if (verbose) message("Filtering for enabled variables...")
 
-  # Filter for variables with "enabled" in role column
+  # Filter for variables with exact "enabled" role token.
   if ("role" %in% names(variables)) {
-    enabled_vars <- variables[grepl("enabled", variables$role, ignore.case = TRUE), ]
+    enabled_vars <- variables[.role_matches(variables$role, "enabled", ignore.case = TRUE), ]
   } else {
     # If no role column, assume all variables are enabled
     enabled_vars <- variables
@@ -208,6 +214,7 @@ create_mock_data <- function(databaseStart,
 
   # Initialize empty data frame
   df_mock <- data.frame(row.names = seq_len(n))
+  skipped_vars <- character(0)
 
   # Generate variables in order
   for (i in seq_len(nrow(enabled_vars))) {
@@ -218,8 +225,15 @@ create_mock_data <- function(databaseStart,
     if ("rType" %in% names(var_row) && !is.na(var_row$rType) && var_row$rType != "") {
       var_type <- tolower(var_row$rType)
     } else {
-      stop("Variable '", var_name, "' is missing rType column. ",
-           "All metadata must use v0.2 schema with rType column.")
+      msg <- paste0(
+        "Variable '", var_name, "' is missing rType column. ",
+        "All metadata must use v0.2 schema with rType column."
+      )
+      if (validate) {
+        stop(msg, call. = FALSE)
+      }
+      warning(msg)
+      next
     }
 
     if (verbose) {
@@ -227,9 +241,28 @@ create_mock_data <- function(databaseStart,
               var_name, " (", var_type, ")")
     }
 
-    # Dispatch to type-specific generator
-    var_data <- tryCatch({
-      switch(var_type,
+    supported_rtypes <- c(
+      "factor", "character", "logical", "integer", "double", "numeric", "date"
+    )
+
+    if (!var_type %in% supported_rtypes) {
+      msg <- paste0(
+        "Unknown variable type '", var_type, "' for variable: ", var_name,
+        "\n  Supported rType values: factor, character, logical, integer, ",
+        "double, numeric, date"
+      )
+
+      if (validate) {
+        stop(msg, call. = FALSE)
+      }
+
+      warning(msg)
+      skipped_vars <- c(skipped_vars, var_name)
+      var_data <- NULL
+    } else {
+      # Dispatch to type-specific generator
+      var_data <- tryCatch({
+        switch(var_type,
         # v0.2 schema rType values
         "factor" = create_cat_var(
           var = var_name,
@@ -241,6 +274,15 @@ create_mock_data <- function(databaseStart,
           seed = NULL  # Global seed already set
         ),
         "character" = create_cat_var(
+          var = var_name,
+          databaseStart = databaseStart,
+          variables = variables,
+          variable_details = variable_details,
+          df_mock = df_mock,
+          n = n,
+          seed = NULL
+        ),
+        "logical" = create_cat_var(
           var = var_name,
           databaseStart = databaseStart,
           variables = variables,
@@ -284,36 +326,18 @@ create_mock_data <- function(databaseStart,
           df_mock = df_mock,
           n = n,
           seed = NULL
-        ),
-        # Legacy variableType values (if somehow still used)
-        "categorical" = create_cat_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        ),
-        "continuous" = create_con_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        ),
-        {
-          warning("Unknown variable type '", var_type, "' for variable: ", var_name,
-                  "\n  Supported rType values: factor, character, integer, double, numeric, date")
-          NULL
+        )
+        )
+      }, error = function(e) {
+        msg <- paste0("Error generating variable ", var_name, ": ", e$message)
+        if (validate) {
+          stop(msg, call. = FALSE)
         }
-      )
-    }, error = function(e) {
-      warning("Error generating variable ", var_name, ": ", e$message)
-      NULL
-    })
+        warning(msg)
+        skipped_vars <<- c(skipped_vars, var_name)
+        NULL
+      })
+    }
 
     # Merge into dataset if generation succeeded
     if (!is.null(var_data) && is.data.frame(var_data)) {
@@ -330,6 +354,12 @@ create_mock_data <- function(databaseStart,
     message("Mock data generation complete!")
     message("  Rows: ", nrow(df_mock))
     message("  Variables: ", ncol(df_mock))
+  }
+
+  if (!validate && length(skipped_vars) > 0) {
+    skipped_vars <- unique(skipped_vars)
+    message("Skipped variables during mock data generation: ",
+            paste(skipped_vars, collapse = ", "))
   }
 
   return(df_mock)

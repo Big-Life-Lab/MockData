@@ -68,6 +68,7 @@ read_mock_data_config <- function(config_path, validate = TRUE) {
 
   # Read CSV
   config <- read.csv(config_path, stringsAsFactors = FALSE, check.names = FALSE)
+  config <- .migrate_garbage_aliases(config)
 
   # Type conversions
   if ("last_updated" %in% names(config)) {

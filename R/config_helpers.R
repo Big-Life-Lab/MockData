@@ -1,3 +1,79 @@
+#' Match Role Tokens
+#' @noRd
+.role_matches <- function(role_values, roles, ignore.case = TRUE) {
+  if (length(role_values) == 0) {
+    return(logical(0))
+  }
+
+  if (ignore.case) {
+    roles <- tolower(roles)
+  }
+
+  vapply(role_values, function(value) {
+    if (is.na(value) || trimws(value) == "") {
+      return(FALSE)
+    }
+
+    tokens <- trimws(unlist(strsplit(as.character(value), "[,;[:space:]]+")))
+    tokens <- tokens[tokens != ""]
+
+    if (ignore.case) {
+      tokens <- tolower(tokens)
+    }
+
+    any(tokens %in% roles)
+  }, logical(1))
+}
+
+#' Migrate Legacy Garbage Column Aliases
+#' @noRd
+.migrate_garbage_aliases <- function(variables) {
+  alias_map <- c(
+    corrupt_low_prop = "garbage_low_prop",
+    corrupt_low_range = "garbage_low_range",
+    corrupt_high_prop = "garbage_high_prop",
+    corrupt_high_range = "garbage_high_range"
+  )
+
+  aliases_present <- intersect(names(alias_map), names(variables))
+  if (length(aliases_present) == 0) {
+    return(variables)
+  }
+
+  for (alias in aliases_present) {
+    canonical <- unname(alias_map[[alias]])
+
+    if (!canonical %in% names(variables)) {
+      variables[[canonical]] <- variables[[alias]]
+    } else {
+      alias_has_value <- !is.na(variables[[alias]]) & variables[[alias]] != ""
+      canonical_missing <- is.na(variables[[canonical]]) | variables[[canonical]] == ""
+
+      fill_idx <- alias_has_value & canonical_missing
+      variables[[canonical]][fill_idx] <- variables[[alias]][fill_idx]
+
+      conflict_idx <- alias_has_value & !canonical_missing &
+        variables[[alias]] != variables[[canonical]]
+      if (any(conflict_idx, na.rm = TRUE)) {
+        warning(
+          "'", alias, "' and '", canonical,
+          "' both have values for some rows. Keeping '", canonical, "'.",
+          call. = FALSE
+        )
+      }
+    }
+  }
+
+  warning(
+    "The corrupt_* garbage columns are deprecated. ",
+    "Use garbage_low_prop, garbage_low_range, garbage_high_prop, and ",
+    "garbage_high_range instead.",
+    call. = FALSE
+  )
+
+  variables
+}
+
 #' Get variables by role
 #'
 #' @description
@@ -11,8 +87,9 @@
 #' @return Data frame with subset of config rows matching any of the specified roles.
 #'
 #' @details
-#' This function handles comma-separated role values by using grepl() pattern matching.
-#' A variable matches if its role column contains any of the specified role values.
+#' This function handles comma-, semicolon-, or whitespace-separated role values
+#' by exact token matching. A variable matches if any role token equals one of
+#' the requested roles.
 #'
 #' Common role values:
 #' - enabled: Variables to generate in mock data
@@ -56,12 +133,8 @@ get_variables_by_role <- function(config, roles) {
     stop("roles must be a non-empty character vector")
   }
 
-  # Build pattern to match any of the specified roles
-  # Use word boundaries to avoid partial matches (e.g., "table1" shouldn't match "table1_master")
-  pattern <- paste0("\\b(", paste(roles, collapse = "|"), ")\\b")
-
-  # Filter using grepl (handles comma-separated role values)
-  matches <- grepl(pattern, config$role, ignore.case = FALSE)
+  # Filter using exact role tokens so "disabled" does not match "enabled".
+  matches <- .role_matches(config$role, roles, ignore.case = TRUE)
 
   result <- config[matches, ]
 

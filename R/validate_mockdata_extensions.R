@@ -48,6 +48,7 @@ validate_mockdata_metadata <- function(variables_path, variable_details_path, mo
   # Load data
   variables <- read.csv(variables_path, stringsAsFactors = FALSE, check.names = FALSE)
   variable_details <- read.csv(variable_details_path, stringsAsFactors = FALSE, check.names = FALSE)
+  variables <- .migrate_garbage_aliases(variables)
 
   # 1. UID validation (numeric-only pattern)
   result$uid_validation <- validate_uids(variables, variable_details)
@@ -177,10 +178,10 @@ validate_uids <- function(variables, variable_details) {
 validate_rtype <- function(variables) {
   result <- list(errors = character(0), warnings = character(0), info = character(0))
 
-  valid_rtypes <- c("integer", "double", "factor", "logical", "character", "date")
+  valid_rtypes <- c("integer", "double", "numeric", "factor", "logical", "character", "date")
 
   if ("rType" %in% names(variables)) {
-    non_empty_rtypes <- variables$rType[!is.na(variables$rType) & variables$rType != ""]
+    non_empty_rtypes <- tolower(variables$rType[!is.na(variables$rType) & variables$rType != ""])
 
     if (length(non_empty_rtypes) > 0) {
       invalid_rtypes <- setdiff(unique(non_empty_rtypes), valid_rtypes)
@@ -292,7 +293,12 @@ validate_garbage <- function(variables) {
     non_empty <- variables$garbage_low_prop[!is.na(variables$garbage_low_prop) &
                                                variables$garbage_low_prop != ""]
     if (length(non_empty) > 0) {
-      garbage_low <- as.numeric(non_empty)
+      garbage_low <- suppressWarnings(as.numeric(non_empty))
+      not_numeric <- non_empty[is.na(garbage_low)]
+      if (length(not_numeric) > 0) {
+        result$errors <- c(result$errors,
+          paste("garbage_low_prop values must be numeric:", paste(not_numeric, collapse = ", ")))
+      }
       invalid <- garbage_low[garbage_low < 0 | garbage_low > 1]
 
       if (length(invalid) > 0) {
@@ -324,13 +330,52 @@ validate_garbage <- function(variables) {
     non_empty <- variables$garbage_high_prop[!is.na(variables$garbage_high_prop) &
                                                 variables$garbage_high_prop != ""]
     if (length(non_empty) > 0) {
-      garbage_high <- as.numeric(non_empty)
+      garbage_high <- suppressWarnings(as.numeric(non_empty))
+      not_numeric <- non_empty[is.na(garbage_high)]
+      if (length(not_numeric) > 0) {
+        result$errors <- c(result$errors,
+          paste("garbage_high_prop values must be numeric:", paste(not_numeric, collapse = ", ")))
+      }
       invalid <- garbage_high[garbage_high < 0 | garbage_high > 1]
 
       if (length(invalid) > 0) {
         result$errors <- c(result$errors,
           paste("garbage_high_prop values must be 0-1:", paste(invalid, collapse = ", ")))
       }
+    }
+  }
+
+  # Check combined garbage proportions. Low and high proportions are each
+  # interpreted relative to the original valid pool; totals above 1 truncate the
+  # second pass because there are not enough remaining valid rows.
+  if ("garbage_low_prop" %in% names(variables) || "garbage_high_prop" %in% names(variables)) {
+    garbage_low <- if ("garbage_low_prop" %in% names(variables)) {
+      suppressWarnings(as.numeric(variables$garbage_low_prop))
+    } else {
+      rep(0, nrow(variables))
+    }
+    garbage_high <- if ("garbage_high_prop" %in% names(variables)) {
+      suppressWarnings(as.numeric(variables$garbage_high_prop))
+    } else {
+      rep(0, nrow(variables))
+    }
+
+    garbage_low[is.na(garbage_low)] <- 0
+    garbage_high[is.na(garbage_high)] <- 0
+    garbage_total <- garbage_low + garbage_high
+    invalid_total <- which(garbage_total > 1)
+
+    if (length(invalid_total) > 0) {
+      labels <- if ("variable" %in% names(variables)) {
+        variables$variable[invalid_total]
+      } else {
+        invalid_total
+      }
+      result$errors <- c(result$errors,
+        paste(
+          "garbage_low_prop + garbage_high_prop must be <= 1 for each variable:",
+          paste(labels, collapse = ", ")
+        ))
     }
   }
 

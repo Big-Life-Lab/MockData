@@ -157,7 +157,9 @@ create_cat_var <- function(var,
 
   # Filter variable_details for this var AND database (using databaseStart)
   # databaseStart is a recodeflow core column containing comma-separated database identifiers
-  if ("databaseStart" %in% names(variable_details)) {
+  if (is.null(variable_details)) {
+    details_subset <- data.frame(variable = character(0), stringsAsFactors = FALSE)
+  } else if ("databaseStart" %in% names(variable_details)) {
     details_subset <- variable_details[
       variable_details$variable == var &
       (is.na(variable_details$databaseStart) |
@@ -193,6 +195,19 @@ create_cat_var <- function(var,
     ))
     # Generate simple 2-category variable with uniform distribution
     values <- sample(c("1", "2"), size = n, replace = TRUE)
+    # Fallback still honors rType so output contracts match configured metadata.
+    if ("rType" %in% names(var_row)) {
+      r_type <- var_row$rType
+      if (!is.null(r_type) && !is.na(r_type) && r_type != "") {
+        values <- switch(r_type,
+          "factor" = factor(values, levels = c("1", "2")),
+          "character" = as.character(values),
+          "integer" = as.integer(values),
+          "logical" = as.logical(as.integer(values) - 1L),
+          values
+        )
+      }
+    }
 
     col <- data.frame(
       new = values,
