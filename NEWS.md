@@ -6,6 +6,9 @@
   architecture.
 - Added `mock_spec()`, `mock_spec_continuous()`, `mock_spec_categorical()`,
   `mock_spec_date()`, `is_mock_spec()`, and `validate_mock_spec()`.
+- Added direct specification helpers `mock_continuous()`,
+  `mock_categorical()`, and `mock_date()` for simple use without
+  recodeflow-style metadata tables.
 - Added forward-compatible specification fields: `spec_version`, `provenance`,
   and `model_hint`.
 - Existing v0.3 generator APIs remain available while v0.4 internals are built.

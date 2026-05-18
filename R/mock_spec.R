@@ -146,6 +146,13 @@ NULL
   variables
 }
 
+.direct_api_provenance <- function(source, provenance = NULL) {
+  .normalize_provenance(
+    provenance %||% list(adapter = "direct", source = source),
+    source = source
+  )
+}
+
 #' Create a MockData specification
 #'
 #' `mock_spec()` creates the normalized v0.4 specification object used by the
@@ -197,6 +204,190 @@ mock_spec <- function(...,
   }
 
   spec
+}
+
+#' Create a direct continuous mock-data specification
+#'
+#' `mock_continuous()` is the simple direct API for continuous variables. It
+#' returns a validated `mock_spec`; it does not generate data. Generation
+#' backends will consume this specification in a later v0.4 milestone.
+#'
+#' @param name Variable name.
+#' @param range Numeric vector of length two giving the inclusive valid range.
+#' @param distribution Distribution name. Defaults to `"uniform"`.
+#' @param mean,sd Optional distribution parameters. Required when
+#'   `distribution = "normal"`.
+#' @param rtype R output type. Defaults to `"double"`.
+#' @param missing_codes Explicit missing-code values.
+#' @param missing_proportions Missing-code probabilities aligned to
+#'   `missing_codes`.
+#' @param garbage_rules List of intentional invalid-value rules.
+#' @param provenance Optional provenance metadata. Defaults to the direct API.
+#' @param model_hint Backend hint.
+#' @param spec_version Character version of the specification shape.
+#'
+#' @return A validated `mock_spec` object containing one continuous variable.
+#'
+#' @examples
+#' age_spec <- mock_continuous(
+#'   "age",
+#'   range = c(18, 85),
+#'   distribution = "normal",
+#'   mean = 50,
+#'   sd = 12,
+#'   rtype = "integer"
+#' )
+#' validate_mock_spec(age_spec)
+#'
+#' @export
+mock_continuous <- function(name,
+                            range,
+                            distribution = "uniform",
+                            mean = NA_real_,
+                            sd = NA_real_,
+                            rtype = "double",
+                            missing_codes = numeric(0),
+                            missing_proportions = numeric(0),
+                            garbage_rules = list(),
+                            provenance = NULL,
+                            model_hint = "auto",
+                            spec_version = .mock_spec_version) {
+  provenance <- .direct_api_provenance("mock_continuous", provenance)
+
+  mock_spec(
+    mock_spec_continuous(
+      name = name,
+      range = range,
+      distribution = distribution,
+      mean = mean,
+      sd = sd,
+      rtype = rtype,
+      missing_codes = missing_codes,
+      missing_proportions = missing_proportions,
+      garbage_rules = garbage_rules,
+      provenance = provenance,
+      model_hint = model_hint
+    ),
+    spec_version = spec_version,
+    provenance = provenance,
+    model_hint = model_hint
+  )
+}
+
+#' Create a direct categorical mock-data specification
+#'
+#' `mock_categorical()` is the simple direct API for categorical variables. It
+#' returns a validated `mock_spec`; it does not generate data.
+#'
+#' @param name Variable name.
+#' @param levels Character vector of valid levels or codes.
+#' @param proportions Optional probabilities aligned to `levels`.
+#' @param rtype R output type. Defaults to `"factor"`.
+#' @param missing_codes Explicit missing-code values.
+#' @param missing_proportions Missing-code probabilities aligned to
+#'   `missing_codes`.
+#' @param garbage_rules List of intentional invalid-value rules.
+#' @param provenance Optional provenance metadata. Defaults to the direct API.
+#' @param model_hint Backend hint.
+#' @param spec_version Character version of the specification shape.
+#'
+#' @return A validated `mock_spec` object containing one categorical variable.
+#'
+#' @examples
+#' smoking_spec <- mock_categorical(
+#'   "smoking",
+#'   levels = c("never", "former", "current"),
+#'   proportions = c(0.5, 0.3, 0.2),
+#'   rtype = "character"
+#' )
+#' validate_mock_spec(smoking_spec)
+#'
+#' @export
+mock_categorical <- function(name,
+                             levels,
+                             proportions = NULL,
+                             rtype = "factor",
+                             missing_codes = character(0),
+                             missing_proportions = numeric(0),
+                             garbage_rules = list(),
+                             provenance = NULL,
+                             model_hint = "auto",
+                             spec_version = .mock_spec_version) {
+  provenance <- .direct_api_provenance("mock_categorical", provenance)
+
+  mock_spec(
+    mock_spec_categorical(
+      name = name,
+      levels = levels,
+      proportions = proportions,
+      rtype = rtype,
+      missing_codes = missing_codes,
+      missing_proportions = missing_proportions,
+      garbage_rules = garbage_rules,
+      provenance = provenance,
+      model_hint = model_hint
+    ),
+    spec_version = spec_version,
+    provenance = provenance,
+    model_hint = model_hint
+  )
+}
+
+#' Create a direct date mock-data specification
+#'
+#' `mock_date()` is the simple direct API for date variables. It returns a
+#' validated `mock_spec`; it does not generate data.
+#'
+#' @param name Variable name.
+#' @param range Date vector of length two giving the inclusive valid date range.
+#' @param rtype R output type. Defaults to `"date"`.
+#' @param source_format Source-format hint. Defaults to `"analysis"`.
+#' @param missing_codes Explicit missing-code values.
+#' @param missing_proportions Missing-code probabilities aligned to
+#'   `missing_codes`.
+#' @param garbage_rules List of intentional invalid-value rules.
+#' @param provenance Optional provenance metadata. Defaults to the direct API.
+#' @param model_hint Backend hint.
+#' @param spec_version Character version of the specification shape.
+#'
+#' @return A validated `mock_spec` object containing one date variable.
+#'
+#' @examples
+#' interview_date_spec <- mock_date(
+#'   "interview_date",
+#'   range = as.Date(c("2001-01-01", "2005-12-31"))
+#' )
+#' validate_mock_spec(interview_date_spec)
+#'
+#' @export
+mock_date <- function(name,
+                      range,
+                      rtype = "date",
+                      source_format = "analysis",
+                      missing_codes = character(0),
+                      missing_proportions = numeric(0),
+                      garbage_rules = list(),
+                      provenance = NULL,
+                      model_hint = "native-postprocess",
+                      spec_version = .mock_spec_version) {
+  provenance <- .direct_api_provenance("mock_date", provenance)
+
+  mock_spec(
+    mock_spec_date(
+      name = name,
+      range = range,
+      rtype = rtype,
+      source_format = source_format,
+      missing_codes = missing_codes,
+      missing_proportions = missing_proportions,
+      garbage_rules = garbage_rules,
+      provenance = provenance,
+      model_hint = model_hint
+    ),
+    spec_version = spec_version,
+    provenance = provenance,
+    model_hint = model_hint
+  )
 }
 
 #' Create a continuous variable specification
