@@ -15,26 +15,47 @@ simstudy_available <- requireNamespace("simstudy", quietly = TRUE)
 source("R/mockdata-parsers.R", local = TRUE)
 source("R/mockdata_helpers.R", local = TRUE)
 
+MODEL_HINTS <- c(
+  "hybrid",
+  "auto",
+  "native-postprocess",
+  "simstudy-or-native",
+  "simstudy-advanced",
+  "diagnostic-required"
+)
+
 `%||%` <- function(x, y) {
   if (is.null(x)) y else x
 }
 
 mockdata_rtrunc_norm <- function(n, min, max, mu, s) {
+  if (any(!is.finite(min)) || any(!is.finite(max)) || any(min >= max)) {
+    stop("Truncated normal requires finite min < max.", call. = FALSE)
+  }
+
   f_min <- stats::pnorm(min, mean = mu, sd = s)
   f_max <- stats::pnorm(max, mean = mu, sd = s)
+  if (any(!is.finite(f_min)) || any(!is.finite(f_max)) || any(f_min >= f_max)) {
+    stop("Truncated normal bounds collapse to an empty probability interval.", call. = FALSE)
+  }
+
   stats::qnorm(stats::runif(n, min = f_min, max = f_max), mean = mu, sd = s)
 }
 
 new_mock_spec <- function(vars,
                           spec_version = "0.4-spike-1",
                           provenance = list(adapter = "mixed", source = "prototype"),
-                          model_hint = "hybrid") {
+                          model_hint = "hybrid",
+                          correlation_groups = list()) {
+  validate_model_hint(model_hint)
+
   structure(
     vars,
     class = "mock_spec",
     spec_version = spec_version,
     provenance = provenance,
-    model_hint = model_hint
+    model_hint = model_hint,
+    correlation_groups = correlation_groups
   )
 }
 
@@ -42,10 +63,38 @@ add_spec_metadata <- function(var,
                               spec_version = "0.4-spike-1",
                               provenance = "direct",
                               model_hint = "auto") {
+  validate_model_hint(model_hint)
+
   var$spec_version <- spec_version
-  var$provenance <- provenance
+  var$provenance <- normalize_provenance(provenance)
   var$model_hint <- model_hint
   var
+}
+
+normalize_provenance <- function(provenance) {
+  if (is.list(provenance)) {
+    return(provenance)
+  }
+
+  list(adapter = provenance, source = provenance)
+}
+
+format_provenance <- function(provenance) {
+  provenance <- normalize_provenance(provenance)
+  values <- unique(unname(unlist(provenance, use.names = FALSE)))
+  paste(values, collapse = "/")
+}
+
+validate_model_hint <- function(model_hint) {
+  if (!model_hint %in% MODEL_HINTS) {
+    stop(
+      "Unknown model_hint: ", model_hint,
+      ". Expected one of: ", paste(MODEL_HINTS, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  invisible(TRUE)
 }
 
 mock_spec_continuous <- function(name,
@@ -184,7 +233,7 @@ spec_table <- function(spec) {
     rtype = vapply(spec, `[[`, character(1), "rtype"),
     distribution = vapply(spec, `[[`, character(1), "distribution"),
     source = vapply(spec, `[[`, character(1), "source"),
-    provenance = vapply(spec, `[[`, character(1), "provenance"),
+    provenance = vapply(spec, function(x) format_provenance(x$provenance), character(1)),
     model_hint = vapply(spec, `[[`, character(1), "model_hint"),
     stringsAsFactors = FALSE
   )
@@ -288,14 +337,106 @@ simstudy_formula <- function(x) {
   paste(x, collapse = ";")
 }
 
-as_simstudy_def <- function(spec) {
-  if (!simstudy_available) {
-    stop("simstudy is not available; use backend = 'native' for this spike.", call. = FALSE)
+formula_dependencies <- function(var) {
+  if (is.null(var$formula) || is.na(var$formula)) {
+    return(character(0))
   }
 
+  all.vars(str2lang(var$formula))
+}
+
+order_spec_by_dependencies <- function(spec) {
+  remaining <- names(spec)
+  ordered <- character(0)
+
+  while (length(remaining) > 0) {
+    progressed <- FALSE
+
+    for (name in remaining) {
+      deps <- intersect(formula_dependencies(spec[[name]]), names(spec))
+      if (all(deps %in% ordered)) {
+        ordered <- c(ordered, name)
+        remaining <- setdiff(remaining, name)
+        progressed <- TRUE
+      }
+    }
+
+    if (!progressed) {
+      stop(
+        "Formula dependency cycle or unresolved ordering among: ",
+        paste(remaining, collapse = ", "),
+        call. = FALSE
+      )
+    }
+  }
+
+  new_mock_spec(
+    spec[ordered],
+    spec_version = attr(spec, "spec_version"),
+    provenance = attr(spec, "provenance"),
+    model_hint = attr(spec, "model_hint"),
+    correlation_groups = attr(spec, "correlation_groups") %||% list()
+  )
+}
+
+validate_formula_referents <- function(spec) {
+  spec_names <- names(spec)
+
+  for (var in spec) {
+    missing <- setdiff(formula_dependencies(var), spec_names)
+    if (length(missing) > 0) {
+      stop(
+        "Formula for variable '", var$name, "' references unknown variable(s): ",
+        paste(missing, collapse = ", "),
+        call. = FALSE
+      )
+    }
+  }
+
+  invisible(TRUE)
+}
+
+correlation_defs_from_spec <- function(spec) {
+  groups <- attr(spec, "correlation_groups") %||% list()
+  group_names <- unique(na.omit(vapply(
+    spec,
+    function(var) var$correlation_group %||% NA_character_,
+    character(1)
+  )))
+
+  lapply(stats::setNames(group_names, group_names), function(group_name) {
+    vars <- spec[vapply(
+      spec,
+      function(var) identical(var$correlation_group %||% NA_character_, group_name),
+      logical(1)
+    )]
+    config <- groups[[group_name]] %||% list(rho = 0, corstr = "cs")
+
+    list(
+      group = group_name,
+      names = vapply(vars, `[[`, character(1), "name"),
+      means = vapply(vars, `[[`, numeric(1), "mean"),
+      sds = vapply(vars, `[[`, numeric(1), "sd"),
+      rho = config$rho %||% 0,
+      corstr = config$corstr %||% "cs"
+    )
+  })
+}
+
+as_simstudy_def <- function(spec) {
+  validate_formula_referents(spec)
+  spec <- order_spec_by_dependencies(spec)
   def <- NULL
 
   for (var in spec) {
+    if (identical(var$distribution, "correlated_normal")) {
+      next
+    }
+
+    if (!simstudy_available) {
+      stop("simstudy is not available; use backend = 'native' for this spike.", call. = FALSE)
+    }
+
     if (var$type == "continuous") {
       range <- var$range
       if (var$distribution == "normal") {
@@ -353,7 +494,10 @@ as_simstudy_def <- function(spec) {
     }
   }
 
-  def
+  structure(
+    list(data_def = def, correlation_groups = correlation_defs_from_spec(spec)),
+    class = "mock_simstudy_def"
+  )
 }
 
 generate_mock_data_simstudy <- function(spec, n, seed = NULL) {
@@ -365,10 +509,14 @@ generate_mock_data_simstudy <- function(spec, n, seed = NULL) {
     set.seed(seed)
   }
 
-  simstudy::genData(n, as_simstudy_def(spec))
+  sim_def <- as_simstudy_def(spec)
+  simstudy::genData(n, sim_def$data_def)
 }
 
 generate_mock_data_native <- function(spec, n, seed = NULL) {
+  validate_formula_referents(spec)
+  spec <- order_spec_by_dependencies(spec)
+
   if (!is.null(seed)) {
     set.seed(seed)
   }
@@ -407,6 +555,45 @@ generate_mock_data_native <- function(spec, n, seed = NULL) {
   }
 
   data
+}
+
+generate_correlated_simstudy <- function(sim_def, n, seed = NULL) {
+  if (!simstudy_available) {
+    stop("simstudy is not available; use generate_correlated_native().", call. = FALSE)
+  }
+
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
+
+  group <- sim_def$correlation_groups[[1]]
+  as.data.frame(simstudy::genCorData(
+    n,
+    mu = group$means,
+    sigma = group$sds,
+    rho = group$rho,
+    corstr = group$corstr,
+    cnames = group$names
+  ))
+}
+
+generate_correlated_native <- function(sim_def, n, seed = NULL) {
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
+
+  group <- sim_def$correlation_groups[[1]]
+  n_vars <- length(group$names)
+  cor_matrix <- matrix(group$rho, nrow = n_vars, ncol = n_vars)
+  diag(cor_matrix) <- 1
+  z <- matrix(stats::rnorm(n * n_vars), nrow = n)
+  values <- z %*% chol(cor_matrix)
+  values <- sweep(values, 2, group$sds, `*`)
+  values <- sweep(values, 2, group$means, `+`)
+  out <- as.data.frame(values)
+  names(out) <- group$names
+  out$id <- seq_len(n)
+  out[c("id", group$names)]
 }
 
 inject_missing_codes <- function(values,
@@ -549,11 +736,10 @@ example_recodeflow_metadata <- function() {
   list(variables = variables, variable_details = variable_details)
 }
 
-run_correlated_height_weight <- function(n = 1000, seed = 123) {
-  if (!simstudy_available) {
-    stop("simstudy is not available; correlated generation is an advanced backend test.", call. = FALSE)
-  }
-
+run_correlated_height_weight <- function(n = 1000,
+                                         seed = 123,
+                                         backend = c("simstudy", "native")) {
+  backend <- match.arg(backend)
   correlation_spec <- new_mock_spec(list(
     height_cm = mock_spec_correlated_continuous(
       "height_cm",
@@ -567,19 +753,18 @@ run_correlated_height_weight <- function(n = 1000, seed = 123) {
       sd = 16,
       correlation_group = "body_size"
     )
-  ), provenance = list(adapter = "direct", source = "correlation prototype"))
+  ),
+  provenance = list(adapter = "direct", source = "correlation prototype"),
+  correlation_groups = list(body_size = list(rho = 0.65, corstr = "cs")))
 
-  set.seed(seed)
-  out <- simstudy::genCorData(
-    n,
-    mu = vapply(correlation_spec, `[[`, numeric(1), "mean"),
-    sigma = vapply(correlation_spec, `[[`, numeric(1), "sd"),
-    rho = 0.65,
-    corstr = "cs",
-    cnames = vapply(correlation_spec, `[[`, character(1), "name")
-  )
+  sim_def <- as_simstudy_def(correlation_spec)
+  out <- if (backend == "simstudy") {
+    generate_correlated_simstudy(sim_def, n = n, seed = seed)
+  } else {
+    generate_correlated_native(sim_def, n = n, seed = seed)
+  }
 
-  list(spec = correlation_spec, data = as.data.frame(out))
+  list(spec = correlation_spec, simstudy_def = sim_def, data = out)
 }
 
 run_survival_anchor <- function(n = 1000, seed = 123) {
@@ -610,9 +795,11 @@ run_survival_anchor <- function(n = 1000, seed = 123) {
   entry_start <- as.Date("2001-01-01")
   data$entry_date <- entry_start + sample(0:365, n, replace = TRUE)
   data$event_date <- as.Date(NA)
+  data$censor_date <- as.Date(NA)
   event_idx <- which(data$event == 1)
+  censor_idx <- which(data$event == 0)
   data$event_date[event_idx] <- data$entry_date[event_idx] + round(data$followup_days[event_idx])
-  data$censor_date <- data$entry_date + round(data$followup_days)
+  data$censor_date[censor_idx] <- data$entry_date[censor_idx] + round(data$followup_days[censor_idx])
   data
 }
 
@@ -662,12 +849,19 @@ assert_spike <- function(result) {
   stopifnot(isTRUE(all.equal(as.numeric(spec$age$range), c(18, 100))))
   stopifnot(identical(spec$smoking$levels, c("1", "2", "3")))
   if (result$backend == "simstudy") {
-    stopifnot("data.table" %in% class(result$simstudy_def))
+    stopifnot(inherits(result$simstudy_def, "mock_simstudy_def"))
+    stopifnot("data.table" %in% class(result$simstudy_def$data_def))
   }
   stopifnot(all(c("age", "smoking", "interview_date", "high_visits") %in% names(final)))
   stopifnot(all(baseline$age >= 18 & baseline$age <= 100))
+  stopifnot(abs(mean(baseline$age) - 50) < 2)
+  stopifnot(abs(stats::sd(baseline$age) - 15) < 3)
   stopifnot(is.integer(final$age))
   stopifnot(all(baseline$smoking %in% c(1, 2, 3)))
+  smoking_props <- prop.table(table(baseline$smoking))
+  stopifnot(abs(unname(smoking_props["1"]) - 0.50) < 0.07)
+  stopifnot(abs(unname(smoking_props["2"]) - 0.30) < 0.07)
+  stopifnot(abs(unname(smoking_props["3"]) - 0.20) < 0.07)
   stopifnot(all(final$high_visits %in% c(0, 1)))
   stopifnot(any(final$high_visits == 1))
   stopifnot(inherits(final$interview_date, "Date"))
@@ -675,8 +869,16 @@ assert_spike <- function(result) {
   stopifnot(all(final$interview_date <= as.Date("2005-12-31")))
   stopifnot(any(final$age %in% c(997L, 998L)))
   stopifnot(any(final$age < 18L | final$age > 100L))
+  age_valid_assignment <- diagnostics$missing_assignments$age == "valid"
+  age_garbage_rate <- mean(
+    (final$age < 18L | final$age > 100L) & age_valid_assignment,
+    na.rm = TRUE
+  )
+  stopifnot(age_garbage_rate > 0.02)
+  stopifnot(age_garbage_rate < 0.06)
   stopifnot(any(final$smoking == 7L))
   stopifnot(any(diagnostics$missing_assignments$smoking == "7"))
+  stopifnot(abs(mean(diagnostics$missing_assignments$smoking == "7") - 0.03) < 0.03)
 
   if (result$backend == "simstudy") {
     correlated <- result$correlated$data
@@ -684,10 +886,17 @@ assert_spike <- function(result) {
     survival <- result$survival
 
     stopifnot(all(vapply(correlation_spec, `[[`, character(1), "correlation_group") == "body_size"))
-    stopifnot(stats::cor(correlated$height_cm, correlated$weight_kg) > 0.50)
+    stopifnot(inherits(result$correlated$simstudy_def, "mock_simstudy_def"))
+    stopifnot(abs(stats::cor(correlated$height_cm, correlated$weight_kg) - 0.65) < 0.08)
+    stopifnot(abs(mean(correlated$height_cm) - 170) < 2)
+    stopifnot(abs(mean(correlated$weight_kg) - 78) < 3)
+    stopifnot(abs(stats::sd(correlated$height_cm) - 10) < 2)
+    stopifnot(abs(stats::sd(correlated$weight_kg) - 16) < 3)
     stopifnot(all(survival$followup_days >= 0))
     stopifnot(any(survival$event == 1))
     stopifnot(all(is.na(survival$event_date) | survival$event_date >= survival$entry_date))
+    stopifnot(all(is.na(survival$censor_date) | survival$censor_date >= survival$entry_date))
+    stopifnot(!any(!is.na(survival$event_date) & !is.na(survival$censor_date)))
   }
 
   invisible(TRUE)
@@ -732,6 +941,81 @@ assert_missing_collision_case <- function(seed = 123) {
   invisible(final)
 }
 
+assert_non_numeric_categorical_labels <- function(seed = 123) {
+  spec <- new_mock_spec(list(
+    smoking_label = mock_spec_categorical(
+      name = "smoking_label",
+      levels = c("never", "former", "current"),
+      proportions = c(0.50, 0.30, 0.20),
+      rtype = "character",
+      provenance = "label-test",
+      model_hint = "simstudy-or-native"
+    )
+  ))
+
+  native <- postprocess_mock_data(
+    generate_mock_data_native(spec, n = 1000, seed = seed),
+    spec,
+    seed = seed + 1
+  )
+  stopifnot(all(native$smoking_label %in% c("never", "former", "current")))
+
+  if (simstudy_available) {
+    sim <- postprocess_mock_data(
+      generate_mock_data_simstudy(spec, n = 1000, seed = seed),
+      spec,
+      seed = seed + 1
+    )
+    stopifnot(all(sim$smoking_label %in% c("never", "former", "current")))
+  }
+
+  invisible(TRUE)
+}
+
+assert_formula_dependency_validation <- function() {
+  spec <- new_mock_spec(list(
+    outcome = mock_spec_binary_formula("outcome", "-1 + missing_predictor")
+  ))
+
+  error <- tryCatch(
+    {
+      validate_formula_referents(spec)
+      NULL
+    },
+    error = conditionMessage
+  )
+  stopifnot(grepl("missing_predictor", error))
+
+  unordered <- new_mock_spec(list(
+    outcome = mock_spec_binary_formula("outcome", "-4 + 0.04 * age"),
+    age = mock_spec_continuous(
+      "age",
+      range = c(18, 100),
+      distribution = "normal",
+      mean = 50,
+      sd = 15,
+      rtype = "integer"
+    )
+  ))
+  ordered <- order_spec_by_dependencies(unordered)
+  stopifnot(identical(names(ordered), c("age", "outcome")))
+
+  invisible(TRUE)
+}
+
+assert_truncated_normal_boundaries <- function() {
+  error <- tryCatch(
+    {
+      mockdata_rtrunc_norm(10, min = 5, max = 5, mu = 5, s = 1)
+      NULL
+    },
+    error = conditionMessage
+  )
+  stopifnot(grepl("min < max", error))
+
+  invisible(TRUE)
+}
+
 assert_seed_reproducibility <- function() {
   first <- run_spike(seed = 123, backend = "native")$final
   second <- run_spike(seed = 123, backend = "native")$final
@@ -763,6 +1047,9 @@ spike_result <- if (simstudy_available) {
 assert_spike(spike_result)
 native_result <- assert_native_fallback()
 collision_result <- assert_missing_collision_case()
+assert_non_numeric_categorical_labels()
+assert_formula_dependency_validation()
+assert_truncated_normal_boundaries()
 assert_seed_reproducibility()
 
 cat("MockData v0.4 simstudy spike passed.\n\n")

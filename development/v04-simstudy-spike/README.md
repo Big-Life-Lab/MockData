@@ -38,13 +38,16 @@ MOCKDATA_SIMSTUDY_LIB=/private/tmp/no-simstudy-lib \
 - Recodeflow-style metadata can normalize into a small internal `mock_spec`.
 - The same `mock_spec` can translate to `simstudy::defData()` definitions for
   age, smoking, interview date offsets, and one formula dependency.
-- `simstudy` can preserve categorical codes via categorical labels.
+- `simstudy` can preserve recodeflow categorical codes via categorical levels,
+  and both backends can also generate non-numeric categorical labels such as
+  `"never"`, `"former"`, and `"current"`.
 - Truncated normal age generation can be handled with a `simstudy` custom
   distribution while MockData still owns range parsing and rType coercion.
 - MockData-style explicit missing codes and garbage values can remain
   post-processing after baseline valid-value generation.
 - Correlated height/weight generation is straightforward through
-  `simstudy::genCorData()` when correlation is declared in `mock_spec`.
+  `simstudy::genCorData()` when correlation parameters are declared in
+  `mock_spec` and translated through the backend definition layer.
 - Survival durations can be generated through `simstudy::defSurv()` /
   `simstudy::genSurv()` and then anchored back to MockData-owned calendar
   dates.
@@ -54,6 +57,10 @@ MOCKDATA_SIMSTUDY_LIB=/private/tmp/no-simstudy-lib \
   diagnostics. This matters when a valid drawn value can equal an explicit
   missing code.
 - Seed reproducibility can be asserted across native and `simstudy` paths.
+- Formula dependencies can be validated for missing referents and sorted so
+  formula variables are generated after their inputs.
+- Truncated-normal boundary collapse now fails loudly instead of returning
+  `NaN`.
 
 ## Early Read
 
@@ -81,6 +88,19 @@ architecture decision needs to explicitly decide whether:
 The current prototype supports the first option technically: the native fallback
 path runs without loading `simstudy`.
 
+## Prototype Contracts Surfaced
+
+- `model_hint` is currently a small enum in the prototype rather than an
+  unrestricted string.
+- `provenance` is stored as structured metadata and displayed compactly in the
+  printed spec table.
+- `mockdata_diagnostics` is the prototype mechanism for preserving assignment
+  state after post-processing. This is what lets MockData distinguish a value
+  that was drawn as valid from the same value assigned as an explicit missing
+  code.
+- Survival date columns use mutually exclusive `event_date` and `censor_date`
+  values. Event rows do not also receive a censoring date.
+
 ## Review Gaps Addressed After First PR Review
 
 - Added `spec_version`, `provenance`, and `model_hint` fields.
@@ -91,3 +111,25 @@ path runs without loading `simstudy`.
   value and an assigned missing code.
 - Moved the height/weight correlation example into a `mock_spec` declaration.
 - Added seed reproducibility assertions.
+
+## Review Gaps Addressed After Second PR Review
+
+- Fixed the survival censoring semantic bug where event rows also had
+  `censor_date` populated.
+- Routed correlation parameters through `mock_spec` and the backend definition
+  layer, with both `simstudy` and native Cholesky-based generation paths.
+- Added formula referent validation and dependency ordering.
+- Added statistical-contract assertions for truncated normal moments,
+  categorical proportions, garbage rates, and correlation marginals.
+- Added non-numeric categorical label coverage.
+
+## Remaining Questions Before Production Refactor
+
+- Whether `mockdata_diagnostics` should become a formal internal contract or a
+  different diagnostics object.
+- How much of the prototype `mock_spec` should become user-facing for advanced
+  users.
+- Whether formula/dependency syntax should come from recodeflow metadata,
+  direct MockData arguments, or a future third adapter.
+- Whether `simstudy` remains a `Suggests` backend long term or becomes a
+  stronger package dependency after governance review.
