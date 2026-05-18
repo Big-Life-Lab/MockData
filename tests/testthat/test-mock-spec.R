@@ -82,7 +82,7 @@ test_that("validate_mock_spec returns structured errors when strict is FALSE", {
     name = "smoking",
     levels = c("never", "former", "current"),
     proportions = c(0.5, 0.3)
-  ))
+  ), validate = FALSE)
 
   result <- validate_mock_spec(spec, strict = FALSE)
 
@@ -94,13 +94,13 @@ test_that("validate_mock_spec catches malformed continuous and date ranges", {
   bad_continuous <- mock_spec(mock_spec_continuous(
     name = "age",
     range = c(85, 18)
-  ))
+  ), validate = FALSE)
   expect_error(validate_mock_spec(bad_continuous), "lower bound")
 
   bad_date <- mock_spec(mock_spec_date(
     name = "interview_date",
     range = c("2001-01-01", "2005-12-31")
-  ))
+  ), validate = FALSE)
   expect_error(validate_mock_spec(bad_date), "range must be Date")
 })
 
@@ -111,7 +111,7 @@ test_that("validate_mock_spec catches normal distribution parameter errors", {
     distribution = "normal",
     mean = 50,
     sd = 0
-  ))
+  ), validate = FALSE)
 
   expect_error(validate_mock_spec(bad_normal), "sd > 0")
 })
@@ -119,7 +119,8 @@ test_that("validate_mock_spec catches normal distribution parameter errors", {
 test_that("mock_spec rejects duplicate variable names", {
   spec <- mock_spec(
     mock_spec_continuous("age", range = c(18, 85)),
-    mock_spec_continuous("age", range = c(0, 100))
+    mock_spec_continuous("age", range = c(0, 100)),
+    validate = FALSE
   )
 
   result <- validate_mock_spec(spec, strict = FALSE)
@@ -140,4 +141,59 @@ test_that("validate_mock_spec rejects non-spec objects", {
 
   expect_false(result$valid)
   expect_true(any(grepl("mock_spec", result$errors)))
+})
+
+test_that("mock_spec validates on construction by default", {
+  expect_error(
+    mock_spec(mock_spec_categorical(
+      name = "smoking",
+      levels = c("never", "former", "current"),
+      proportions = c(0.5, 0.3)
+    )),
+    "one proportion per level"
+  )
+})
+
+test_that("validate_mock_spec accumulates multiple errors", {
+  spec <- mock_spec(
+    mock_spec_categorical(
+      name = "smoking",
+      levels = character(0),
+      proportions = c(0.5, 0.5)
+    ),
+    validate = FALSE
+  )
+
+  result <- validate_mock_spec(spec, strict = FALSE)
+
+  expect_false(result$valid)
+  expect_true(length(result$errors) >= 2)
+  expect_true(any(grepl("at least one level", result$errors)))
+  expect_true(any(grepl("one proportion per level", result$errors)))
+})
+
+test_that("is_mock_spec returns FALSE for non-spec objects", {
+  expect_false(is_mock_spec(list()))
+  expect_false(is_mock_spec(NULL))
+  expect_false(is_mock_spec(data.frame()))
+})
+
+test_that("mock_spec preserves spec_version and rejects missing spec_version", {
+  spec <- mock_spec(spec_version = "0.4.0-test")
+
+  expect_equal(spec$spec_version, "0.4.0-test")
+
+  spec$spec_version <- NA_character_
+  result <- validate_mock_spec(spec, strict = FALSE)
+
+  expect_false(result$valid)
+  expect_true(any(grepl("spec_version", result$errors)))
+})
+
+test_that("print.mock_spec_validation_result summarizes errors", {
+  result <- validate_mock_spec(list(), strict = FALSE)
+
+  expect_output(print(result), "invalid")
+  expect_output(print(result), "Errors")
+  expect_output(print(result), "spec must be a mock_spec object")
 })

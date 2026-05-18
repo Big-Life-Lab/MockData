@@ -17,6 +17,29 @@
   "diagnostic-required"
 )
 
+#' Model hints for MockData specifications
+#'
+#' Model hints are lightweight backend guidance carried by `mock_spec` objects
+#' and variables. They are not generation commands; generation backends may use
+#' them to choose a sensible default path.
+#'
+#' Supported values:
+#' \describe{
+#'   \item{`auto`}{Let MockData choose the backend.}
+#'   \item{`native`}{Prefer the native MockData backend.}
+#'   \item{`simstudy`}{Prefer the optional `simstudy` backend.}
+#'   \item{`native-postprocess`}{Generate baseline values natively, then rely
+#'   on MockData post-processing such as date/source-format conversion.}
+#'   \item{`simstudy-or-native`}{Either backend is expected to be suitable.}
+#'   \item{`simstudy-advanced`}{Feature is expected to need advanced `simstudy`
+#'   support, such as correlations or survival durations.}
+#'   \item{`diagnostic-required`}{Generation/post-processing must preserve
+#'   diagnostics needed to interpret the result.}
+#' }
+#'
+#' @name mock_spec_model_hints
+NULL
+
 `%||%` <- function(x, y) {
   if (is.null(x)) y else x
 }
@@ -135,16 +158,31 @@
 #' @param provenance List or character describing where the spec came from.
 #' @param model_hint Character backend hint. One of the supported MockData model
 #'   hints.
+#' @param validate Logical. If `TRUE`, validate the constructed specification
+#'   before returning it.
 #'
 #' @return S3 object of class `mock_spec`.
+#'
+#' @examples
+#' spec <- mock_spec(
+#'   mock_spec_continuous("age", range = c(18, 85), rtype = "integer"),
+#'   mock_spec_categorical(
+#'     "smoking",
+#'     levels = c("never", "former", "current"),
+#'     proportions = c(0.5, 0.3, 0.2)
+#'   )
+#' )
+#' validate_mock_spec(spec)
+#'
 #' @export
 mock_spec <- function(...,
                       spec_version = .mock_spec_version,
                       provenance = list(adapter = "direct", source = "direct"),
-                      model_hint = "auto") {
+                      model_hint = "auto",
+                      validate = TRUE) {
   .validate_model_hint(model_hint)
 
-  structure(
+  spec <- structure(
     list(
       spec_version = spec_version,
       provenance = .normalize_provenance(provenance),
@@ -153,6 +191,12 @@ mock_spec <- function(...,
     ),
     class = c("mock_spec", "list")
   )
+
+  if (isTRUE(validate)) {
+    validate_mock_spec(spec, strict = TRUE)
+  }
+
+  spec
 }
 
 #' Create a continuous variable specification
@@ -170,6 +214,17 @@ mock_spec <- function(...,
 #' @param model_hint Backend hint.
 #'
 #' @return A `mock_spec_variable` object.
+#'
+#' @examples
+#' age <- mock_spec_continuous(
+#'   "age",
+#'   range = c(18, 85),
+#'   distribution = "normal",
+#'   mean = 50,
+#'   sd = 12,
+#'   rtype = "integer"
+#' )
+#'
 #' @export
 mock_spec_continuous <- function(name,
                                  range,
@@ -212,6 +267,15 @@ mock_spec_continuous <- function(name,
 #' @param model_hint Backend hint.
 #'
 #' @return A `mock_spec_variable` object.
+#'
+#' @examples
+#' smoking <- mock_spec_categorical(
+#'   "smoking",
+#'   levels = c("never", "former", "current"),
+#'   proportions = c(0.5, 0.3, 0.2),
+#'   rtype = "character"
+#' )
+#'
 #' @export
 mock_spec_categorical <- function(name,
                                   levels,
@@ -251,6 +315,13 @@ mock_spec_categorical <- function(name,
 #' @param model_hint Backend hint.
 #'
 #' @return A `mock_spec_variable` object.
+#'
+#' @examples
+#' interview_date <- mock_spec_date(
+#'   "interview_date",
+#'   range = as.Date(c("2001-01-01", "2005-12-31"))
+#' )
+#'
 #' @export
 mock_spec_date <- function(name,
                            range,
@@ -281,6 +352,12 @@ mock_spec_date <- function(name,
 #' @param x Object to check.
 #'
 #' @return Logical scalar.
+#'
+#' @examples
+#' spec <- mock_spec()
+#' is_mock_spec(spec)
+#' is_mock_spec(list())
+#'
 #' @export
 is_mock_spec <- function(x) {
   inherits(x, "mock_spec")
@@ -299,6 +376,35 @@ is_mock_spec <- function(x) {
     ),
     class = c("mock_spec_validation_result", "list")
   )
+}
+
+#' @export
+print.mock_spec_validation_result <- function(x, ...) {
+  status <- if (isTRUE(x$valid)) "valid" else "invalid"
+  cat("MockData mock_spec validation result: ", status, "\n", sep = "")
+
+  if (length(x$errors) > 0) {
+    cat("\nErrors:\n")
+    for (i in seq_along(x$errors)) {
+      cat(i, ". ", x$errors[[i]], "\n", sep = "")
+    }
+  }
+
+  if (length(x$warnings) > 0) {
+    cat("\nWarnings:\n")
+    for (i in seq_along(x$warnings)) {
+      cat(i, ". ", x$warnings[[i]], "\n", sep = "")
+    }
+  }
+
+  if (length(x$info) > 0) {
+    cat("\nInfo:\n")
+    for (i in seq_along(x$info)) {
+      cat(i, ". ", x$info[[i]], "\n", sep = "")
+    }
+  }
+
+  invisible(x)
 }
 
 .validate_probability_vector <- function(values, label, allow_null = FALSE) {
@@ -435,6 +541,14 @@ is_mock_spec <- function(x) {
 #'   a validation result object is returned.
 #'
 #' @return A `mock_spec_validation_result` object when valid or `strict = FALSE`.
+#'
+#' @examples
+#' spec <- mock_spec(mock_spec_continuous("age", range = c(18, 85)))
+#' validate_mock_spec(spec)
+#'
+#' result <- validate_mock_spec(list(), strict = FALSE)
+#' result$valid
+#'
 #' @export
 validate_mock_spec <- function(spec, n = NULL, strict = TRUE) {
   errors <- character(0)

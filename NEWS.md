@@ -1,3 +1,15 @@
+# MockData 0.4.0
+
+## Development
+
+- Started the v0.4 production refactor around a normalized `mock_spec`
+  architecture.
+- Added `mock_spec()`, `mock_spec_continuous()`, `mock_spec_categorical()`,
+  `mock_spec_date()`, `is_mock_spec()`, and `validate_mock_spec()`.
+- Added forward-compatible specification fields: `spec_version`, `provenance`,
+  and `model_hint`.
+- Existing v0.3 generator APIs remain available while v0.4 internals are built.
+
 # MockData 0.3.0
 
 ## Breaking changes
