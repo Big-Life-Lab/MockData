@@ -22,6 +22,47 @@ test_that("postprocess_mock_data distinguishes missing-code collisions", {
   expect_true(any(baseline$response[diagnostics$preexisting_missing_code_indices] == "97"))
 })
 
+test_that("postprocess_mock_data does not overwrite preexisting missing-code collisions with garbage", {
+  spec <- mock_categorical(
+    "response",
+    levels = c("1", "97"),
+    proportions = c(0.5, 0.5),
+    rtype = "character",
+    missing_codes = "97",
+    missing_proportions = 0,
+    garbage_rules = list(low = list(proportion = 1, range = "[-2, 0]"))
+  )
+  baseline <- generate_mock_data_native(spec, n = 100, seed = 13)
+  expect_true(any(baseline$response == "97"))
+
+  result <- postprocess_mock_data(baseline, spec, seed = 14)
+  diagnostics <- attr(result, "mockdata_diagnostics")$variables$response
+
+  preexisting <- diagnostics$preexisting_missing_code_indices
+  garbage <- diagnostics$assigned_garbage_indices$low
+
+  expect_length(intersect(preexisting, garbage), 0)
+  expect_true(all(result$response[preexisting] == "97"))
+})
+
+test_that("postprocess_mock_data rejects missing-proportion overflow", {
+  spec <- mock_categorical(
+    "response",
+    levels = c("1", "2"),
+    proportions = c(0.5, 0.5),
+    rtype = "character",
+    missing_codes = c("97", "98"),
+    missing_proportions = c(0.1, 0.1)
+  )
+  spec$variables$response$missing_proportions <- c(0.6, 0.6)
+  baseline <- data.frame(response = rep(c("1", "2"), each = 10))
+
+  expect_error(
+    postprocess_mock_data(baseline, spec, seed = 16),
+    "missing proportions must sum"
+  )
+})
+
 test_that("postprocess_mock_data applies integer missing and garbage rules", {
   spec <- mock_continuous(
     "age",
@@ -117,6 +158,23 @@ test_that("postprocess_mock_data preserves and extends factor levels", {
   expect_true(all(as.character(result$smoking[low_idx]) %in% c("-2", "-1", "0")))
 })
 
+test_that("postprocess_mock_data applies garbage rules in canonical order", {
+  spec <- mock_continuous(
+    "age",
+    range = c(18, 85),
+    garbage_rules = list(
+      high = list(proportion = 0.1, range = "[150, 200]"),
+      low = list(proportion = 0.1, range = "[-10, 0]")
+    )
+  )
+  baseline <- generate_mock_data_native(spec, n = 20, seed = 81)
+
+  result <- postprocess_mock_data(baseline, spec, seed = 82)
+  diagnostics <- attr(result, "mockdata_diagnostics")$variables$age
+
+  expect_equal(names(diagnostics$assigned_garbage_indices), c("low", "high"))
+})
+
 test_that("postprocess_mock_data rejects unnamed garbage rules", {
   spec <- mock_continuous(
     "age",
@@ -127,7 +185,7 @@ test_that("postprocess_mock_data rejects unnamed garbage rules", {
 
   expect_error(
     postprocess_mock_data(baseline, spec, seed = 82),
-    "named list"
+    "unnamed rule index: 1"
   )
 })
 
@@ -159,4 +217,20 @@ test_that("postprocess_mock_data validates input shape and diagnostics opt-out",
 
   result <- postprocess_mock_data(baseline, spec, diagnostics = FALSE)
   expect_null(attr(result, "mockdata_diagnostics"))
+})
+
+test_that("postprocess_mock_data rejects idempotent re-call", {
+  spec <- mock_continuous(
+    "age",
+    range = c(18, 85),
+    missing_codes = 997,
+    missing_proportions = 0.1
+  )
+  baseline <- generate_mock_data_native(spec, n = 20, seed = 91)
+  result <- postprocess_mock_data(baseline, spec, seed = 92)
+
+  expect_error(
+    postprocess_mock_data(result, spec, seed = 93),
+    "already run"
+  )
 })

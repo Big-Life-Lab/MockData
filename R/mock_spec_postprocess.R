@@ -8,13 +8,27 @@
 
 .postprocess_empty_diagnostics <- function(spec, n) {
   variables <- lapply(spec$variables, function(variable) {
+    garbage_rule_names <- names(variable$garbage_rules)
+    if (is.null(garbage_rule_names)) {
+      garbage_rule_names <- character(0)
+    }
+    garbage_rule_names <- .ordered_garbage_rule_names(garbage_rule_names)
+    garbage_indices <- stats::setNames(
+      rep(list(integer(0)), length(garbage_rule_names)),
+      garbage_rule_names
+    )
+    garbage_values <- stats::setNames(
+      rep(list(character(0)), length(garbage_rule_names)),
+      garbage_rule_names
+    )
+
     list(
       n = n,
       preexisting_missing_code_indices = integer(0),
       assigned_missing_indices = integer(0),
       assigned_missing_codes = character(0),
-      assigned_garbage_indices = list(low = integer(0), high = integer(0)),
-      assigned_garbage_values = list(low = character(0), high = character(0))
+      assigned_garbage_indices = garbage_indices,
+      assigned_garbage_values = garbage_values
     )
   })
 
@@ -138,9 +152,20 @@
   values
 }
 
+.ordered_garbage_rule_names <- function(rule_names) {
+  c(intersect(c("low", "high"), rule_names), setdiff(rule_names, c("low", "high")))
+}
+
 .postprocess_missing <- function(values, variable, diagnostics) {
   if (length(variable$missing_codes) == 0) {
     return(list(values = values, diagnostics = diagnostics))
+  }
+  if (sum(variable$missing_proportions) > 1 + .mock_spec_probability_tolerance) {
+    stop(
+      "Variable '", variable$name,
+      "' missing proportions request more rows than are available.",
+      call. = FALSE
+    )
   }
 
   available <- seq_along(values)
@@ -182,11 +207,25 @@
     return(list(values = values, diagnostics = diagnostics))
   }
   if (is.null(names(variable$garbage_rules)) || any(names(variable$garbage_rules) == "")) {
-    stop("Variable '", variable$name, "' garbage_rules must be a named list.", call. = FALSE)
+    rule_names <- names(variable$garbage_rules)
+    unnamed <- if (is.null(rule_names)) {
+      seq_along(variable$garbage_rules)
+    } else {
+      which(rule_names == "")
+    }
+    stop(
+      "Variable '", variable$name, "' garbage_rules must be a named list; ",
+      "unnamed rule index: ", paste(unnamed, collapse = ", "),
+      ".",
+      call. = FALSE
+    )
   }
 
-  assigned_missing <- diagnostics$assigned_missing_indices
-  valid_idx <- setdiff(which(!is.na(values)), assigned_missing)
+  protected_idx <- union(
+    diagnostics$assigned_missing_indices,
+    diagnostics$preexisting_missing_code_indices
+  )
+  valid_idx <- setdiff(which(!is.na(values)), protected_idx)
   remaining_idx <- valid_idx
 
   requested <- vapply(variable$garbage_rules, function(rule) {
@@ -205,7 +244,7 @@
     )
   }
 
-  for (rule_name in names(variable$garbage_rules)) {
+  for (rule_name in .ordered_garbage_rule_names(names(variable$garbage_rules))) {
     rule <- variable$garbage_rules[[rule_name]]
     n_assign <- requested[[rule_name]]
     if (n_assign == 0) {
@@ -256,6 +295,12 @@
 #'   attribute to the returned data frame.
 #'
 #' @return A data frame with post-processing applied.
+#'
+#' @details
+#' Diagnostics are stored as a data-frame attribute. Base R subsetting and some
+#' downstream tools may drop attributes, so preserve the original post-processed
+#' object when diagnostics are part of the audit trail.
+#'
 #' @family mock generation APIs
 #' @seealso [generate_mock_data_native()], [mock_spec()]
 #'
@@ -276,6 +321,13 @@
 postprocess_mock_data <- function(data, spec, seed = NULL, diagnostics = TRUE) {
   if (!is.data.frame(data)) {
     stop("data must be a data frame.", call. = FALSE)
+  }
+  if (!is.null(attr(data, "mockdata_diagnostics"))) {
+    stop(
+      "postprocess_mock_data() appears to have already run on this data. ",
+      "Start from baseline generated data to avoid double post-processing.",
+      call. = FALSE
+    )
   }
   validate_mock_spec(spec, n = nrow(data), strict = TRUE)
 
