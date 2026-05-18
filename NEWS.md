@@ -9,6 +9,8 @@
 - Added direct specification helpers `mock_continuous()`,
   `mock_categorical()`, and `mock_date()` for simple use without
   recodeflow-style metadata tables.
+- Added `mock_spec_from_recodeflow()` to adapt recodeflow-style `variables`
+  and `variable_details` metadata into validated `mock_spec` objects.
 - Added forward-compatible specification fields: `spec_version`, `provenance`,
   and `model_hint`.
 - Existing v0.3 generator APIs remain available while v0.4 internals are built.
