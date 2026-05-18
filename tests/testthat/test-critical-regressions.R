@@ -224,6 +224,34 @@ test_that("create_mock_data matches enabled as an exact role token", {
   expect_equal(names(result), "age")
 })
 
+test_that("create_mock_data supports whitespace-separated role tokens", {
+  variables <- data.frame(
+    variable = c("age", "visits"),
+    variableType = c("Continuous", "Continuous"),
+    rType = c("integer", "integer"),
+    role = c("enabled predictor", "disabled"),
+    stringsAsFactors = FALSE
+  )
+
+  variable_details <- data.frame(
+    variable = c("age", "visits"),
+    recStart = c("[18,85]", "[0,20]"),
+    recEnd = c("copy", "copy"),
+    proportion = c(1, 1),
+    stringsAsFactors = FALSE
+  )
+
+  result <- create_mock_data(
+    databaseStart = "study",
+    variables = variables,
+    variable_details = variable_details,
+    n = 5,
+    seed = 1
+  )
+
+  expect_equal(names(result), "age")
+})
+
 test_that("extract_proportions uses recEnd rather than numeric code heuristics for missingness", {
   details <- data.frame(
     variable = "visits",
@@ -319,7 +347,7 @@ test_that("rType defaults and validation use lowercase date consistently", {
 
   variables <- data.frame(
     variable = "interview_date",
-    rType = "Date",
+    rType = c("Date", "numeric"),
     stringsAsFactors = FALSE
   )
   result <- MockData:::validate_rtype(variables)
@@ -414,4 +442,47 @@ test_that("garbage validation rejects low and high proportions above one", {
     result$errors,
     "garbage_low_prop \\+ garbage_high_prop must be <= 1"
   )
+})
+
+test_that("garbage validation rejects non-numeric proportions", {
+  variables <- data.frame(
+    variable = "age",
+    garbage_low_prop = "high",
+    garbage_low_range = "[-1,0]",
+    garbage_high_prop = "0,5",
+    garbage_high_range = "[150,200]",
+    stringsAsFactors = FALSE
+  )
+
+  result <- MockData:::validate_garbage(variables)
+
+  expect_true(any(grepl("garbage_low_prop values must be numeric", result$errors)))
+  expect_true(any(grepl("garbage_high_prop values must be numeric", result$errors)))
+})
+
+test_that("create_mock_data summarizes skipped variables when validate is FALSE", {
+  variables <- data.frame(
+    variable = "mystery",
+    variableType = "Unknown",
+    rType = "unsupported",
+    role = "enabled",
+    stringsAsFactors = FALSE
+  )
+
+  expect_message(
+    expect_warning(
+      result <- create_mock_data(
+        databaseStart = "study",
+        variables = variables,
+        variable_details = NULL,
+        n = 5,
+        validate = FALSE
+      ),
+      "Unknown variable type"
+    ),
+    "Skipped variables"
+  )
+
+  expect_equal(nrow(result), 5)
+  expect_equal(ncol(result), 0)
 })

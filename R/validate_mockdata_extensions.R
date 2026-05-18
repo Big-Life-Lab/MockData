@@ -178,7 +178,7 @@ validate_uids <- function(variables, variable_details) {
 validate_rtype <- function(variables) {
   result <- list(errors = character(0), warnings = character(0), info = character(0))
 
-  valid_rtypes <- c("integer", "double", "factor", "logical", "character", "date")
+  valid_rtypes <- c("integer", "double", "numeric", "factor", "logical", "character", "date")
 
   if ("rType" %in% names(variables)) {
     non_empty_rtypes <- tolower(variables$rType[!is.na(variables$rType) & variables$rType != ""])
@@ -293,7 +293,12 @@ validate_garbage <- function(variables) {
     non_empty <- variables$garbage_low_prop[!is.na(variables$garbage_low_prop) &
                                                variables$garbage_low_prop != ""]
     if (length(non_empty) > 0) {
-      garbage_low <- as.numeric(non_empty)
+      garbage_low <- suppressWarnings(as.numeric(non_empty))
+      not_numeric <- non_empty[is.na(garbage_low)]
+      if (length(not_numeric) > 0) {
+        result$errors <- c(result$errors,
+          paste("garbage_low_prop values must be numeric:", paste(not_numeric, collapse = ", ")))
+      }
       invalid <- garbage_low[garbage_low < 0 | garbage_low > 1]
 
       if (length(invalid) > 0) {
@@ -325,7 +330,12 @@ validate_garbage <- function(variables) {
     non_empty <- variables$garbage_high_prop[!is.na(variables$garbage_high_prop) &
                                                 variables$garbage_high_prop != ""]
     if (length(non_empty) > 0) {
-      garbage_high <- as.numeric(non_empty)
+      garbage_high <- suppressWarnings(as.numeric(non_empty))
+      not_numeric <- non_empty[is.na(garbage_high)]
+      if (length(not_numeric) > 0) {
+        result$errors <- c(result$errors,
+          paste("garbage_high_prop values must be numeric:", paste(not_numeric, collapse = ", ")))
+      }
       invalid <- garbage_high[garbage_high < 0 | garbage_high > 1]
 
       if (length(invalid) > 0) {
@@ -335,9 +345,9 @@ validate_garbage <- function(variables) {
     }
   }
 
-  # Check combined garbage proportions. The generator applies low garbage first,
-  # then high garbage to remaining valid values; totals above 1 cannot be
-  # represented without truncating the second pass.
+  # Check combined garbage proportions. Low and high proportions are each
+  # interpreted relative to the original valid pool; totals above 1 truncate the
+  # second pass because there are not enough remaining valid rows.
   if ("garbage_low_prop" %in% names(variables) || "garbage_high_prop" %in% names(variables)) {
     garbage_low <- if ("garbage_low_prop" %in% names(variables)) {
       suppressWarnings(as.numeric(variables$garbage_low_prop))

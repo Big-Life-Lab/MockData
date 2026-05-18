@@ -33,6 +33,11 @@
 #' @return data.frame with 1-5 date columns (depending on which variables are
 #'   specified), or NULL if variables already exist in df_mock.
 #'
+#' @section Deprecated arguments:
+#' `prop_garbage` is deprecated as of v0.3.0. Configure garbage values on
+#' individual date variables with `garbage_high_prop` and `garbage_high_range`
+#' instead.
+#'
 #' @details
 #' This function implements v0.3.0 "recodeflow pattern" API:
 #' - Accepts full metadata data frames (not pre-filtered subsets)

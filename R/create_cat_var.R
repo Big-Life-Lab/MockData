@@ -195,6 +195,7 @@ create_cat_var <- function(var,
     ))
     # Generate simple 2-category variable with uniform distribution
     values <- sample(c("1", "2"), size = n, replace = TRUE)
+    # Fallback still honors rType so output contracts match configured metadata.
     if ("rType" %in% names(var_row)) {
       r_type <- var_row$rType
       if (!is.null(r_type) && !is.na(r_type) && r_type != "") {

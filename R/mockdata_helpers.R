@@ -858,6 +858,7 @@ apply_garbage <- function(values, var_row, variable_type, missing_codes = NULL, 
 #'
 #' - `"integer"`: Whole numbers (age, counts, years)
 #' - `"double"`: Decimal numbers (BMI, income, percentages)
+#' - `"numeric"`: Numeric vector
 #' - `"factor"`: Categorical with levels
 #' - `"character"`: Text codes
 #' - `"logical"`: TRUE/FALSE values
@@ -892,7 +893,7 @@ apply_rtype_defaults <- function(details) {
   if ("rType" %in% names(details)) {
     # Validate rType values
     details$rType <- tolower(details$rType)
-    valid_rtypes <- c("integer", "double", "factor", "character",
+    valid_rtypes <- c("integer", "double", "numeric", "factor", "character",
                       "logical", "date")
     invalid <- setdiff(unique(details$rType[!is.na(details$rType)]), valid_rtypes)
     if (length(invalid) > 0) {

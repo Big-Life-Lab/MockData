@@ -1,3 +1,5 @@
+#' Match Role Tokens
+#' @noRd
 .role_matches <- function(role_values, roles, ignore.case = TRUE) {
   if (length(role_values) == 0) {
     return(logical(0))
@@ -12,7 +14,7 @@
       return(FALSE)
     }
 
-    tokens <- trimws(unlist(strsplit(as.character(value), "[,;]")))
+    tokens <- trimws(unlist(strsplit(as.character(value), "[,;[:space:]]+")))
     tokens <- tokens[tokens != ""]
 
     if (ignore.case) {
@@ -23,6 +25,8 @@
   }, logical(1))
 }
 
+#' Migrate Legacy Garbage Column Aliases
+#' @noRd
 .migrate_garbage_aliases <- function(variables) {
   alias_map <- c(
     corrupt_low_prop = "garbage_low_prop",
@@ -83,9 +87,9 @@
 #' @return Data frame with subset of config rows matching any of the specified roles.
 #'
 #' @details
-#' This function handles comma- or semicolon-separated role values by exact token
-#' matching. A variable matches if any role token equals one of the requested
-#' roles.
+#' This function handles comma-, semicolon-, or whitespace-separated role values
+#' by exact token matching. A variable matches if any role token equals one of
+#' the requested roles.
 #'
 #' Common role values:
 #' - enabled: Variables to generate in mock data

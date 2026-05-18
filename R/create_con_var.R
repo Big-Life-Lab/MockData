@@ -191,6 +191,7 @@ create_con_var <- function(var,
       "'. Using fallback uniform range [0, 100]."
     ))
     values <- runif(n, min = 0, max = 100)
+    # Fallback still honors rType so output contracts match configured metadata.
     if ("rType" %in% names(var_row)) {
       r_type <- var_row$rType
       if (!is.null(r_type) && !is.na(r_type) && r_type != "") {
