@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Working with date variables • MockData</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="tutorial-dates_files/libs/quarto-html/popper.min.js"></script><script src="tutorial-dates_files/libs/quarto-html/tippy.umd.min.js"></script><link href="tutorial-dates_files/libs/quarto-html/tippy.css" rel="stylesheet">
 <link href="tutorial-dates_files/libs/quarto-html/light-border.css" rel="stylesheet">
@@ -184,14 +184,14 @@
 <span><span class="co"># View interview date distribution</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">interview_data</span><span class="op">$</span><span class="va">interview_date</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] "2001-03-08" "2003-05-28" "2005-10-22" "2005-06-17" "2002-01-18"
-[6] "2005-04-24"</code></pre>
+<pre><code>[1] "2005-07-01" "2005-09-11" "2003-09-25" "2005-08-09" "2004-07-13"
+[6] "2002-12-14"</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="va">interview_data</span><span class="op">$</span><span class="va">interview_date</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>        Min.      1st Qu.       Median         Mean      3rd Qu.         Max.
-"2001-01-17" "2002-01-02" "2002-11-14" "2003-03-06" "2004-05-07" "2005-12-12" </code></pre>
+"2001-01-09" "2002-01-16" "2003-03-01" "2003-04-25" "2004-07-16" "2005-10-24" </code></pre>
 </div>
 </div>
 <p><strong>Result:</strong> 100 interview dates uniformly distributed between 2001-01-01 and 2005-12-31 (matching the minimal-example metadata).</p>
@@ -714,7 +714,7 @@
 </div>
 <p><strong>Validation results:</strong></p>
 <ul>
-<li>Date range: 2001-01-17 to 2005-12-12</li>
+<li>Date range: 2001-01-09 to 2005-10-24</li>
 <li>Missing dates: 0</li>
 <li>All dates within expected range (2001-01-01 to 2005-12-31): TRUE</li>
 </ul>

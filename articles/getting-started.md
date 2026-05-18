@@ -212,10 +212,10 @@ str(mock_data)
     'data.frame':   100 obs. of  6 variables:
      $ age           : int  58 18 50 53 45 43 40 47 35 61 ...
      $ smoking       : Factor w/ 4 levels "1","2","3","7": 3 1 2 2 1 1 2 1 3 1 ...
-     $ BMI           : num  23.3 30.2 33.7 37.1 24 ...
-     $ height        : num  1.161 1.374 0.857 0.416 0.809 ...
-     $ weight        : num  67.9 60.3 69.5 96.7 79.6 ...
-     $ interview_date: Date, format: "2003-09-21" "2003-11-16" ...
+     $ BMI           : num  996 998 996 996 999 996 999 996 996 997 ...
+     $ height        : num  0.529 0.637 0.336 1.293 1.356 ...
+     $ weight        : num  87.1 104.1 51.1 82.8 86.1 ...
+     $ interview_date: Date, format: "2005-10-09" "2004-04-16" ...
 
 **What’s garbage data?**
 
@@ -243,7 +243,7 @@ Smoking status distribution:
 Interview date range:
 
         Earliest       Latest
-    "2001-02-09" "2005-12-25" 
+    "2001-01-15" "2005-12-25" 
 
 **Why this approach is best:**
 
@@ -345,16 +345,16 @@ mock_data %>%
 ```
 
        age age_group smoking smoking_binary interview_date
-    1   58     40-59       3           Ever     2003-09-21
-    2   18     18-39       1          Never     2003-11-16
-    3   50     40-59       2           Ever     2003-02-24
-    4   53     40-59       2           Ever     2002-07-02
-    5   45     40-59       1          Never     2005-08-22
-    6   43     40-59       1          Never     2004-07-21
-    7   40     18-39       2           Ever     2003-04-26
-    8   47     40-59       1          Never     2004-08-19
-    9   35     18-39       3           Ever     2001-10-19
-    10  61       60+       1          Never     2003-11-23
+    1   58     40-59       3           Ever     2005-10-09
+    2   18     18-39       1          Never     2004-04-16
+    3   50     40-59       2           Ever     2002-01-12
+    4   53     40-59       2           Ever     2002-09-21
+    5   45     40-59       1          Never     2005-08-19
+    6   43     40-59       1          Never     2002-07-29
+    7   40     18-39       2           Ever     2001-07-10
+    8   47     40-59       1          Never     2005-09-27
+    9   35     18-39       3           Ever     2003-04-18
+    10  61       60+       1          Never     2003-10-20
 
 **Common use cases:**
 

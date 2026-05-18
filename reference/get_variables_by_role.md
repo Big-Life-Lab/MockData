@@ -29,9 +29,9 @@ roles.
 
 ## Details
 
-This function handles comma-separated role values by using grepl()
-pattern matching. A variable matches if its role column contains any of
-the specified role values.
+This function handles comma-, semicolon-, or whitespace-separated role
+values by exact token matching. A variable matches if any role token
+equals one of the requested roles.
 
 Common role values:
 

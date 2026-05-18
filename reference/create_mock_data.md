@@ -58,7 +58,7 @@ create_mock_data(
   - `catLabel`: Category label/description
 
   Can also be a file path (character) to variable_details.csv. If NULL,
-  uses fallback mode (uniform distributions).
+  uses simple fallback generation.
 
 - n:
 
@@ -70,7 +70,10 @@ create_mock_data(
 
 - validate:
 
-  Logical. Whether to validate configuration files (default TRUE).
+  Logical. Whether to use strict generation checks (default TRUE). When
+  TRUE, unsupported variable types and generator errors stop generation.
+  When FALSE, those errors are converted to warnings and the affected
+  variable is skipped.
 
 - verbose:
 
@@ -90,7 +93,7 @@ handle internal filtering.
 
 1.  Load metadata from file paths or accept data frames
 
-2.  Filter for enabled variables (role contains "enabled")
+2.  Filter for enabled variables (role has an exact "enabled" token)
 
 3.  Set global seed (if provided)
 
@@ -101,8 +104,9 @@ handle internal filtering.
 
 5.  Return complete dataset
 
-**Fallback mode**: If variable_details = NULL, uses uniform
-distributions for all enabled variables.
+**Fallback mode**: If variable_details = NULL, uses simple default
+generators for enabled variables (two-category categorical values,
+continuous values from 0, 100, and dates from 2000-01-01 to 2025-12-31).
 
 **Variable types supported**:
 

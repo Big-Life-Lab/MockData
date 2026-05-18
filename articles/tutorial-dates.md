@@ -75,8 +75,8 @@ interview_data <- create_mock_data(
 head(interview_data$interview_date)
 ```
 
-    [1] "2001-03-08" "2003-05-28" "2005-10-22" "2005-06-17" "2002-01-18"
-    [6] "2005-04-24"
+    [1] "2005-07-01" "2005-09-11" "2003-09-25" "2005-08-09" "2004-07-13"
+    [6] "2002-12-14"
 
 ``` r
 
@@ -84,7 +84,7 @@ summary(as.Date(interview_data$interview_date))
 ```
 
             Min.      1st Qu.       Median         Mean      3rd Qu.         Max.
-    "2001-01-17" "2002-01-02" "2002-11-14" "2003-03-06" "2004-05-07" "2005-12-12" 
+    "2001-01-09" "2002-01-16" "2003-03-01" "2003-04-25" "2004-07-16" "2005-10-24" 
 
 **Result:** 100 interview dates uniformly distributed between 2001-01-01
 and 2005-12-31 (matching the minimal-example metadata).
@@ -662,7 +662,7 @@ all_valid <- all(interview_dates >= expected_min &
 
 **Validation results:**
 
-- Date range: 2001-01-17 to 2005-12-12
+- Date range: 2001-01-09 to 2005-10-24
 - Missing dates: 0
 - All dates within expected range (2001-01-01 to 2005-12-31): TRUE
 

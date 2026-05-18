@@ -30,7 +30,7 @@ If rType column is missing, defaults are applied based on variable type:
 
 - `categorical`/`cat` → `"factor"`
 
-- `date` → `"Date"`
+- `date` → `"date"`
 
 - `logical` → `"logical"`
 
@@ -42,15 +42,15 @@ If rType column is missing, defaults are applied based on variable type:
 
 - `"double"`: Decimal numbers (BMI, income, percentages)
 
+- `"numeric"`: Numeric vector
+
 - `"factor"`: Categorical with levels
 
 - `"character"`: Text codes
 
 - `"logical"`: TRUE/FALSE values
 
-- `"Date"`: Date objects
-
-- `"POSIXct"`: Datetime objects
+- `"date"`: Date objects
 
 ## See also
 

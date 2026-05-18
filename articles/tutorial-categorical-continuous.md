@@ -382,13 +382,13 @@ names(mock_data)
 head(mock_data[, c("smoking", "age", "weight")])
 ```
 
-      smoking age   weight
-    1       1  42 88.22128
-    2       1  52 69.28890
-    3       1  49 39.45189
-    4       2  63 87.50134
-    5       1  52 57.72547
-    6       2  55 63.62102
+      smoking age    weight
+    1       1  42  79.34026
+    2       1  52  56.45727
+    3       1  49  78.34651
+    4       2  63  97.54244
+    5       1  52  85.74665
+    6       2  55 100.46887
 
 **Result:** All enabled variables generated in a single call,
 maintaining consistent sample size and relationships.

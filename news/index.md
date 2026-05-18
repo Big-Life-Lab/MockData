@@ -90,6 +90,24 @@ vars_with_garbage <- variables %>%
 - Fixed derived variable generation in
   [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md) -
   derived variables now correctly excluded
+- Fixed
+  [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+  error handling: strict mode is now the default, so unsupported `rType`
+  values and generator errors stop generation instead of silently
+  dropping columns. Use `validate = FALSE` to opt into warning-and-skip
+  behavior.
+- Fixed role matching so `disabled` no longer matches `enabled`.
+- Fixed missing-code classification to use `recEnd` metadata instead of
+  numeric-code heuristics, so valid codes such as 7, 17, and 27 are not
+  misclassified as missing.
+- Fixed `variable_details = NULL` fallback mode for categorical,
+  continuous, and date variables.
+- Fixed `rType` normalization so `date`/`Date` handling is consistent
+  across validation, defaults, and generation.
+- Added migration warnings for legacy `corrupt_*` garbage fields and
+  recStart values, rewriting them to canonical `garbage_*` names.
+- Added validation that `garbage_low_prop + garbage_high_prop` does not
+  exceed 1, preventing silent truncation of the second garbage pass.
 
 ### Documentation
 
