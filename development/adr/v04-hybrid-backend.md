@@ -112,4 +112,9 @@ Production refactor should proceed in layers:
 - Whether `mock_spec` is internal-only or partially user-facing in v0.4.0.
 - How formula/dependency syntax enters from recodeflow or direct APIs.
 - How Table 1 / summary specifications become a future adapter.
-
+- How the legacy `var_row` shim used by v0.3 garbage helpers is replaced with
+  typed v0.4 post-processing specs.
+- Empty, `NULL`, `n = 0`, and single-row input behavior across adapters and
+  backends.
+- Seed discipline across native generation, post-processing, and the optional
+  `simstudy` backend.

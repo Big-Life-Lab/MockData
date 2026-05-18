@@ -188,6 +188,59 @@ test_that("mock_spec preserves spec_version and rejects missing spec_version", {
 
   expect_false(result$valid)
   expect_true(any(grepl("spec_version", result$errors)))
+
+  spec$spec_version <- ""
+  result <- validate_mock_spec(spec, strict = FALSE)
+
+  expect_false(result$valid)
+  expect_true(any(grepl("spec_version", result$errors)))
+})
+
+test_that("validate_mock_spec checks provenance and model_hint after mutation", {
+  spec <- mock_spec(mock_spec_continuous("age", range = c(18, 85)))
+
+  spec$provenance <- "not-a-list"
+  result <- validate_mock_spec(spec, strict = FALSE)
+  expect_false(result$valid)
+  expect_true(any(grepl("provenance must be a list", result$errors)))
+
+  spec <- mock_spec(mock_spec_continuous("age", range = c(18, 85)))
+  spec$provenance$adapter <- ""
+  result <- validate_mock_spec(spec, strict = FALSE)
+  expect_false(result$valid)
+  expect_true(any(grepl("provenance\\$adapter", result$errors)))
+
+  spec <- mock_spec(mock_spec_continuous("age", range = c(18, 85)))
+  spec$provenance$source <- NA_character_
+  result <- validate_mock_spec(spec, strict = FALSE)
+  expect_false(result$valid)
+  expect_true(any(grepl("provenance\\$source", result$errors)))
+
+  spec <- mock_spec(mock_spec_continuous("age", range = c(18, 85)))
+  spec$model_hint <- "magic"
+  result <- validate_mock_spec(spec, strict = FALSE)
+  expect_false(result$valid)
+  expect_true(any(grepl("mock_spec model_hint", result$errors)))
+
+  spec <- mock_spec(mock_spec_continuous("age", range = c(18, 85)))
+  spec$variables$age$provenance$adapter <- ""
+  spec$variables$age$model_hint <- "magic"
+  result <- validate_mock_spec(spec, strict = FALSE)
+  expect_false(result$valid)
+  expect_true(any(grepl("Variable 'age' provenance\\$adapter", result$errors)))
+  expect_true(any(grepl("Variable 'age' model_hint", result$errors)))
+})
+
+test_that("proportion sums use floating-point tolerance consistently", {
+  spec <- mock_spec(mock_spec_categorical(
+    "smoking",
+    levels = c("never", "former"),
+    proportions = c(0.5, 0.5 + 1e-15),
+    missing_codes = c("7", "9"),
+    missing_proportions = c(0.5, 0.5 + 1e-15)
+  ))
+
+  expect_true(validate_mock_spec(spec)$valid)
 })
 
 test_that("print.mock_spec_validation_result summarizes errors", {

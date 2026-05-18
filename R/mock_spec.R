@@ -7,6 +7,8 @@
 
 .mock_spec_version <- "0.4.0"
 
+.mock_spec_probability_tolerance <- 1e-8
+
 .mock_spec_model_hints <- c(
   "auto",
   "native",
@@ -44,6 +46,10 @@ NULL
   if (is.null(x)) y else x
 }
 
+.is_non_empty_string <- function(x) {
+  is.character(x) && length(x) == 1 && !is.na(x) && nzchar(trimws(x))
+}
+
 .normalize_provenance <- function(provenance, source = NULL) {
   if (is.null(provenance)) {
     provenance <- list(adapter = "direct", source = source %||% "direct")
@@ -51,14 +57,22 @@ NULL
     provenance <- list(adapter = as.character(provenance), source = source %||% as.character(provenance))
   }
 
-  if (is.null(provenance$adapter) || is.na(provenance$adapter) || provenance$adapter == "") {
-    provenance$adapter <- "unknown"
+  if (!.is_non_empty_string(provenance$adapter)) {
+    stop("provenance$adapter must be a non-empty string.", call. = FALSE)
   }
-  if (is.null(provenance$source) || is.na(provenance$source) || provenance$source == "") {
+  if (is.null(provenance$source) && !is.null(source)) {
+    provenance$source <- source
+  } else if (is.null(provenance$source)) {
     provenance$source <- provenance$adapter
   }
+  if (!.is_non_empty_string(provenance$source)) {
+    stop("provenance$source must be a non-empty string.", call. = FALSE)
+  }
 
-  provenance
+  c(
+    list(adapter = provenance$adapter, source = provenance$source),
+    provenance[setdiff(names(provenance), c("adapter", "source"))]
+  )
 }
 
 .validate_model_hint <- function(model_hint) {
@@ -147,10 +161,15 @@ NULL
 }
 
 .direct_api_provenance <- function(source, provenance = NULL) {
-  .normalize_provenance(
-    provenance %||% list(adapter = "direct", source = source),
-    source = source
-  )
+  provenance <- provenance %||% list(source = source)
+
+  if (!is.list(provenance)) {
+    provenance <- list(source = as.character(provenance))
+  }
+  provenance$adapter <- "direct"
+  provenance$source <- provenance$source %||% source
+
+  .normalize_provenance(provenance, source = source)
 }
 
 #' Create a MockData specification
@@ -169,6 +188,8 @@ NULL
 #'   before returning it.
 #'
 #' @return S3 object of class `mock_spec`.
+#' @family mock specification APIs
+#' @seealso [mock_continuous()], [mock_categorical()], [mock_date()]
 #'
 #' @examples
 #' spec <- mock_spec(
@@ -227,6 +248,8 @@ mock_spec <- function(...,
 #' @param spec_version Character version of the specification shape.
 #'
 #' @return A validated `mock_spec` object containing one continuous variable.
+#' @family direct specification APIs
+#' @seealso [mock_spec()], [mock_spec_continuous()]
 #'
 #' @examples
 #' age_spec <- mock_continuous(
@@ -292,6 +315,8 @@ mock_continuous <- function(name,
 #' @param spec_version Character version of the specification shape.
 #'
 #' @return A validated `mock_spec` object containing one categorical variable.
+#' @family direct specification APIs
+#' @seealso [mock_spec()], [mock_spec_categorical()]
 #'
 #' @examples
 #' smoking_spec <- mock_categorical(
@@ -351,6 +376,8 @@ mock_categorical <- function(name,
 #' @param spec_version Character version of the specification shape.
 #'
 #' @return A validated `mock_spec` object containing one date variable.
+#' @family direct specification APIs
+#' @seealso [mock_spec()], [mock_spec_date()]
 #'
 #' @examples
 #' interview_date_spec <- mock_date(
@@ -405,6 +432,8 @@ mock_date <- function(name,
 #' @param model_hint Backend hint.
 #'
 #' @return A `mock_spec_variable` object.
+#' @family mock specification APIs
+#' @seealso [mock_spec()], [mock_continuous()]
 #'
 #' @examples
 #' age <- mock_spec_continuous(
@@ -458,6 +487,8 @@ mock_spec_continuous <- function(name,
 #' @param model_hint Backend hint.
 #'
 #' @return A `mock_spec_variable` object.
+#' @family mock specification APIs
+#' @seealso [mock_spec()], [mock_categorical()]
 #'
 #' @examples
 #' smoking <- mock_spec_categorical(
@@ -506,6 +537,8 @@ mock_spec_categorical <- function(name,
 #' @param model_hint Backend hint.
 #'
 #' @return A `mock_spec_variable` object.
+#' @family mock specification APIs
+#' @seealso [mock_spec()], [mock_date()]
 #'
 #' @examples
 #' interview_date <- mock_spec_date(
@@ -622,6 +655,22 @@ print.mock_spec_validation_result <- function(x, ...) {
   errors
 }
 
+.validate_provenance <- function(provenance, label) {
+  errors <- character(0)
+
+  if (!is.list(provenance)) {
+    return(paste0(label, " provenance must be a list."))
+  }
+  if (!.is_non_empty_string(provenance$adapter)) {
+    errors <- c(errors, paste0(label, " provenance$adapter must be a non-empty string."))
+  }
+  if (!.is_non_empty_string(provenance$source)) {
+    errors <- c(errors, paste0(label, " provenance$source must be a non-empty string."))
+  }
+
+  errors
+}
+
 .validate_missing_spec <- function(variable) {
   errors <- character(0)
 
@@ -643,7 +692,7 @@ print.mock_spec_validation_result <- function(x, ...) {
   ))
 
   missing_sum <- sum(variable$missing_proportions, na.rm = TRUE)
-  if (missing_sum > 1) {
+  if (missing_sum > 1 + .mock_spec_probability_tolerance) {
     errors <- c(errors, paste0(
       "Variable '", variable$name,
       "' missing proportions must sum to <= 1."
@@ -685,6 +734,21 @@ print.mock_spec_validation_result <- function(x, ...) {
   }
 
   errors <- c(errors, .validate_missing_spec(variable))
+  errors <- c(errors, .validate_provenance(
+    variable$provenance,
+    paste0("Variable '", variable$name, "'")
+  ))
+  if (is.null(variable$model_hint) ||
+      length(variable$model_hint) != 1 ||
+      is.na(variable$model_hint) ||
+      !variable$model_hint %in% .mock_spec_model_hints) {
+    errors <- c(errors, paste0(
+      "Variable '", variable$name,
+      "' model_hint must be one of: ",
+      paste(.mock_spec_model_hints, collapse = ", "),
+      "."
+    ))
+  }
 
   if (variable$type == "continuous") {
     errors <- c(errors, .validate_range(variable$range, variable$name, "numeric"))
@@ -710,7 +774,7 @@ print.mock_spec_validation_result <- function(x, ...) {
         allow_null = FALSE
       ))
       prop_sum <- sum(variable$proportions, na.rm = TRUE)
-      if (abs(prop_sum - 1) > 0.001) {
+      if (abs(prop_sum - 1) > .mock_spec_probability_tolerance) {
         errors <- c(errors, paste0("Variable '", variable$name, "' proportions must sum to 1."))
       }
     }
@@ -749,8 +813,19 @@ validate_mock_spec <- function(spec, n = NULL, strict = TRUE) {
   if (!is_mock_spec(spec)) {
     errors <- c(errors, "spec must be a mock_spec object.")
   } else {
-    if (is.null(spec$spec_version) || length(spec$spec_version) != 1 || is.na(spec$spec_version)) {
-      errors <- c(errors, "mock_spec must have a scalar spec_version.")
+    if (!.is_non_empty_string(spec$spec_version)) {
+      errors <- c(errors, "mock_spec must have a non-empty scalar spec_version.")
+    }
+    errors <- c(errors, .validate_provenance(spec$provenance, "mock_spec"))
+    if (is.null(spec$model_hint) ||
+        length(spec$model_hint) != 1 ||
+        is.na(spec$model_hint) ||
+        !spec$model_hint %in% .mock_spec_model_hints) {
+      errors <- c(errors, paste0(
+        "mock_spec model_hint must be one of: ",
+        paste(.mock_spec_model_hints, collapse = ", "),
+        "."
+      ))
     }
     if (is.null(spec$variables) || !is.list(spec$variables)) {
       errors <- c(errors, "mock_spec variables must be a list.")
