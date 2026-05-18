@@ -133,3 +133,23 @@ path runs without loading `simstudy`.
   direct MockData arguments, or a future third adapter.
 - Whether `simstudy` remains a `Suggests` backend long term or becomes a
   stronger package dependency after governance review.
+
+## Internal Contracts Not Yet Generalized
+
+The prototype deliberately encodes a few implementation contracts that are
+useful evidence, but not production-ready API decisions:
+
+- Date variables use hidden `__offset` companion columns during generation, then
+  convert those offsets to calendar dates in post-processing.
+- Custom `simstudy` distributions are resolved by global function name, as with
+  `mockdata_rtrunc_norm`; production code likely needs an explicit distribution
+  registry.
+- Formula variables are added directly to `mock_spec` in the spike rather than
+  parsed from recodeflow metadata.
+- Garbage post-processing still rebuilds a row-shaped `var_row` object to reuse
+  the v0.3 `apply_garbage()` helper.
+- The prototype uses `seed + 1` for post-processing so baseline generation and
+  missing/garbage assignment are reproducible but distinct.
+- Correlated variables currently use a separate backend path from ordinary
+  `defData()` generation; production code needs a merge strategy for multiple
+  correlation groups and ordinary variables.
