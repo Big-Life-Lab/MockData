@@ -159,6 +159,7 @@
 #' }
 #'
 #' @family generators
+#' @keywords deprecated
 #' @export
 create_wide_survival_data <- function(var_entry_date,
                                        var_event_date = NULL,
