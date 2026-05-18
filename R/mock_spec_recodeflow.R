@@ -14,7 +14,12 @@
     if (!file.exists(x)) {
       stop(label, " file does not exist: ", x, call. = FALSE)
     }
-    return(read.csv(x, stringsAsFactors = FALSE, check.names = FALSE))
+    return(read.csv(
+      x,
+      stringsAsFactors = FALSE,
+      check.names = FALSE,
+      na.strings = c("", "NA")
+    ))
   }
 
   stop(label, " must be a data frame or a single CSV path.", call. = FALSE)
@@ -50,7 +55,18 @@
   if (.is_blank(value)) {
     return(default)
   }
-  suppressWarnings(as.numeric(value))
+
+  numeric_value <- suppressWarnings(as.numeric(value))
+  if (is.na(numeric_value)) {
+    stop(
+      "Column '", name, "' for variable '",
+      .row_character(row, "variable", "<unknown>"),
+      "' must be numeric; got '", as.character(value), "'.",
+      call. = FALSE
+    )
+  }
+
+  numeric_value
 }
 
 .recodeflow_required_columns <- function(data, required, label) {
@@ -61,8 +77,14 @@
 }
 
 .filter_recodeflow_by_database <- function(data, databaseStart, allow_empty = TRUE) {
-  if (is.null(databaseStart) || !"databaseStart" %in% names(data)) {
+  if (is.null(databaseStart)) {
     return(data)
+  }
+  if (!"databaseStart" %in% names(data)) {
+    stop(
+      "databaseStart filtering was requested, but metadata has no 'databaseStart' column.",
+      call. = FALSE
+    )
   }
 
   data[.database_start_matches(data$databaseStart, databaseStart, allow_empty = allow_empty), , drop = FALSE]
@@ -143,7 +165,7 @@
     !grepl("^garbage_", rec_start, ignore.case = TRUE) &
     !grepl("^NA::", rec_end) &
     !grepl("^DerivedVar::", rec_start) &
-    !grepl("^Func::", rec_end)
+    !grepl("^Func::", rec_start)
 
   details[keep, , drop = FALSE]
 }
@@ -209,7 +231,16 @@
 
   params <- tryCatch(
     extract_distribution_params(details),
-    error = function(e) list(distribution = "uniform")
+    error = function(e) {
+      warning(
+        "Could not infer distribution for variable '",
+        .row_character(var_row, "variable", "<unknown>"),
+        "' from details; using uniform. Reason: ",
+        conditionMessage(e),
+        call. = FALSE
+      )
+      list(distribution = "uniform")
+    }
   )
   params$distribution %||% "uniform"
 }
@@ -319,6 +350,20 @@
 #' `variable_details` metadata into the normalized v0.4 `mock_spec` shape. It
 #' returns a validated specification; it does not generate data.
 #'
+#' @details
+#' This adapter preserves recodeflow semantics instead of treating metadata as a
+#' generic table. It uses exact role and `databaseStart` token matching, parses
+#' valid ranges from `recStart`, classifies missing codes from `recEnd` values
+#' that begin with `NA::`, preserves categorical levels and proportions, carries
+#' `garbage_*` settings into `garbage_rules`, and stores survival/date fields
+#' such as `rate`, `shape`, `followup_min`, `followup_max`, and `event_prop` on
+#' date variables for later backend milestones.
+#'
+#' By default, variables identified by `DerivedVar::` or `Func::` rows are
+#' excluded because they should be evaluated after raw mock variables are
+#' generated. Set `exclude_derived = FALSE` only when you want those rows to
+#' appear in the adapter input and fail or be handled by later formula support.
+#'
 #' @param variables Data frame or CSV path for recodeflow-style `variables`
 #'   metadata.
 #' @param variable_details Data frame, CSV path, or `NULL` for recodeflow-style
@@ -386,6 +431,13 @@ mock_spec_from_recodeflow <- function(variables,
 
   if (isTRUE(exclude_derived) && !is.null(variable_details)) {
     derived <- identify_derived_vars(variables, variable_details)
+    removed <- intersect(variables$variable, derived)
+    if (length(removed) > 0) {
+      message(
+        "Excluding derived recodeflow variable(s): ",
+        paste(removed, collapse = ", ")
+      )
+    }
     variables <- variables[!variables$variable %in% derived, , drop = FALSE]
   }
 
