@@ -68,6 +68,23 @@ read_mock_data_config_details <- function(details_path, validate = TRUE, config 
   # Read CSV
   details <- read.csv(details_path, stringsAsFactors = FALSE, check.names = FALSE)
 
+  if ("recStart" %in% names(details)) {
+    corrupt_rows <- grepl("^corrupt_", details$recStart, ignore.case = TRUE)
+    if (any(corrupt_rows, na.rm = TRUE)) {
+      warning(
+        "The corrupt_* recStart values are deprecated. ",
+        "Use garbage_low, garbage_high, or garbage_future instead.",
+        call. = FALSE
+      )
+      details$recStart[corrupt_rows] <- sub(
+        "^corrupt_",
+        "garbage_",
+        details$recStart[corrupt_rows],
+        ignore.case = TRUE
+      )
+    }
+  }
+
   # Type conversions
   numeric_cols <- c("proportion", "value")
   for (col in numeric_cols) {
@@ -194,9 +211,9 @@ validate_mock_data_config_details <- function(details, config = NULL) {
     for (var in vars) {
       var_rows <- details[details$variable == var, ]
 
-      # Exclude garbage rows. corrupt_* is kept as a legacy alias.
+      # Exclude garbage rows.
       pop_rows <- var_rows[
-        !grepl("^(garbage|corrupt)_", var_rows$recStart, ignore.case = TRUE),
+        !grepl("^garbage_", var_rows$recStart, ignore.case = TRUE),
       ]
 
       # Calculate sum of population proportions (excluding NA)
@@ -215,7 +232,7 @@ validate_mock_data_config_details <- function(details, config = NULL) {
           # Auto-normalize
           norm_factor <- 1.0 / prop_sum
           pop_idx <- which(details$variable == var &
-                          !grepl("^(garbage|corrupt)_", details$recStart, ignore.case = TRUE) &
+                          !grepl("^garbage_", details$recStart, ignore.case = TRUE) &
                           !is.na(details$proportion))
           details$proportion[pop_idx] <- details$proportion[pop_idx] * norm_factor
         }
@@ -241,7 +258,6 @@ validate_mock_data_config_details <- function(details, config = NULL) {
   known_recStart <- c("copy", "distribution", "mean", "sd", "rate", "shape",
                       "valid", "censored",
                       "garbage_low", "garbage_high", "garbage_future",
-                      "corrupt_low", "corrupt_high", "corrupt_future",
                       "followup_min", "followup_max", "event",  # Survival parameters
                       "7", "8", "9", "96", "97", "98", "99",  # Missing codes
                       "-7", "-8", "-9")  # Negative missing codes

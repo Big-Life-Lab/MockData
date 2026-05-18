@@ -48,6 +48,7 @@ validate_mockdata_metadata <- function(variables_path, variable_details_path, mo
   # Load data
   variables <- read.csv(variables_path, stringsAsFactors = FALSE, check.names = FALSE)
   variable_details <- read.csv(variable_details_path, stringsAsFactors = FALSE, check.names = FALSE)
+  variables <- .migrate_garbage_aliases(variables)
 
   # 1. UID validation (numeric-only pattern)
   result$uid_validation <- validate_uids(variables, variable_details)
@@ -180,7 +181,7 @@ validate_rtype <- function(variables) {
   valid_rtypes <- c("integer", "double", "factor", "logical", "character", "date")
 
   if ("rType" %in% names(variables)) {
-    non_empty_rtypes <- variables$rType[!is.na(variables$rType) & variables$rType != ""]
+    non_empty_rtypes <- tolower(variables$rType[!is.na(variables$rType) & variables$rType != ""])
 
     if (length(non_empty_rtypes) > 0) {
       invalid_rtypes <- setdiff(unique(non_empty_rtypes), valid_rtypes)
@@ -331,6 +332,40 @@ validate_garbage <- function(variables) {
         result$errors <- c(result$errors,
           paste("garbage_high_prop values must be 0-1:", paste(invalid, collapse = ", ")))
       }
+    }
+  }
+
+  # Check combined garbage proportions. The generator applies low garbage first,
+  # then high garbage to remaining valid values; totals above 1 cannot be
+  # represented without truncating the second pass.
+  if ("garbage_low_prop" %in% names(variables) || "garbage_high_prop" %in% names(variables)) {
+    garbage_low <- if ("garbage_low_prop" %in% names(variables)) {
+      suppressWarnings(as.numeric(variables$garbage_low_prop))
+    } else {
+      rep(0, nrow(variables))
+    }
+    garbage_high <- if ("garbage_high_prop" %in% names(variables)) {
+      suppressWarnings(as.numeric(variables$garbage_high_prop))
+    } else {
+      rep(0, nrow(variables))
+    }
+
+    garbage_low[is.na(garbage_low)] <- 0
+    garbage_high[is.na(garbage_high)] <- 0
+    garbage_total <- garbage_low + garbage_high
+    invalid_total <- which(garbage_total > 1)
+
+    if (length(invalid_total) > 0) {
+      labels <- if ("variable" %in% names(variables)) {
+        variables$variable[invalid_total]
+      } else {
+        invalid_total
+      }
+      result$errors <- c(result$errors,
+        paste(
+          "garbage_low_prop + garbage_high_prop must be <= 1 for each variable:",
+          paste(labels, collapse = ", ")
+        ))
     }
   }
 

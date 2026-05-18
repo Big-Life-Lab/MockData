@@ -154,7 +154,9 @@ create_con_var <- function(var,
 
   # Filter variable_details for this var AND database (using databaseStart)
   # databaseStart is a recodeflow core column containing comma-separated database identifiers
-  if ("databaseStart" %in% names(variable_details)) {
+  if (is.null(variable_details)) {
+    details_subset <- data.frame(variable = character(0), stringsAsFactors = FALSE)
+  } else if ("databaseStart" %in% names(variable_details)) {
     details_subset <- variable_details[
       variable_details$variable == var &
       (is.na(variable_details$databaseStart) |
@@ -189,6 +191,17 @@ create_con_var <- function(var,
       "'. Using fallback uniform range [0, 100]."
     ))
     values <- runif(n, min = 0, max = 100)
+    if ("rType" %in% names(var_row)) {
+      r_type <- var_row$rType
+      if (!is.null(r_type) && !is.na(r_type) && r_type != "") {
+        values <- switch(r_type,
+          "integer" = as.integer(round(values)),
+          "double" = as.double(values),
+          "numeric" = as.numeric(values),
+          values
+        )
+      }
+    }
 
     col <- data.frame(
       new = values,

@@ -179,31 +179,15 @@ extract_proportions <- function(details_subset, variable_name = "variable") {
     }
   }
 
-  # Separate missing codes from valid
-  # Common missing code patterns: numeric codes 7,8,9,96,97,98,99,996,997,998,999
-  # Check catLabelLong if it exists, otherwise check recStart pattern
-  #
-  # IMPORTANT: v0.2.1 uses interval notation [min,max] for ranges, which should NOT be treated as missing
-  # Only treat as missing if:
-  #   1. catLabelLong explicitly says "missing", OR
-  #   2. recStart is a single-digit or double-digit code ending in 7,8,9 (not part of a larger range)
-  has_label_long <- "catLabelLong" %in% names(pop_rows)
-
-  # Detect interval notation (ranges for continuous variables): [min,max]
-  is_interval_notation <- grepl("^(\\[|\\().+[,;].+(\\]|\\))$", pop_rows$recStart)
-
-  # Missing codes: explicit label OR numeric codes ending in 7,8,9 (but not interval notation)
-  # Check catLabelLong column if it exists
-  if (has_label_long) {
-    is_missing <- !is_interval_notation & (
-      pop_rows$catLabelLong == "missing" |
-      (grepl("^[0-9]+$", pop_rows$recStart) & grepl("[789]$", pop_rows$recStart))
-    )
+  # Separate missing codes from valid values. recEnd is the authoritative
+  # classification in v0.3 metadata; numeric values such as 7, 17, 27, or 99 can
+  # be legitimate categories in some datasets and must not be inferred missing.
+  if ("recEnd" %in% names(pop_rows)) {
+    is_missing <- grepl("^NA::", pop_rows$recEnd)
+  } else if ("catLabelLong" %in% names(pop_rows)) {
+    is_missing <- tolower(pop_rows$catLabelLong) == "missing"
   } else {
-    # Only check numeric codes ending in 7,8,9
-    is_missing <- !is_interval_notation &
-      grepl("^[0-9]+$", pop_rows$recStart) &
-      grepl("[789]$", pop_rows$recStart)
+    is_missing <- rep(FALSE, nrow(pop_rows))
   }
 
   # Build results
@@ -866,7 +850,7 @@ apply_garbage <- function(values, var_row, variable_type, missing_codes = NULL, 
 #' If rType column is missing, defaults are applied based on variable type:
 #' - `continuous`/`cont` → `"double"`
 #' - `categorical`/`cat` → `"factor"`
-#' - `date` → `"Date"`
+#' - `date` → `"date"`
 #' - `logical` → `"logical"`
 #' - Unknown → `"character"`
 #'
@@ -877,8 +861,7 @@ apply_garbage <- function(values, var_row, variable_type, missing_codes = NULL, 
 #' - `"factor"`: Categorical with levels
 #' - `"character"`: Text codes
 #' - `"logical"`: TRUE/FALSE values
-#' - `"Date"`: Date objects
-#' - `"POSIXct"`: Datetime objects
+#' - `"date"`: Date objects
 #'
 #' @examples
 #' \dontrun{
@@ -908,8 +891,9 @@ apply_rtype_defaults <- function(details) {
   # If rType already exists, validate and return
   if ("rType" %in% names(details)) {
     # Validate rType values
+    details$rType <- tolower(details$rType)
     valid_rtypes <- c("integer", "double", "factor", "character",
-                      "logical", "Date", "POSIXct")
+                      "logical", "date")
     invalid <- setdiff(unique(details$rType[!is.na(details$rType)]), valid_rtypes)
     if (length(invalid) > 0) {
       warning("Invalid rType values found: ", paste(invalid, collapse = ", "),
@@ -938,7 +922,7 @@ apply_rtype_defaults <- function(details) {
     details$rType <- dplyr::case_when(
       type_lower %in% c("cont", "continuous") ~ "double",    # Continuous → double (default)
       type_lower %in% c("cat", "categorical") ~ "factor",    # Categorical → factor (default)
-      type_lower == "date" ~ "Date",                         # Date → Date (default)
+      type_lower == "date" ~ "date",                         # Date -> date (default)
       type_lower == "logical" ~ "logical",                   # Logical → logical
       TRUE ~ "character"                                     # Fallback
     )

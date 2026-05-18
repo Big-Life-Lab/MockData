@@ -26,7 +26,7 @@ test_that("create_wide_survival_data() shows deprecation warning for prop_garbag
       seed = 123,
       prop_garbage = 0.03  # This should trigger warning
     ),
-    regexp = "deprecated as of v0.3.1"
+    regexp = "deprecated as of v0.3.0"
   )
 })
 
