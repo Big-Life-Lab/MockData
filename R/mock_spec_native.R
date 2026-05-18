@@ -42,7 +42,30 @@
   sample.int(n_levels, size = n, replace = TRUE, prob = prob)
 }
 
-.native_truncated_normal <- function(n, mean, sd, range) {
+.native_formula_variables <- function(spec) {
+  names(Filter(function(variable) {
+    formula <- variable$formula
+    !is.null(formula) &&
+      !(is.character(formula) && length(formula) == 1 && (is.na(formula) || trimws(formula) == ""))
+  }, spec$variables))
+}
+
+.check_native_backend_scope <- function(spec) {
+  formula_variables <- .native_formula_variables(spec)
+  if (length(formula_variables) > 0) {
+    stop(
+      "Formula evaluation is not yet implemented in the M4 native backend. ",
+      "Formula variable(s): ",
+      paste(formula_variables, collapse = ", "),
+      ". Expected in a later formula/dependency milestone.",
+      call. = FALSE
+    )
+  }
+
+  invisible(TRUE)
+}
+
+.native_truncated_normal <- function(n, mean, sd, range, variable_name) {
   if (n == 0) {
     return(numeric(0))
   }
@@ -62,7 +85,8 @@
 
   if (length(remaining) > 0) {
     warning(
-      "Could not fill all truncated-normal values by rejection sampling; ",
+      "Variable '", variable_name,
+      "': could not fill all truncated-normal values by rejection sampling; ",
       "using uniform draws for the remaining values.",
       call. = FALSE
     )
@@ -155,7 +179,13 @@
   if (distribution == "uniform") {
     values <- stats::runif(n, variable$range[[1]], variable$range[[2]])
   } else if (distribution == "normal") {
-    values <- .native_truncated_normal(n, variable$mean, variable$sd, variable$range)
+    values <- .native_truncated_normal(
+      n,
+      variable$mean,
+      variable$sd,
+      variable$range,
+      variable$name
+    )
   } else {
     stop(
       "Native backend does not yet support continuous distribution '",
@@ -251,6 +281,7 @@
 #' @export
 generate_mock_data_native <- function(spec, n, seed = NULL) {
   validate_mock_spec(spec, n = n, strict = TRUE)
+  .check_native_backend_scope(spec)
 
   .with_mock_seed(seed, {
     if (length(spec$variables) == 0) {

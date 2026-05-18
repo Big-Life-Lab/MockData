@@ -33,6 +33,39 @@ test_that("generate_mock_data_native generates baseline direct specs", {
   expect_true(all(result$interview_date <= as.Date("2005-12-31")))
 })
 
+test_that("generate_mock_data_native preserves statistical contracts", {
+  spec <- mock_spec(
+    mock_spec_continuous("uniform_age", range = c(20, 80), rtype = "double"),
+    mock_spec_continuous(
+      "normal_age",
+      range = c(18, 85),
+      distribution = "normal",
+      mean = 50,
+      sd = 12,
+      rtype = "double"
+    ),
+    mock_spec_categorical(
+      "smoking",
+      levels = c("never", "former", "current"),
+      proportions = c(0.5, 0.3, 0.2),
+      rtype = "character"
+    )
+  )
+
+  result <- generate_mock_data_native(spec, n = 5000, seed = 202)
+
+  expect_equal(mean(result$uniform_age), 50, tolerance = 1)
+  expect_equal(stats::sd(result$uniform_age), 60 / sqrt(12), tolerance = 1)
+  expect_equal(mean(result$normal_age), 50, tolerance = 1)
+  expect_equal(stats::sd(result$normal_age), 12, tolerance = 1)
+
+  observed <- prop.table(table(factor(
+    result$smoking,
+    levels = c("never", "former", "current")
+  )))
+  expect_equal(as.numeric(observed), c(0.5, 0.3, 0.2), tolerance = 0.03)
+})
+
 test_that("generate_mock_data_native is reproducible without leaking RNG state", {
   spec <- mock_continuous("age", range = c(18, 85), rtype = "integer")
 
@@ -60,6 +93,22 @@ test_that("generate_mock_data_native handles empty specs and n = 0", {
   zero <- generate_mock_data_native(spec, n = 0, seed = 1)
   expect_equal(nrow(zero), 0)
   expect_named(zero, "smoking")
+
+  continuous_zero <- generate_mock_data_native(
+    mock_continuous("age", range = c(18, 85)),
+    n = 0,
+    seed = 1
+  )
+  expect_equal(nrow(continuous_zero), 0)
+  expect_named(continuous_zero, "age")
+
+  one <- generate_mock_data_native(
+    mock_continuous("age", range = c(18, 85), rtype = "integer"),
+    n = 1,
+    seed = 1
+  )
+  expect_equal(nrow(one), 1)
+  expect_true(one$age >= 18 && one$age <= 85)
 })
 
 test_that("generate_mock_data_native consumes simple recodeflow specs", {
@@ -86,6 +135,23 @@ test_that("generate_mock_data_native consumes simple recodeflow specs", {
   expect_true(all(result$age >= 18 & result$age <= 85))
   expect_true(all(result$smoking %in% c("never", "current")))
   expect_s3_class(result$interview_date, "Date")
+
+  direct_spec <- mock_spec(
+    mock_spec_continuous("age", range = c(18, 85), rtype = "integer"),
+    mock_spec_categorical(
+      "smoking",
+      levels = c("never", "current"),
+      proportions = c(0.75, 0.25),
+      rtype = "character"
+    ),
+    mock_spec_date(
+      "interview_date",
+      range = as.Date(c("2001-01-01", "2001-01-31"))
+    )
+  )
+
+  direct_result <- generate_mock_data_native(direct_spec, n = 100, seed = 55)
+  expect_equal(result, direct_result)
 })
 
 test_that("generate_mock_data_native fails loudly for unsupported native features", {
@@ -107,6 +173,33 @@ test_that("generate_mock_data_native fails loudly for unsupported native feature
     generate_mock_data_native(list(), n = 10),
     "mock_spec"
   )
+})
+
+test_that("generate_mock_data_native rejects formula specs until evaluator milestone", {
+  variable <- mock_spec_continuous("bmi", range = c(15, 50))
+  variable$formula <- "weight / height^2"
+  spec <- mock_spec(variable)
+
+  expect_error(
+    generate_mock_data_native(spec, n = 10, seed = 1),
+    "Formula evaluation is not yet implemented"
+  )
+})
+
+test_that("generate_mock_data_native warns on truncated normal fallback", {
+  spec <- mock_spec(mock_spec_continuous(
+    "age",
+    range = c(0, 1),
+    distribution = "normal",
+    mean = 1000,
+    sd = 1
+  ))
+
+  expect_warning(
+    result <- generate_mock_data_native(spec, n = 5, seed = 1),
+    "Variable 'age'"
+  )
+  expect_true(all(result$age >= 0 & result$age <= 1))
 })
 
 test_that("generate_mock_data_native rejects lossy categorical coercion", {
