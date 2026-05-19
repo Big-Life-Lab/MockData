@@ -13,11 +13,40 @@
       call. = FALSE
     )
   }
+  if (utils::packageVersion("simstudy") < "0.8.1") {
+    stop(
+      "The optional simstudy backend requires simstudy >= 0.8.1. ",
+      "Install a newer simstudy version or use generate_mock_data_native().",
+      call. = FALSE
+    )
+  }
+
+  invisible(TRUE)
+}
+
+.check_simstudy_variable <- function(variable) {
+  if (identical(variable$name, "id")) {
+    stop(
+      "Variable name 'id' conflicts with simstudy's generated row identifier. ",
+      "Rename the variable or use generate_mock_data_native().",
+      call. = FALSE
+    )
+  }
+
+  if (variable$type == "categorical" && any(grepl(";", as.character(variable$levels), fixed = TRUE))) {
+    stop(
+      "Variable '", variable$name,
+      "' has categorical level(s) containing ';', which simstudy uses as a delimiter.",
+      call. = FALSE
+    )
+  }
 
   invisible(TRUE)
 }
 
 .simstudy_definition <- function(def, variable) {
+  .check_simstudy_variable(variable)
+
   if (variable$type == "continuous") {
     distribution <- tolower(variable$distribution %||% "uniform")
     if (distribution == "uniform") {
@@ -48,6 +77,26 @@
   stop(
     "simstudy backend does not yet support variable '", variable$name,
     "' of type '", variable$type, "'.",
+    call. = FALSE
+  )
+}
+
+.normalize_simstudy_categorical <- function(values, variable) {
+  value_chr <- as.character(values)
+  levels <- as.character(variable$levels)
+  if (all(value_chr %in% levels)) {
+    return(value_chr)
+  }
+
+  index <- suppressWarnings(as.integer(value_chr))
+  if (!any(is.na(index)) && all(index >= 1 & index <= length(levels))) {
+    return(levels[index])
+  }
+
+  stop(
+    "simstudy returned categorical values for variable '", variable$name,
+    "' that do not match the mock_spec levels. ",
+    "This may indicate a simstudy version or delimiter mismatch.",
     call. = FALSE
   )
 }
@@ -92,7 +141,7 @@
       )
     } else if (variable$type == "categorical") {
       generated[[variable_name]] <- .coerce_native_categorical(
-        as.character(generated[[variable_name]]),
+        .normalize_simstudy_categorical(generated[[variable_name]], variable),
         as.character(variable$levels),
         variable$rtype,
         variable$name
