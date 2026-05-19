@@ -32,6 +32,7 @@ Suggests:
     readr,
     stringr,
     lubridate,
+    simstudy,
     knitr,
     quarto,
     devtools,

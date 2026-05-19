@@ -19,6 +19,9 @@
 - Added `postprocess_mock_data()` to apply `mock_spec` missing-code and
   garbage-value rules after baseline generation, with diagnostics that
   distinguish assigned missing/garbage rows from naturally drawn values.
+- Added `generate_mock_data_simstudy()` as a soft-gated optional backend for
+  baseline categorical and uniform continuous generation when `simstudy` is
+  installed, with native generation retained for MockData-specific semantics.
 - Added forward-compatible specification fields: `spec_version`, `provenance`,
   and `model_hint`.
 - Existing v0.3 generator APIs remain available while v0.4 internals are built.
