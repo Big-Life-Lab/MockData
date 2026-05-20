@@ -33,6 +33,9 @@
 - The optional `simstudy` backend now rejects variables named `id`, which
   conflicts with `simstudy`'s generated row identifier, and normalizes
   categorical output through an explicit label-or-index validation path.
+- `create_mock_data()` now attempts the v0.4 `mock_spec` pipeline in strict
+  mode for supported recodeflow metadata, while retaining the legacy `create_*`
+  dispatch path for unsupported v0.4 backend features and lenient generation.
 - Added forward-compatible specification fields: `spec_version`, `provenance`,
   and `model_hint`.
 - Existing v0.3 generator APIs remain available while v0.4 internals are built.

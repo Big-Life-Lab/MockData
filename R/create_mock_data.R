@@ -1,3 +1,83 @@
+#' @noRd
+.create_mock_data_v04_database_filter <- function(variables, databaseStart) {
+  if (!is.null(databaseStart) && "databaseStart" %in% names(variables)) {
+    return(databaseStart)
+  }
+
+  NULL
+}
+
+#' @noRd
+.create_mock_data_v04_native_supported <- function(spec) {
+  all(vapply(spec$variables, function(variable) {
+    formula <- variable$formula
+    has_formula <- !is.null(formula) &&
+      !(is.character(formula) && length(formula) == 1 && (is.na(formula) || trimws(formula) == ""))
+    if (has_formula) {
+      return(FALSE)
+    }
+
+    distribution <- tolower(variable$distribution %||% "uniform")
+    if (variable$type == "continuous") {
+      return(distribution %in% c("uniform", "normal"))
+    }
+    if (variable$type == "categorical") {
+      return(TRUE)
+    }
+    if (variable$type == "date") {
+      return(distribution == "uniform" && identical(variable$source_format %||% "analysis", "analysis"))
+    }
+
+    FALSE
+  }, logical(1)))
+}
+
+#' @noRd
+.create_mock_data_v04 <- function(databaseStart,
+                                  variables,
+                                  variable_details,
+                                  n,
+                                  seed,
+                                  verbose = FALSE) {
+  if (!is.null(databaseStart) &&
+      !"databaseStart" %in% names(variables) &&
+      "databaseStart" %in% names(variable_details)) {
+    if (isTRUE(verbose)) {
+      message(
+        "v0.4 mock_spec pipeline requires variable-level databaseStart when ",
+        "detail-level databaseStart filtering is needed; using legacy ",
+        "create_* dispatch."
+      )
+    }
+    return(NULL)
+  }
+
+  spec <- mock_spec_from_recodeflow(
+    variables = variables,
+    variable_details = variable_details,
+    databaseStart = .create_mock_data_v04_database_filter(variables, databaseStart),
+    role = "enabled"
+  )
+
+  if (!.create_mock_data_v04_native_supported(spec)) {
+    if (isTRUE(verbose)) {
+      message(
+        "v0.4 mock_spec pipeline does not yet support every requested ",
+        "variable; using legacy create_* dispatch."
+      )
+    }
+    return(NULL)
+  }
+
+  if (isTRUE(verbose)) {
+    message("Generating via v0.4 mock_spec pipeline.")
+  }
+
+  baseline <- generate_mock_data_native(spec, n = n, seed = seed)
+  postprocess_seed <- if (is.null(seed)) NULL else seed + 1L
+  postprocess_mock_data(baseline, spec, seed = postprocess_seed)
+}
+
 #' Create mock data from configuration files
 #'
 #' @description
@@ -38,8 +118,16 @@
 #' @return Data frame with n rows and one column per enabled variable.
 #'
 #' @details
-#' **v0.3.0 API**: This function now follows the "recodeflow pattern" where it passes
-#' full metadata data frames to create_* functions, which handle internal filtering.
+#' **v0.4.0 transition**: In strict mode, this function first attempts to use
+#' the v0.4 `mock_spec` pipeline: [mock_spec_from_recodeflow()],
+#' [generate_mock_data_native()], and [postprocess_mock_data()]. If the metadata
+#' requests a feature not yet supported by the v0.4 native backend, it falls
+#' back to the v0.3 `create_*` dispatch path so existing users can migrate
+#' gradually.
+#'
+#' **v0.3.0 API**: This function follows the "recodeflow pattern" where it passes
+#' full metadata data frames to create_* functions, which handle internal
+#' filtering.
 #'
 #' **Generation process**:
 #' \enumerate{
@@ -153,6 +241,23 @@ create_mock_data <- function(databaseStart,
 
   if (!"variableType" %in% names(variables)) {
     stop("variables must have a 'variableType' column")
+  }
+
+  # ========== v0.4 PIPELINE PATH ==========
+
+  if (isTRUE(validate) && !is.null(variable_details)) {
+    v04_result <- .create_mock_data_v04(
+      databaseStart = databaseStart,
+      variables = variables,
+      variable_details = variable_details,
+      n = n,
+      seed = seed,
+      verbose = verbose
+    )
+
+    if (!is.null(v04_result)) {
+      return(v04_result)
+    }
   }
 
   # ========== FILTER FOR ENABLED VARIABLES ==========
