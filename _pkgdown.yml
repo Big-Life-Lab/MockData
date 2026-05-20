@@ -13,6 +13,32 @@ footer:
     developed_by: <p>Developed by Juan Li, Douglas Manuel, and recodeflow contributors.</p>
 
 reference:
+- title: v0.4 specification API
+  desc: >
+    Build and validate normalized `mock_spec` objects using direct helpers or
+    composable variable constructors.
+  contents:
+  - mock_spec
+  - mock_continuous
+  - mock_categorical
+  - mock_date
+  - mock_spec_continuous
+  - mock_spec_categorical
+  - mock_spec_date
+  - is_mock_spec
+  - validate_mock_spec
+  - mock_spec_model_hints
+
+- title: v0.4 adapters and generation pipeline
+  desc: >
+    Convert recodeflow metadata into `mock_spec` objects, generate baseline data,
+    and apply post-processing diagnostics.
+  contents:
+  - mock_spec_from_recodeflow
+  - generate_mock_data_native
+  - generate_mock_data_simstudy
+  - postprocess_mock_data
+
 - title: Main generation functions
   desc: >
     Generate categorical, continuous, date, and survival variables. Use `create_mock_data()`
