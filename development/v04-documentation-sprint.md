@@ -21,6 +21,8 @@ vignette and pkgdown builds.
 - README: update the top-level status and quick example so users see v0.4
   immediately.
 - `_pkgdown.yml`: expose the new v0.4 tutorial in site navigation.
+- `v04-phase-c-comms-note.md`: maintainer-facing note for cchsflow,
+  chmsflow, and recodeflow testing while v0.4 sits on `dev`.
 
 ## Follow-up vignettes
 
@@ -42,6 +44,9 @@ Explanation:
 
 - `design-philosophy-v04.qmd`: distill the architecture review, hybrid backend
   decision, and mock-data versus synthetic-data boundary.
+- `development/v04-phase-c-comms-note.md`: Phase C maintainer communication
+  source material; fold relevant parts into migration and recodeflow how-to
+  docs after maintainer feedback.
 
 Reference:
 
