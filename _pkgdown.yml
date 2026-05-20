@@ -112,6 +112,7 @@ articles:
   desc: Task-oriented practical examples
   navbar: How-to guides
   contents:
+  - recodeflow-metadata-v04
   - for-recodeflow-users
 
 - title: Explanation
