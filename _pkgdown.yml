@@ -114,6 +114,7 @@ articles:
   contents:
   - recodeflow-metadata-v04
   - diagnostics-and-garbage-v04
+  - migrating-from-v03-v04
   - for-recodeflow-users
 
 - title: Explanation

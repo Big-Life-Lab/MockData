@@ -22,6 +22,8 @@ vignette and pkgdown builds.
   recodeflow-style CSV metadata.
 - `diagnostics-and-garbage-v04.qmd`: how-to for reading diagnostics and
   auditing garbage/missing-code post-processing.
+- `migrating-from-v03-v04.qmd`: how-to for compatibility behavior, fallback
+  routing, diagnostics, and seed differences.
 - README: update the top-level status and quick example so users see v0.4
   immediately.
 - `_pkgdown.yml`: expose the new v0.4 tutorial in site navigation.
