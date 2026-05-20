@@ -24,6 +24,8 @@ vignette and pkgdown builds.
   auditing garbage/missing-code post-processing.
 - `migrating-from-v03-v04.qmd`: how-to for compatibility behavior, fallback
   routing, diagnostics, and seed differences.
+- `choosing-a-backend-v04.qmd`: how-to for native versus optional `simstudy`
+  backend selection.
 - README: update the top-level status and quick example so users see v0.4
   immediately.
 - `_pkgdown.yml`: expose the new v0.4 tutorial in site navigation.
