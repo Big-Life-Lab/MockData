@@ -5,6 +5,7 @@
 # normalized mock_spec representation.
 # ==============================================================================
 
+#' @noRd
 .read_recodeflow_table <- function(x, label) {
   if (is.data.frame(x)) {
     return(x)
@@ -14,6 +15,8 @@
     if (!file.exists(x)) {
       stop(label, " file does not exist: ", x, call. = FALSE)
     }
+    # Pin CSV parsing so path inputs behave like data-frame inputs for the
+    # recodeflow conventions MockData understands.
     return(read.csv(
       x,
       stringsAsFactors = FALSE,
@@ -25,10 +28,12 @@
   stop(label, " must be a data frame or a single CSV path.", call. = FALSE)
 }
 
+#' @noRd
 .is_blank <- function(x) {
   is.null(x) || length(x) == 0 || is.na(x[1]) || trimws(as.character(x[1])) == ""
 }
 
+#' @noRd
 .row_value <- function(row, name, default = NA) {
   if (!name %in% names(row)) {
     return(default)
@@ -42,6 +47,7 @@
   value
 }
 
+#' @noRd
 .row_character <- function(row, name, default = NA_character_) {
   value <- .row_value(row, name, default)
   if (.is_blank(value)) {
@@ -50,6 +56,7 @@
   as.character(value)
 }
 
+#' @noRd
 .row_numeric <- function(row, name, default = NA_real_) {
   value <- .row_value(row, name, default)
   if (.is_blank(value)) {
@@ -69,6 +76,7 @@
   numeric_value
 }
 
+#' @noRd
 .recodeflow_required_columns <- function(data, required, label) {
   missing <- setdiff(required, names(data))
   if (length(missing) > 0) {
@@ -76,6 +84,7 @@
   }
 }
 
+#' @noRd
 .filter_recodeflow_by_database <- function(data, databaseStart, allow_empty = TRUE) {
   if (is.null(databaseStart)) {
     return(data)
@@ -87,9 +96,12 @@
     )
   }
 
+  # databaseStart fields are comma-separated tokens, not substrings; this keeps
+  # cycles such as cchs2017 and cchs2017_2018_p distinct.
   data[.database_start_matches(data$databaseStart, databaseStart, allow_empty = allow_empty), , drop = FALSE]
 }
 
+#' @noRd
 .filter_recodeflow_details <- function(variable_details, variable, databaseStart) {
   if (is.null(variable_details)) {
     return(NULL)
@@ -99,6 +111,7 @@
   .filter_recodeflow_by_database(details, databaseStart, allow_empty = TRUE)
 }
 
+#' @noRd
 .recodeflow_variable_kind <- function(var_row) {
   rtype <- tolower(.row_character(var_row, "rType", ""))
   variable_type <- tolower(.row_character(var_row, "variableType", ""))
@@ -121,6 +134,7 @@
   )
 }
 
+#' @noRd
 .recodeflow_rtype <- function(var_row, kind) {
   rtype <- tolower(.row_character(var_row, "rType", ""))
   if (rtype != "") {
@@ -138,6 +152,7 @@
   )
 }
 
+#' @noRd
 .parse_single_date <- function(value) {
   if (.is_blank(value)) {
     return(NULL)
@@ -151,6 +166,7 @@
   NULL
 }
 
+#' @noRd
 .recodeflow_valid_rows <- function(details) {
   if (is.null(details) || nrow(details) == 0) {
     return(details)
@@ -159,6 +175,8 @@
   rec_start <- as.character(details$recStart)
   rec_end <- if ("recEnd" %in% names(details)) as.character(details$recEnd) else rep("", nrow(details))
 
+  # Functional and derived rows live in recStart; recEnd carries missing-code
+  # semantics such as NA::a / NA::b.
   keep <- !is.na(rec_start) &
     rec_start != "" &
     rec_start != "else" &
@@ -170,6 +188,7 @@
   details[keep, , drop = FALSE]
 }
 
+#' @noRd
 .recodeflow_range <- function(details, variable, kind) {
   valid_rows <- .recodeflow_valid_rows(details)
   if (is.null(valid_rows) || nrow(valid_rows) == 0) {
@@ -199,6 +218,7 @@
   stop("Variable '", variable, "' has no parseable ", kind, " range in recStart.", call. = FALSE)
 }
 
+#' @noRd
 .recodeflow_missing <- function(details) {
   if (is.null(details) || nrow(details) == 0 || !"recEnd" %in% names(details)) {
     return(list(codes = character(0), proportions = numeric(0)))
@@ -223,6 +243,7 @@
   )
 }
 
+#' @noRd
 .recodeflow_distribution <- function(var_row, details) {
   distribution <- tolower(.row_character(var_row, "distribution", ""))
   if (distribution != "") {
@@ -245,6 +266,7 @@
   params$distribution %||% "uniform"
 }
 
+#' @noRd
 .recodeflow_garbage_rules <- function(var_row) {
   rules <- list()
 
@@ -269,6 +291,7 @@
   rules
 }
 
+#' @noRd
 .recodeflow_provenance <- function(variable, databaseStart = NULL) {
   provenance <- list(adapter = "recodeflow", source = variable)
   if (!is.null(databaseStart)) {
@@ -277,6 +300,7 @@
   provenance
 }
 
+#' @noRd
 .recodeflow_to_spec_variable <- function(var_row, details, databaseStart) {
   variable <- .row_character(var_row, "variable")
   kind <- .recodeflow_variable_kind(var_row)
@@ -364,6 +388,12 @@
 #' generated. Set `exclude_derived = FALSE` only when you want those rows to
 #' appear in the adapter input and fail or be handled by later formula support.
 #'
+#' CSV path inputs are read with `stringsAsFactors = FALSE`,
+#' `check.names = FALSE`, and `na.strings = c("", "NA")` so path-based inputs
+#' preserve recodeflow column names and treat blank metadata cells like missing
+#' values. The adapter normalizes `rType = "numeric"` to `"double"` to match
+#' the v0.4 `mock_spec` type vocabulary.
+#'
 #' @param variables Data frame or CSV path for recodeflow-style `variables`
 #'   metadata.
 #' @param variable_details Data frame, CSV path, or `NULL` for recodeflow-style
@@ -380,7 +410,7 @@
 #' @return A validated `mock_spec` object.
 #' @family mock specification APIs
 #' @seealso [mock_spec()], [mock_continuous()], [mock_categorical()],
-#'   [mock_date()]
+#'   [mock_date()], [generate_mock_data_native()], [postprocess_mock_data()]
 #'
 #' @examples
 #' variables <- data.frame(
@@ -398,6 +428,12 @@
 #' )
 #' spec <- mock_spec_from_recodeflow(variables, details)
 #' validate_mock_spec(spec)
+#'
+#' variables_file <- tempfile(fileext = ".csv")
+#' details_file <- tempfile(fileext = ".csv")
+#' write.csv(variables, variables_file, row.names = FALSE)
+#' write.csv(details, details_file, row.names = FALSE)
+#' spec_from_files <- mock_spec_from_recodeflow(variables_file, details_file)
 #'
 #' @export
 mock_spec_from_recodeflow <- function(variables,

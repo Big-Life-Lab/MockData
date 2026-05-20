@@ -5,6 +5,7 @@
 # garbage, diagnostics, and richer rType handling lands in later milestones.
 # ==============================================================================
 
+#' @noRd
 .with_mock_seed <- function(seed, expr) {
   if (is.null(seed)) {
     return(force(expr))
@@ -19,6 +20,7 @@
     old_seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   }
 
+  # Generation should be reproducible without changing the caller's RNG stream.
   on.exit({
     if (had_seed) {
       assign(".Random.seed", old_seed, envir = .GlobalEnv)
@@ -31,10 +33,12 @@
   force(expr)
 }
 
+#' @noRd
 .empty_native_data <- function(n) {
   data.frame(row.names = seq_len(n))
 }
 
+#' @noRd
 .sample_indices <- function(n_levels, n, prob = NULL) {
   if (n == 0) {
     return(integer(0))
@@ -42,6 +46,7 @@
   sample.int(n_levels, size = n, replace = TRUE, prob = prob)
 }
 
+#' @noRd
 .native_formula_variables <- function(spec) {
   names(Filter(function(variable) {
     formula <- variable$formula
@@ -50,6 +55,7 @@
   }, spec$variables))
 }
 
+#' @noRd
 .check_native_backend_scope <- function(spec) {
   formula_variables <- .native_formula_variables(spec)
   if (length(formula_variables) > 0) {
@@ -65,6 +71,7 @@
   invisible(TRUE)
 }
 
+#' @noRd
 .native_truncated_normal <- function(n, mean, sd, range, variable_name) {
   if (n == 0) {
     return(numeric(0))
@@ -84,6 +91,8 @@
   }
 
   if (length(remaining) > 0) {
+    # Pathological truncation windows can make rejection sampling impractical;
+    # keep generation bounded and tell the caller the tail came from uniform.
     warning(
       "Variable '", variable_name,
       "': could not fill all truncated-normal values by rejection sampling; ",
@@ -96,6 +105,7 @@
   values
 }
 
+#' @noRd
 .coerce_native_continuous <- function(values, rtype, variable_name) {
   if (rtype == "integer") {
     return(as.integer(round(values)))
@@ -111,6 +121,7 @@
   )
 }
 
+#' @noRd
 .coerce_native_categorical <- function(values, levels, rtype, variable_name) {
   if (rtype == "factor") {
     return(factor(values, levels = levels))
@@ -158,6 +169,7 @@
   )
 }
 
+#' @noRd
 .coerce_native_date <- function(values, rtype, variable_name) {
   if (rtype == "date") {
     return(values)
@@ -173,6 +185,7 @@
   )
 }
 
+#' @noRd
 .generate_native_continuous <- function(variable, n) {
   distribution <- tolower(variable$distribution %||% "uniform")
 
@@ -197,6 +210,7 @@
   .coerce_native_continuous(values, variable$rtype, variable$name)
 }
 
+#' @noRd
 .generate_native_categorical <- function(variable, n) {
   levels <- as.character(variable$levels)
   prob <- variable$proportions
@@ -208,6 +222,7 @@
   .coerce_native_categorical(values, levels, variable$rtype, variable$name)
 }
 
+#' @noRd
 .generate_native_date <- function(variable, n) {
   distribution <- tolower(variable$distribution %||% "uniform")
   if (distribution != "uniform") {
@@ -222,6 +237,8 @@
     values <- as.Date(character(0))
   } else {
     range_numeric <- as.integer(variable$range)
+    # Sample day offsets numerically, then restore Date class; this avoids
+    # locale-dependent date parsing during generation.
     offsets <- .sample_indices(
       range_numeric[[2]] - range_numeric[[1]] + 1,
       n
@@ -232,6 +249,7 @@
   .coerce_native_date(values, variable$rtype, variable$name)
 }
 
+#' @noRd
 .generate_native_variable <- function(variable, n) {
   if (variable$type == "continuous") {
     return(.generate_native_continuous(variable, n))
@@ -257,6 +275,18 @@
 #' not yet apply missing-code injection, garbage values, diagnostics, formula
 #' evaluation, or optional `simstudy` features.
 #'
+#' @details
+#' The native backend is the default MIT-licensed baseline engine. It currently
+#' supports uniform continuous variables, truncated-normal continuous variables,
+#' categorical variables, and uniform calendar dates. Missing codes, garbage
+#' values, and diagnostics are intentionally handled by [postprocess_mock_data()]
+#' so that all backends share the same audit trail.
+#'
+#' If `seed` is supplied, the previous R random state is restored after
+#' generation. This gives reproducible output without advancing the caller's RNG
+#' stream. Formula variables are rejected loudly until the formula/dependency
+#' milestone promotes the spike evaluator into production.
+#'
 #' @param spec A `mock_spec` object.
 #' @param n Non-negative whole number of rows to generate.
 #' @param seed Optional whole-number random seed. The previous R random state is
@@ -264,7 +294,8 @@
 #'
 #' @return A data frame with one column per `mock_spec` variable and `n` rows.
 #' @family mock generation APIs
-#' @seealso [mock_spec()], [mock_continuous()], [mock_spec_from_recodeflow()]
+#' @seealso [mock_spec()], [mock_continuous()], [mock_spec_from_recodeflow()],
+#'   [postprocess_mock_data()], [generate_mock_data_simstudy()]
 #'
 #' @examples
 #' spec <- mock_spec(

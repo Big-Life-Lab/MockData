@@ -6,6 +6,7 @@
 # value collisions.
 # ==============================================================================
 
+#' @noRd
 .postprocess_empty_diagnostics <- function(spec, n) {
   variables <- lapply(spec$variables, function(variable) {
     garbage_rule_names <- names(variable$garbage_rules)
@@ -38,6 +39,7 @@
   )
 }
 
+#' @noRd
 .values_match_codes <- function(values, codes) {
   if (length(codes) == 0) {
     return(rep(FALSE, length(values)))
@@ -46,6 +48,7 @@
   as.character(values) %in% as.character(codes)
 }
 
+#' @noRd
 .sample_postprocess_indices <- function(candidates, n, avoid = integer(0)) {
   if (n == 0) {
     return(integer(0))
@@ -65,6 +68,7 @@
   )
 }
 
+#' @noRd
 .coerce_postprocess_values <- function(values, variable, target) {
   if (inherits(target, "factor")) {
     return(as.character(values))
@@ -105,6 +109,7 @@
   as.character(values)
 }
 
+#' @noRd
 .assign_postprocess_values <- function(target, indices, values) {
   if (length(indices) == 0) {
     return(target)
@@ -121,6 +126,7 @@
   target
 }
 
+#' @noRd
 .generate_garbage_for_rule <- function(rule, variable, n) {
   if (n == 0) {
     return(vector(mode = "character", length = 0))
@@ -152,10 +158,14 @@
   values
 }
 
+#' @noRd
 .ordered_garbage_rule_names <- function(rule_names) {
+  # Keep the long-standing garbage convention deterministic: low rules run
+  # before high rules; any future rule names follow in caller order.
   c(intersect(c("low", "high"), rule_names), setdiff(rule_names, c("low", "high")))
 }
 
+#' @noRd
 .postprocess_missing <- function(values, variable, diagnostics) {
   if (length(variable$missing_codes) == 0) {
     return(list(values = values, diagnostics = diagnostics))
@@ -169,6 +179,8 @@
   }
 
   available <- seq_along(values)
+  # Record values that naturally collide with declared missing codes before
+  # assigning any new missing codes; this is the auditability contract.
   preexisting <- which(.values_match_codes(values, variable$missing_codes))
   assigned <- integer(0)
   assigned_codes <- character(0)
@@ -202,6 +214,7 @@
   list(values = values, diagnostics = diagnostics)
 }
 
+#' @noRd
 .postprocess_garbage <- function(values, variable, diagnostics) {
   if (length(variable$garbage_rules) == 0) {
     return(list(values = values, diagnostics = diagnostics))
@@ -225,6 +238,9 @@
     diagnostics$assigned_missing_indices,
     diagnostics$preexisting_missing_code_indices
   )
+  # Garbage must not overwrite either assigned missing rows or naturally drawn
+  # missing-code collisions, otherwise diagnostics would no longer describe the
+  # returned data.
   valid_idx <- setdiff(which(!is.na(values)), protected_idx)
   remaining_idx <- valid_idx
 
@@ -268,6 +284,7 @@
   list(values = values, diagnostics = diagnostics)
 }
 
+#' @noRd
 .postprocess_variable <- function(values, variable, diagnostics) {
   missing_result <- .postprocess_missing(values, variable, diagnostics)
   garbage_result <- .postprocess_garbage(
@@ -297,12 +314,22 @@
 #' @return A data frame with post-processing applied.
 #'
 #' @details
-#' Diagnostics are stored as a data-frame attribute. Base R subsetting and some
-#' downstream tools may drop attributes, so preserve the original post-processed
-#' object when diagnostics are part of the audit trail.
+#' Missing-code diagnostics separate values that were naturally drawn as a
+#' declared missing code (`preexisting_missing_code_indices`) from values that
+#' were assigned by post-processing (`assigned_missing_indices`). Garbage rules
+#' are applied only to rows that are not missing-code diagnostics, preserving the
+#' audit trail for collision cases such as a valid category code that is also a
+#' declared missing code.
+#'
+#' Garbage rules are applied in canonical order: `low`, then `high`, then any
+#' other named rules in caller order. Diagnostics are stored as a data-frame
+#' attribute. Base R subsetting and some downstream tools may drop attributes,
+#' so preserve the original post-processed object when diagnostics are part of
+#' the audit trail.
 #'
 #' @family mock generation APIs
-#' @seealso [generate_mock_data_native()], [mock_spec()]
+#' @seealso [generate_mock_data_native()], [generate_mock_data_simstudy()],
+#'   [mock_spec()]
 #'
 #' @examples
 #' spec <- mock_categorical(

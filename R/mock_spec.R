@@ -46,10 +46,12 @@ NULL
   if (is.null(x)) y else x
 }
 
+#' @noRd
 .is_non_empty_string <- function(x) {
   is.character(x) && length(x) == 1 && !is.na(x) && nzchar(trimws(x))
 }
 
+#' @noRd
 .normalize_provenance <- function(provenance, source = NULL) {
   if (is.null(provenance)) {
     provenance <- list(adapter = "direct", source = source %||% "direct")
@@ -75,6 +77,7 @@ NULL
   )
 }
 
+#' @noRd
 .validate_model_hint <- function(model_hint) {
   if (length(model_hint) != 1 || is.na(model_hint) || !model_hint %in% .mock_spec_model_hints) {
     stop(
@@ -87,6 +90,7 @@ NULL
   invisible(TRUE)
 }
 
+#' @noRd
 .new_mock_spec_variable <- function(name,
                                     type,
                                     rtype,
@@ -137,6 +141,7 @@ NULL
   )
 }
 
+#' @noRd
 .as_mock_spec_variable_list <- function(...) {
   variables <- list(...)
 
@@ -160,6 +165,7 @@ NULL
   variables
 }
 
+#' @noRd
 .direct_api_provenance <- function(source, provenance = NULL) {
   provenance <- provenance %||% list(source = source)
 
@@ -178,6 +184,14 @@ NULL
 #' new architecture. Direct APIs and recodeflow adapters should both normalize
 #' into this shape before validation and generation.
 #'
+#' @details
+#' The v0.4 API is layered. The `mock_*()` helpers are the simple direct API for
+#' one-variable specifications. The `mock_spec_*()` constructors create variable
+#' specifications that can be composed with `mock_spec()`. Metadata adapters,
+#' such as [mock_spec_from_recodeflow()], translate external metadata into the
+#' same internal shape. Generation backends consume `mock_spec` objects rather
+#' than re-reading user-facing metadata.
+#'
 #' @param ... `mock_spec_variable` objects, or a single list of them. `NULL`
 #'   creates an empty specification.
 #' @param spec_version Character version of the specification shape.
@@ -189,7 +203,9 @@ NULL
 #'
 #' @return S3 object of class `mock_spec`.
 #' @family mock specification APIs
-#' @seealso [mock_continuous()], [mock_categorical()], [mock_date()]
+#' @seealso [mock_continuous()], [mock_categorical()], [mock_date()],
+#'   [mock_spec_from_recodeflow()], [generate_mock_data_native()],
+#'   [postprocess_mock_data()]
 #'
 #' @examples
 #' spec <- mock_spec(
@@ -232,6 +248,11 @@ mock_spec <- function(...,
 #' `mock_continuous()` is the simple direct API for continuous variables. It
 #' returns a validated `mock_spec`; it does not generate data. Generation
 #' backends will consume this specification in a later v0.4 milestone.
+#'
+#' @details
+#' Use `mock_continuous()` when specifying one variable directly in R code. Use
+#' [mock_spec_continuous()] with [mock_spec()] when composing several variables
+#' or when writing an adapter from another metadata source.
 #'
 #' @param name Variable name.
 #' @param range Numeric vector of length two giving the inclusive valid range.
@@ -302,6 +323,11 @@ mock_continuous <- function(name,
 #' `mock_categorical()` is the simple direct API for categorical variables. It
 #' returns a validated `mock_spec`; it does not generate data.
 #'
+#' @details
+#' Use `mock_categorical()` when specifying one variable directly in R code. Use
+#' [mock_spec_categorical()] with [mock_spec()] when composing several variables
+#' or when writing an adapter from another metadata source.
+#'
 #' @param name Variable name.
 #' @param levels Character vector of valid levels or codes.
 #' @param proportions Optional probabilities aligned to `levels`.
@@ -362,6 +388,11 @@ mock_categorical <- function(name,
 #'
 #' `mock_date()` is the simple direct API for date variables. It returns a
 #' validated `mock_spec`; it does not generate data.
+#'
+#' @details
+#' Date variables default to `model_hint = "native-postprocess"` because MockData
+#' owns calendar-date generation and source-format conversion. Optional
+#' backends may still generate other variables in the same specification.
 #'
 #' @param name Variable name.
 #' @param range Date vector of length two giving the inclusive valid date range.
@@ -587,6 +618,7 @@ is_mock_spec <- function(x) {
   inherits(x, "mock_spec")
 }
 
+#' @noRd
 .new_mock_spec_validation_result <- function(valid = TRUE,
                                              errors = character(0),
                                              warnings = character(0),
@@ -631,6 +663,7 @@ print.mock_spec_validation_result <- function(x, ...) {
   invisible(x)
 }
 
+#' @noRd
 .validate_probability_vector <- function(values, label, allow_null = FALSE) {
   errors <- character(0)
 
@@ -655,6 +688,7 @@ print.mock_spec_validation_result <- function(x, ...) {
   errors
 }
 
+#' @noRd
 .validate_provenance <- function(provenance, label) {
   errors <- character(0)
 
@@ -671,6 +705,7 @@ print.mock_spec_validation_result <- function(x, ...) {
   errors
 }
 
+#' @noRd
 .validate_missing_spec <- function(variable) {
   errors <- character(0)
 
@@ -702,6 +737,7 @@ print.mock_spec_validation_result <- function(x, ...) {
   errors
 }
 
+#' @noRd
 .validate_range <- function(range, variable_name, expected_class = "numeric") {
   errors <- character(0)
 
@@ -726,6 +762,7 @@ print.mock_spec_validation_result <- function(x, ...) {
   errors
 }
 
+#' @noRd
 .validate_mock_spec_variable <- function(variable) {
   errors <- character(0)
 
