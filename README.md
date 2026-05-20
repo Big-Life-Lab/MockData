@@ -3,7 +3,7 @@
 <!-- badges: start -->
 
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
-[![Version: 0.3.0](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/Big-Life-Lab/MockData)
+[![Version: 0.4.0-dev](https://img.shields.io/badge/version-0.4.0--dev-blue.svg)](https://github.com/Big-Life-Lab/MockData)
 [![pkgdown](https://github.com/Big-Life-Lab/MockData/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/Big-Life-Lab/MockData/actions/workflows/pkgdown.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -12,10 +12,12 @@
 **Status: Experimental, pre-release software**
 
 MockData is a work-in-progress R package for generating mock testing data from
-small metadata specifications. It is useful
-today for development and documentation workflows, especially when paired
-with recodeflow-style metadata (see below), but it should be treated as experimental
-infrastructure rather than a stable released package.
+small metadata specifications. The `dev` branch now contains the v0.4
+`mock_spec` architecture: direct specification helpers, a recodeflow metadata
+adapter, native generation, optional `simstudy` generation, and post-processing
+diagnostics. It is useful today for development and documentation workflows,
+especially when paired with recodeflow-style metadata (see below), but it should
+be treated as experimental infrastructure rather than a stable released package.
 
 People are using MockData and reporting that it is helpful. We take that as an
 encouraging signal, not as evidence that the package is mature. Please review
@@ -33,9 +35,44 @@ the generated data before using it in any workflow that matters.
 **Current development limitations:**
 
 - APIs may change before a formal release
-- Error handling is too permissive and can fail with warnings instead of stopping
+- Some legacy v0.3-compatible paths still fall back with warnings; the v0.4
+  `mock_spec` path is stricter and records diagnostics
 - The test suite does not yet cover every important edge case
 - Generated data should be manually checked against your intended metadata rules
+
+**v0.4 direct API example**
+
+The v0.4 API separates specification, baseline generation, and post-processing.
+That makes the generated values easier to inspect and audit.
+
+```r
+library(MockData)
+
+spec <- mock_spec(
+  mock_spec_continuous(
+    "age",
+    range = c(18, 85),
+    distribution = "normal",
+    mean = 50,
+    sd = 12,
+    rtype = "integer"
+  ),
+  mock_spec_categorical(
+    "smoking",
+    levels = c("never", "former", "current"),
+    proportions = c(0.5, 0.3, 0.2),
+    rtype = "character",
+    missing_codes = "unknown",
+    missing_proportions = 0.05
+  )
+)
+
+baseline <- generate_mock_data_native(spec, n = 100, seed = 1)
+mock_data <- postprocess_mock_data(baseline, spec, seed = 2)
+
+head(mock_data)
+attr(mock_data, "mockdata_diagnostics")$variables$smoking
+```
 
 **30-second standalone example**
 
@@ -221,6 +258,7 @@ devtools::install_local("~/github/mock-data")
 
 **Tutorials:**
 
+- [v0.4 getting started](vignettes/getting-started-v04.qmd) - Direct `mock_spec`, recodeflow adapter, and diagnostics workflow
 - [Getting started](vignettes/getting-started.qmd) - Complete tutorial from single variables to full datasets
 - [For recodeflow users](vignettes/for-recodeflow-users.qmd) - Using MockData with existing metadata
 - [Survival data](vignettes/tutorial-survival-data.qmd) - Time-to-event data and temporal patterns
