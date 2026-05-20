@@ -20,6 +20,8 @@ vignette and pkgdown builds.
 - `getting-started-v04.qmd`: tutorial for the v0.4 `mock_spec` workflow.
 - `recodeflow-metadata-v04.qmd`: how-to for generating mock data from
   recodeflow-style CSV metadata.
+- `diagnostics-and-garbage-v04.qmd`: how-to for reading diagnostics and
+  auditing garbage/missing-code post-processing.
 - README: update the top-level status and quick example so users see v0.4
   immediately.
 - `_pkgdown.yml`: expose the new v0.4 tutorial in site navigation.

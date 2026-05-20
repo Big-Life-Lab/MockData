@@ -104,6 +104,10 @@ variable_details <- data.frame(
 )
 ```
 
+When `databaseStart` filtering is requested, include `databaseStart` in both
+metadata tables. If the detail metadata has the filter column but the variables
+metadata does not, `create_mock_data()` uses the legacy path for compatibility.
+
 ## Write metadata as CSV files
 
 In a real project, these files already exist. Here we write them to a temporary

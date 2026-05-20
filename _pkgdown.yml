@@ -113,6 +113,7 @@ articles:
   navbar: How-to guides
   contents:
   - recodeflow-metadata-v04
+  - diagnostics-and-garbage-v04
   - for-recodeflow-users
 
 - title: Explanation
