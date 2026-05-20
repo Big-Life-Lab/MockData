@@ -322,10 +322,13 @@
 #' declared missing code.
 #'
 #' Garbage rules are applied in canonical order: `low`, then `high`, then any
-#' other named rules in caller order. Diagnostics are stored as a data-frame
-#' attribute. Base R subsetting and some downstream tools may drop attributes,
-#' so preserve the original post-processed object when diagnostics are part of
-#' the audit trail.
+#' other named rules in caller order. Each garbage rule is a named list with a
+#' `proportion` field and a `range` field using MockData range notation, for
+#' example `list(high = list(proportion = 0.05, range = "[150, 200]"))`.
+#'
+#' Diagnostics are stored as a data-frame attribute. Base R subsetting and some
+#' downstream tools may drop attributes, so preserve the original post-processed
+#' object when diagnostics are part of the audit trail.
 #'
 #' @family mock generation APIs
 #' @seealso [generate_mock_data_native()], [generate_mock_data_simstudy()],

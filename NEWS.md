@@ -21,13 +21,18 @@
   distinguish assigned missing/garbage rows from naturally drawn values.
 - Post-processing diagnostics now protect naturally drawn missing-code
   collisions from later garbage assignment, apply garbage rules in canonical
-  `low` -> `high` -> other order, and stop on repeated post-processing.
+  `low` -> `high` -> other order, and stop on repeated post-processing. This
+  prevents silent diagnostic drift when a naturally drawn missing-code value
+  would otherwise be overwritten by garbage assignment.
 - Added `generate_mock_data_simstudy()` as a soft-gated optional backend for
   baseline categorical and uniform continuous generation when `simstudy` is
   installed, with native generation retained for MockData-specific semantics.
 - The optional `simstudy` backend is kept in `Suggests`, requires
   `simstudy >= 0.8.1`, and validates categorical labels before converting
   generated values back into MockData's `mock_spec` levels.
+- The optional `simstudy` backend now rejects variables named `id`, which
+  conflicts with `simstudy`'s generated row identifier, and normalizes
+  categorical output through an explicit label-or-index validation path.
 - Added forward-compatible specification fields: `spec_version`, `provenance`,
   and `model_hint`.
 - Existing v0.3 generator APIs remain available while v0.4 internals are built.
