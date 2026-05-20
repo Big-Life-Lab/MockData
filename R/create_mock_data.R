@@ -8,28 +8,35 @@
 }
 
 #' @noRd
-.create_mock_data_v04_native_supported <- function(spec) {
-  all(vapply(spec$variables, function(variable) {
+.create_mock_data_v04_unsupported_variables <- function(spec) {
+  unsupported <- vapply(spec$variables, function(variable) {
     formula <- variable$formula
     has_formula <- !is.null(formula) &&
       !(is.character(formula) && length(formula) == 1 && (is.na(formula) || trimws(formula) == ""))
     if (has_formula) {
-      return(FALSE)
+      return(TRUE)
     }
 
     distribution <- tolower(variable$distribution %||% "uniform")
     if (variable$type == "continuous") {
-      return(distribution %in% c("uniform", "normal"))
+      return(!distribution %in% c("uniform", "normal"))
     }
     if (variable$type == "categorical") {
-      return(TRUE)
+      return(FALSE)
     }
     if (variable$type == "date") {
-      return(distribution == "uniform" && identical(variable$source_format %||% "analysis", "analysis"))
+      return(!(distribution == "uniform" && identical(variable$source_format %||% "analysis", "analysis")))
     }
 
-    FALSE
-  }, logical(1)))
+    TRUE
+  }, logical(1))
+
+  names(spec$variables)[unsupported]
+}
+
+#' @noRd
+.create_mock_data_v04_native_supported <- function(spec) {
+  length(.create_mock_data_v04_unsupported_variables(spec)) == 0
 }
 
 #' @noRd
@@ -59,11 +66,13 @@
     role = "enabled"
   )
 
-  if (!.create_mock_data_v04_native_supported(spec)) {
+  unsupported <- .create_mock_data_v04_unsupported_variables(spec)
+  if (length(unsupported) > 0) {
     if (isTRUE(verbose)) {
       message(
         "v0.4 mock_spec pipeline does not yet support every requested ",
-        "variable; using legacy create_* dispatch."
+        "variable; using legacy create_* dispatch. Unsupported variable(s): ",
+        paste(unsupported, collapse = ", ")
       )
     }
     return(NULL)
@@ -74,6 +83,9 @@
   }
 
   baseline <- generate_mock_data_native(spec, n = n, seed = seed)
+  # The wrapper uses a second deterministic stream for post-processing so
+  # baseline generation and missing/garbage assignment can be reproduced
+  # independently from the single public seed.
   postprocess_seed <- if (is.null(seed)) NULL else seed + 1L
   postprocess_mock_data(baseline, spec, seed = postprocess_seed)
 }
@@ -115,7 +127,10 @@
 #'   affected variable is skipped.
 #' @param verbose Logical. Whether to print progress messages (default FALSE).
 #'
-#' @return Data frame with n rows and one column per enabled variable.
+#' @return Data frame with n rows and one column per enabled variable. When the
+#'   v0.4 `mock_spec` path is used, the result also carries a
+#'   `mockdata_diagnostics` attribute from [postprocess_mock_data()]. Legacy
+#'   fallback paths return plain data frames without that attribute.
 #'
 #' @details
 #' **v0.4.0 transition**: In strict mode, this function first attempts to use
@@ -124,6 +139,16 @@
 #' requests a feature not yet supported by the v0.4 native backend, it falls
 #' back to the v0.3 `create_*` dispatch path so existing users can migrate
 #' gradually.
+#'
+#' The wrapper deliberately stays on the legacy path when `validate = FALSE`,
+#' when `variable_details = NULL`, when detail-level `databaseStart` filtering is
+#' needed but the variables metadata has no `databaseStart` column, or when a
+#' variable uses a feature not yet supported by the v0.4 native backend. Set
+#' `verbose = TRUE` to see which path was chosen.
+#'
+#' In the v0.4 path, `seed` is used for baseline generation and `seed + 1` is
+#' used for post-processing. This makes both stages deterministic, but generated
+#' values may differ from v0.3.x output for the same seed.
 #'
 #' **v0.3.0 API**: This function follows the "recodeflow pattern" where it passes
 #' full metadata data frames to create_* functions, which handle internal
@@ -194,6 +219,9 @@
 #' }
 #'
 #' @family generators
+#' @family mock generation APIs
+#' @seealso [mock_spec_from_recodeflow()], [generate_mock_data_native()],
+#'   [postprocess_mock_data()], [generate_mock_data_simstudy()], [mock_spec()]
 #' @export
 create_mock_data <- function(databaseStart,
                              variables,
@@ -245,7 +273,15 @@ create_mock_data <- function(databaseStart,
 
   # ========== v0.4 PIPELINE PATH ==========
 
-  if (isTRUE(validate) && !is.null(variable_details)) {
+  if (!isTRUE(validate)) {
+    if (verbose) {
+      message("validate = FALSE requested; using legacy create_* dispatch.")
+    }
+  } else if (is.null(variable_details)) {
+    if (verbose) {
+      message("variable_details = NULL; using legacy create_* fallback dispatch.")
+    }
+  } else {
     v04_result <- .create_mock_data_v04(
       databaseStart = databaseStart,
       variables = variables,

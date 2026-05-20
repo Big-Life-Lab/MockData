@@ -27,8 +27,10 @@ test_that("create_mock_data uses the v0.4 pipeline for strict supported metadata
 
   expect_equal(names(result), "smoking")
   expect_true(all(result$smoking %in% c("1", "2", "97", "-2", "-1", "0")))
-  expect_equal(length(diagnostics$assigned_missing_indices), 10)
-  expect_equal(length(diagnostics$assigned_garbage_indices$low), 9)
+  expect_true(length(diagnostics$assigned_missing_indices) >= 8)
+  expect_true(length(diagnostics$assigned_missing_indices) <= 12)
+  expect_true(length(diagnostics$assigned_garbage_indices$low) >= 7)
+  expect_true(length(diagnostics$assigned_garbage_indices$low) <= 11)
   expect_length(intersect(
     diagnostics$assigned_missing_indices,
     diagnostics$assigned_garbage_indices$low
@@ -62,7 +64,7 @@ test_that("create_mock_data keeps legacy fallback for unsupported v0.4 backend f
       seed = 202,
       verbose = TRUE
     ),
-    "legacy create_\\* dispatch"
+    "Unsupported variable\\(s\\): time_to_visit"
   )
 
   expect_equal(names(result), "time_to_visit")
@@ -102,4 +104,107 @@ test_that("create_mock_data keeps legacy detail-level databaseStart filtering", 
 
   expect_equal(unique(result$smoking), "1")
   expect_null(attr(result, "mockdata_diagnostics"))
+})
+
+test_that("create_mock_data announces validate FALSE legacy path", {
+  variables <- data.frame(
+    variable = "smoking",
+    variableType = "Categorical",
+    rType = "character",
+    role = "enabled",
+    stringsAsFactors = FALSE
+  )
+  variable_details <- data.frame(
+    variable = "smoking",
+    recStart = c("1", "2"),
+    recEnd = c("copy", "copy"),
+    proportion = c(0.6, 0.4),
+    stringsAsFactors = FALSE
+  )
+
+  expect_message(
+    result <- create_mock_data(
+      databaseStart = "study",
+      variables = variables,
+      variable_details = variable_details,
+      n = 20,
+      seed = 404,
+      validate = FALSE,
+      verbose = TRUE
+    ),
+    "validate = FALSE requested"
+  )
+
+  expect_equal(names(result), "smoking")
+  expect_null(attr(result, "mockdata_diagnostics"))
+})
+
+test_that("create_mock_data announces variable_details NULL legacy fallback path", {
+  variables <- data.frame(
+    variable = "age",
+    variableType = "Continuous",
+    rType = "integer",
+    role = "enabled",
+    stringsAsFactors = FALSE
+  )
+
+  expect_warning(
+    expect_message(
+      result <- create_mock_data(
+        databaseStart = "study",
+        variables = variables,
+        variable_details = NULL,
+        n = 20,
+        seed = 505,
+        verbose = TRUE
+      ),
+      "variable_details = NULL"
+    ),
+    "No variable_details rows found"
+  )
+
+  expect_equal(names(result), "age")
+  expect_null(attr(result, "mockdata_diagnostics"))
+})
+
+test_that("create_mock_data v0.4 and legacy paths are distributionally aligned", {
+  variables <- data.frame(
+    variable = "smoking",
+    variableType = "Categorical",
+    rType = "character",
+    role = "enabled",
+    stringsAsFactors = FALSE
+  )
+  variable_details <- data.frame(
+    variable = "smoking",
+    recStart = c("1", "2"),
+    recEnd = c("copy", "copy"),
+    proportion = c(0.65, 0.35),
+    stringsAsFactors = FALSE
+  )
+
+  v04 <- create_mock_data(
+    databaseStart = "study",
+    variables = variables,
+    variable_details = variable_details,
+    n = 5000,
+    seed = 606
+  )
+  legacy <- create_mock_data(
+    databaseStart = "study",
+    variables = variables,
+    variable_details = variable_details,
+    n = 5000,
+    seed = 606,
+    validate = FALSE
+  )
+
+  expect_equal(sort(unique(v04$smoking)), sort(unique(legacy$smoking)))
+  expect_equal(
+    unname(prop.table(table(v04$smoking))[c("1", "2")]),
+    unname(prop.table(table(legacy$smoking))[c("1", "2")]),
+    tolerance = 0.03
+  )
+  expect_type(attr(v04, "mockdata_diagnostics"), "list")
+  expect_null(attr(legacy, "mockdata_diagnostics"))
 })

@@ -36,6 +36,10 @@
 - `create_mock_data()` now attempts the v0.4 `mock_spec` pipeline in strict
   mode for supported recodeflow metadata, while retaining the legacy `create_*`
   dispatch path for unsupported v0.4 backend features and lenient generation.
+  The v0.4 path attaches `mockdata_diagnostics` and uses `seed` for baseline
+  generation plus `seed + 1` for post-processing, so exact seeded output may
+  differ from v0.3.x even when the public seed is unchanged. Verbose mode now
+  reports whether the v0.4 or legacy path was chosen.
 - Added forward-compatible specification fields: `spec_version`, `provenance`,
   and `model_hint`.
 - Existing v0.3 generator APIs remain available while v0.4 internals are built.
