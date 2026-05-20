@@ -26,6 +26,8 @@ vignette and pkgdown builds.
   routing, diagnostics, and seed differences.
 - `choosing-a-backend-v04.qmd`: how-to for native versus optional `simstudy`
   backend selection.
+- `design-philosophy-v04.qmd`: explanation of v0.4 design choices and scope
+  boundaries.
 - README: update the top-level status and quick example so users see v0.4
   immediately.
 - `_pkgdown.yml`: expose the new v0.4 tutorial in site navigation.

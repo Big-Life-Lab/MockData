@@ -73,7 +73,7 @@ so installing MockData does not require installing `simstudy`.
 
 ```{r}
 simstudy_available <- requireNamespace("simstudy", quietly = TRUE) &&
-  utils::packageVersion("simstudy") >= "0.8.1"
+  utils::packageVersion("simstudy") >= numeric_version("0.8.1")
 
 simstudy_available
 ```

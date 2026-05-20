@@ -122,6 +122,7 @@ articles:
   desc: Understanding concepts and design decisions
   navbar: Explanation
   contents:
+  - design-philosophy-v04
   - advanced-topics
 
 - title: Reference
