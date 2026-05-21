@@ -31,8 +31,8 @@ Please try the `dev` branch with representative `variables.csv` and
 `variable_details.csv` files and report bugs, surprising output,
 confusing diagnostics, or migration issues in [GitHub
 Issues](https://github.com/Big-Life-Lab/MockData/issues). Broader design
-feedback is also welcome there; if the conversation grows beyond
-issue-sized feedback, we can open a GitHub Discussion.
+feedback is welcome in [GitHub Discussion
+\#31](https://github.com/Big-Life-Lab/MockData/discussions/31).
 
 **What MockData can currently help with:**
 
