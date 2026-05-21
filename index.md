@@ -13,6 +13,27 @@ as an encouraging signal, not as evidence that the package is mature.
 Please review the generated data before using it in any workflow that
 matters.
 
+**v0.4 release candidate on `dev`:** The next MockData release is
+currently on the `dev` branch for testing before it is merged forward to
+`main`. v0.4 adds the `mock_spec` pipeline, direct specification
+helpers, a recodeflow metadata adapter, native generation, optional
+`simstudy` generation, post-processing diagnostics, and a new
+Divio-style documentation set.
+
+The v0.4 work keeps the existing v0.3 public functions available.
+Several larger ideas were deliberately deferred rather than rushed into
+this release: formula-derived variables, multi-variable correlation,
+Table 1 bootstrap, LinkML/schema-first integration, and advanced
+survival simulation. MockData also remains framed as mock data for
+development and QA, not synthetic data for privacy release or inference.
+
+Please try the `dev` branch with representative `variables.csv` and
+`variable_details.csv` files and report bugs, surprising output,
+confusing diagnostics, or migration issues in [GitHub
+Issues](https://github.com/Big-Life-Lab/MockData/issues). Broader design
+feedback is also welcome there; if the conversation grows beyond
+issue-sized feedback, we can open a GitHub Discussion.
+
 **What MockData can currently help with:**
 
 - Generate metadata-driven mock variables for development and testing
