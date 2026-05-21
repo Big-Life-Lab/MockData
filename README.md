@@ -3,13 +3,13 @@
 <!-- badges: start -->
 
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
-[![Version: 0.4.0-dev](https://img.shields.io/badge/version-0.4.0--dev-blue.svg)](https://github.com/Big-Life-Lab/MockData)
+[![Version: 0.4.0](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/Big-Life-Lab/MockData)
 [![pkgdown](https://github.com/Big-Life-Lab/MockData/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/Big-Life-Lab/MockData/actions/workflows/pkgdown.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 <!-- badges: end -->
 
-**Status: Experimental, pre-release software**
+**Status: Experimental v0.4.0 release candidate**
 
 MockData is a work-in-progress R package for generating mock testing data from
 small metadata specifications. The `dev` branch now contains the v0.4

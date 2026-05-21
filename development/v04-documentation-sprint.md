@@ -1,5 +1,9 @@
 # MockData v0.4 Documentation Sprint
 
+**Status**: complete for the v0.4.0 documentation sprint. Remaining work before
+tagging is package checks, maintainer smoke testing, and any follow-up edits from
+review.
+
 This sprint treats documentation as implementation validation. The goal is not
 only to explain the v0.4 API, but to run realistic user workflows during
 vignette and pkgdown builds.

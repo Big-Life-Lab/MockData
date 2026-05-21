@@ -278,16 +278,20 @@ changed the design in concrete ways:
 - diagnostics became a first-class auditability contract;
 - `simstudy` stayed optional to preserve MockData's dependency and license
   posture;
+- a Phase C communication note made sibling-package testing part of the release
+  process;
 - executable vignettes became part of validation, not just prose.
 
-The development notes in `development/` and `.tmp/` preserve more of that review
-trail for maintainers. This vignette distills the user-facing design choices.
+The development notes in `development/` and maintainer-only review notes
+preserve more of that review trail. This vignette distills the user-facing
+design choices.
 
 ## The design in one paragraph
 
-MockData v0.4 normalizes inputs into `mock_spec`, validates that shape, generates
-baseline values through a native backend or optional `simstudy` backend, and
-then applies MockData-owned post-processing for missing codes, garbage values,
-and diagnostics. It keeps recodeflow metadata central, adds simpler direct APIs,
-and preserves the public `create_mock_data()` wrapper for compatibility. It is
-mock data for development and QA, not synthetic data for inference.
+MockData v0.4 normalizes inputs into `mock_spec`, validates that shape strictly
+by default, generates baseline values through a native backend or optional
+`simstudy` backend, and then applies MockData-owned post-processing for missing
+codes, garbage values, and diagnostics. It keeps recodeflow metadata central,
+adds simpler direct APIs, and preserves the public `create_mock_data()` wrapper
+for compatibility. It is mock data for development and QA, not synthetic data
+for inference.
