@@ -1,7 +1,7 @@
 # ADR: v0.4 Hybrid Backend Architecture
 
-**Status**: draft  
-**Date**: 2026-05-18  
+**Status**: accepted and implemented in PR #28
+**Date**: 2026-05-18
 **Decision owner**: MockData maintainers
 
 ## Context
@@ -22,6 +22,9 @@ The v0.4 spike tested whether MockData can normalize user inputs into a
 MockData-specific semantics as post-processing. Three review rounds converged on
 the same conclusion: the hybrid architecture is ready for production refactor
 planning.
+
+The production refactor was implemented in PR #28 and merged to `dev` for
+sibling-package testing before a v0.4.0 tag.
 
 ## Decision
 
@@ -92,18 +95,22 @@ Tradeoffs:
   formula syntax, custom distribution registry, and correlation merging.
 - Maintaining wrappers will add short-term complexity.
 
-## Implementation Direction
+## Implementation Status
 
-Production refactor should proceed in layers:
+The production refactor proceeded in layers:
 
 1. `mock_spec` constructors and validators.
 2. Direct and recodeflow input adapters.
-3. Formula/dependency evaluator.
-4. Native backend.
-5. Post-processing layer.
-6. Promotion of spike assertions to `testthat`.
-7. Optional `simstudy` backend.
-8. Current API wrappers.
+3. Native backend.
+4. Post-processing layer and diagnostics.
+5. Promotion of spike assertions to `testthat`.
+6. Optional `simstudy` backend.
+7. Current API wrappers.
+8. Divio documentation sprint and Phase C maintainer communication.
+
+Formula/dependency evaluation, multi-group correlations, Table 1 adapters, and
+schema-first integration remain deferred roadmap items rather than v0.4.0
+commitments.
 
 ## Open Follow-Up Decisions
 

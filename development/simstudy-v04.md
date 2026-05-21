@@ -1,8 +1,14 @@
 # MockData v0.4 Production Refactor Plan
 
+**Status**: implemented in PR #28 and superseded by the v0.4 documentation
+sprint. This document is retained as the production-refactor plan and should be
+read as historical implementation context rather than an active task list.
+
 ## 1. Write The ADR First
 
 Write a short architecture decision record before production code changes.
+
+**Status**: complete. See `development/adr/v04-hybrid-backend.md`.
 
 The ADR should lock these decisions:
 
@@ -30,6 +36,9 @@ The ADR should lock these decisions:
 ## 2. Implement In Layers
 
 Each layer should have focused tests before the next layer starts.
+
+**Status**: complete for the v0.4.0 scope. Formula/dependency evaluation,
+multi-group correlation, and Table 1 input remain deferred roadmap items.
 
 1. **`mock_spec` core**
    - Constructors and validators.
@@ -81,6 +90,10 @@ Each layer should have focused tests before the next layer starts.
 
 ## 3. Keep The Current API Alive
 
+**Status**: complete. The v0.3 public functions remain available, and
+`create_mock_data()` now routes supported metadata through the v0.4 pipeline
+while preserving legacy fallback paths.
+
 Existing public functions should remain available in v0.4.0:
 
 - `create_mock_data()`
@@ -94,6 +107,11 @@ incremental so cchsflow, chmsflow, and recodeflow users do not need a
 synchronized release.
 
 ## 4. Carry-Forward Design Issues
+
+**Status**: partly resolved. The diagnostics shape, seed discipline, native vs
+`simstudy` parity tests, and optional `simstudy` posture were settled for v0.4.0.
+The remaining items below should be treated as v0.5+ roadmap candidates or issue
+backlog material.
 
 Settle in the ADR or the first design note:
 
@@ -116,6 +134,9 @@ Track as implementation issues:
 
 ## 5. Communication
 
+**Status**: complete as a draft communication artifact. See
+`development/v04-phase-c-comms-note.md`.
+
 Before v0.4.0 lands, write a short communication note for cchsflow, chmsflow,
 and recodeflow maintainers:
 
@@ -125,4 +146,3 @@ and recodeflow maintainers:
 - What migration is optional in v0.4.0.
 - When deprecation warnings may begin.
 - How the mock-data framing remains distinct from synthetic-data release.
-

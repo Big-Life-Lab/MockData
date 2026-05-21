@@ -100,6 +100,7 @@ articles:
   desc: Learning-oriented step-by-step guides
   navbar: Tutorials
   contents:
+  - getting-started-v04
   - getting-started
   - tutorial-categorical-continuous
   - tutorial-dates
@@ -111,12 +112,17 @@ articles:
   desc: Task-oriented practical examples
   navbar: How-to guides
   contents:
+  - recodeflow-metadata-v04
+  - diagnostics-and-garbage-v04
+  - migrating-from-v03-v04
+  - choosing-a-backend-v04
   - for-recodeflow-users
 
 - title: Explanation
   desc: Understanding concepts and design decisions
   navbar: Explanation
   contents:
+  - design-philosophy-v04
   - advanced-topics
 
 - title: Reference
