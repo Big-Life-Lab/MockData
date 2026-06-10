@@ -1,5 +1,7 @@
 minimal_example_path <- function(...) {
-  file.path("..", "..", "inst", "extdata", "minimal-example", ...)
+  path <- system.file("extdata", "minimal-example", ..., package = "MockData")
+  skip_if(path == "", "minimal-example fixtures not found")
+  path
 }
 
 test_that("mock_spec_from_recodeflow converts minimal metadata", {

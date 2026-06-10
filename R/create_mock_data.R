@@ -168,7 +168,7 @@
 #'
 #' **Fallback mode**: If variable_details = NULL, uses simple default generators
 #' for enabled variables (two-category categorical values, continuous values from
-#' [0, 100], and dates from 2000-01-01 to 2025-12-31).
+#' `[0, 100]`, and dates from 2000-01-01 to 2025-12-31).
 #'
 #' **Variable types supported**:
 #' \itemize{
