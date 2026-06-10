@@ -363,6 +363,7 @@ create_mock_data <- function(databaseStart,
         stop(msg, call. = FALSE)
       }
       warning(msg)
+      skipped_vars <- c(skipped_vars, var_name)
       next
     }
 
@@ -415,6 +416,12 @@ create_mock_data <- function(databaseStart,
       for (col_name in names(var_data)) {
         df_mock[[col_name]] <- var_data[[col_name]]
       }
+    } else if (is.null(var_data) && !var_name %in% names(df_mock)) {
+      # Generators can return NULL without erroring (e.g. survival-date
+      # preconditions not met, no valid categories). Track those so the
+      # end-of-run summary reflects every absent column. The names(df_mock)
+      # check keeps legitimate already-exists skips out of the summary.
+      skipped_vars <- c(skipped_vars, var_name)
     }
   }
 
@@ -426,7 +433,9 @@ create_mock_data <- function(databaseStart,
     message("  Variables: ", ncol(df_mock))
   }
 
-  if (!validate && length(skipped_vars) > 0) {
+  # Fires in both modes: strict mode can also drop columns when a generator
+  # returns NULL without erroring.
+  if (length(skipped_vars) > 0) {
     skipped_vars <- unique(skipped_vars)
     message("Skipped variables during mock data generation: ",
             paste(skipped_vars, collapse = ", "))

@@ -580,6 +580,84 @@ test_that("generators warn when duplicate variables rows match", {
   expect_s3_class(result_date, "data.frame")
 })
 
+test_that("create_mock_data reports skipped variables when a generator returns NULL under validate = TRUE", {
+  # A survival-style date variable (followup_min/max/event_prop set) requires
+  # an anchor_date column in df_mock. create_mock_data never supplies one, so
+  # create_date_var warns and returns NULL without erroring — the column is
+  # silently absent. The end-of-run summary must report it even in strict mode.
+  # (distribution = "gompertz" keeps the v0.4 pipeline from claiming the run,
+  # so this exercises the legacy dispatch path.)
+  variables <- data.frame(
+    variable = c("age", "event_date"),
+    variableType = c("Continuous", "Date"),
+    rType = c("integer", "date"),
+    role = c("enabled", "enabled"),
+    distribution = c(NA, "gompertz"),
+    followup_min = c(NA, 365),
+    followup_max = c(NA, 3650),
+    event_prop = c(NA, 0.5),
+    stringsAsFactors = FALSE
+  )
+  details <- data.frame(
+    variable = c("age", "event_date"),
+    recStart = c("[18,85]", "[2001-01-01,2005-12-31]"),
+    recEnd = c("copy", "copy"),
+    proportion = c(1, 1),
+    stringsAsFactors = FALSE
+  )
+
+  expect_message(
+    expect_warning(
+      result <- create_mock_data(
+        databaseStart = "study",
+        variables = variables,
+        variable_details = details,
+        n = 5,
+        seed = 1,
+        validate = TRUE
+      ),
+      "anchor_date"
+    ),
+    "Skipped variables.*event_date"
+  )
+
+  expect_s3_class(result, "data.frame")
+  expect_true("age" %in% names(result))
+  expect_false("event_date" %in% names(result))
+})
+
+test_that("create_mock_data lists missing-rType variables in the skipped summary when validate = FALSE", {
+  variables <- data.frame(
+    variable = c("age", "no_rtype_var"),
+    variableType = c("Continuous", "Continuous"),
+    rType = c("integer", NA),
+    role = c("enabled", "enabled"),
+    stringsAsFactors = FALSE
+  )
+  details <- data.frame(
+    variable = "age", recStart = "[18,85]", recEnd = "copy",
+    proportion = 1, stringsAsFactors = FALSE
+  )
+
+  expect_message(
+    expect_warning(
+      result <- create_mock_data(
+        databaseStart = "study",
+        variables = variables,
+        variable_details = details,
+        n = 5,
+        seed = 1,
+        validate = FALSE
+      ),
+      "missing rType"
+    ),
+    "Skipped variables.*no_rtype_var"
+  )
+
+  expect_true("age" %in% names(result))
+  expect_false("no_rtype_var" %in% names(result))
+})
+
 test_that("create_mock_data validate = FALSE path still returns a data frame", {
   # Smoke test that the orchestrator's tryCatch + validate = FALSE contract
   # survives the generator changes. (Missing-from-variables cannot be

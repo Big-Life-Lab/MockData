@@ -33,7 +33,7 @@
 #'
 #' @return data.frame with one column (the generated date variable), or NULL if:
 #'   \itemize{
-#'     \item Variable already exists in df_mock
+#'     \item Variable already exists in df_mock (a message is emitted)
 #'     \item No valid date range found in variable_details, or the date
 #'       range cannot be parsed
 #'     \item Survival-variable preconditions are not met (e.g. df_mock lacks
@@ -143,7 +143,7 @@ create_date_var <- function(var,
   # ========== INTERNAL FILTERING (recodeflow pattern) ==========
 
   # Filter variables for this var
-  var_row <- variables[variables$variable == var, ]
+  var_row <- variables[variables$variable == var, , drop = FALSE]
 
   if (nrow(var_row) == 0) {
     stop("Variable '", var, "' not found in variables metadata", call. = FALSE)
@@ -170,15 +170,18 @@ create_date_var <- function(var,
          databaseStart,
          allow_empty = TRUE
        )),
+      ,
+      drop = FALSE
     ]
   } else {
     # Fallback: no databaseStart filtering (for simple configs)
-    details_subset <- variable_details[variable_details$variable == var, ]
+    details_subset <- variable_details[variable_details$variable == var, , drop = FALSE]
   }
 
   # ========== CHECK IF VARIABLE ALREADY EXISTS ==========
 
   if (!is.null(df_mock) && var %in% names(df_mock)) {
+    message("Variable '", var, "' already exists in df_mock; skipping generation.")
     return(NULL)
   }
 

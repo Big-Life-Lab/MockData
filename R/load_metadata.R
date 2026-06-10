@@ -3,12 +3,14 @@
 #' Internal helper shared by create_mock_data() and the create_* generators.
 #' Accepts a data frame (returned unchanged), NULL (returned unchanged, for
 #' optional variable_details), or a single CSV file path (read with
-#' check.names = FALSE to preserve recodeflow column names).
+#' check.names = FALSE to preserve recodeflow column names). A path that
+#' points to a directory, or one that does not exist, is an error.
 #'
 #' Note: the v0.4 pipeline has its own reader, .read_recodeflow_table()
-#' (R/mock_spec_recodeflow.R), which additionally maps "" and "NA" cells to NA
-#' via na.strings. This helper keeps read.csv defaults to preserve the legacy
-#' create_* generators' behaviour. Keep the two in mind if consolidating.
+#' (R/mock_spec_recodeflow.R), which additionally maps empty-string cells
+#' ("") to NA via na.strings (read.csv already treats "NA" as missing by
+#' default). This helper keeps read.csv defaults to preserve the legacy
+#' create_* generators' behaviour.
 #'
 #' @param x data.frame, NULL, or length-1 character file path.
 #' @param what Character. Argument name used in messages ("variables",

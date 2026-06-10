@@ -30,10 +30,8 @@
 #' @param n integer. Number of observations to generate.
 #' @param seed integer. Optional. Random seed for reproducibility.
 #'
-#' @return data.frame with one column (the generated continuous variable), or NULL if:
-#'   \itemize{
-#'     \item Variable already exists in df_mock
-#'   }
+#' @return data.frame with one column (the generated continuous variable), or
+#'   NULL (with a message) if the variable already exists in df_mock.
 #'
 #'   Errors if the variable is not found in the variables metadata. Warns and
 #'   uses the first row if multiple variables rows match.
@@ -139,7 +137,7 @@ create_con_var <- function(var,
   # ========== INTERNAL FILTERING (recodeflow pattern) ==========
 
   # Filter variables for this var
-  var_row <- variables[variables$variable == var, ]
+  var_row <- variables[variables$variable == var, , drop = FALSE]
 
   if (nrow(var_row) == 0) {
     stop("Variable '", var, "' not found in variables metadata", call. = FALSE)
@@ -166,15 +164,18 @@ create_con_var <- function(var,
          databaseStart,
          allow_empty = TRUE
        )),
+      ,
+      drop = FALSE
     ]
   } else {
     # Fallback: no databaseStart filtering (for simple configs)
-    details_subset <- variable_details[variable_details$variable == var, ]
+    details_subset <- variable_details[variable_details$variable == var, , drop = FALSE]
   }
 
   # ========== CHECK IF VARIABLE ALREADY EXISTS ==========
 
   if (!is.null(df_mock) && var %in% names(df_mock)) {
+    message("Variable '", var, "' already exists in df_mock; skipping generation.")
     return(NULL)
   }
 
