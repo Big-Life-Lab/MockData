@@ -30,12 +30,11 @@
 #' @param n integer. Number of observations to generate.
 #' @param seed integer. Optional. Random seed for reproducibility.
 #'
-#' @return data.frame with one column (the generated continuous variable), or NULL if:
-#'   \itemize{
-#'     \item Variable not found in metadata
-#'     \item Variable already exists in df_mock
-#'     \item No valid range found in variable_details
-#'   }
+#' @return data.frame with one column (the generated continuous variable), or
+#'   NULL (with a message) if the variable already exists in df_mock.
+#'
+#'   Errors if the variable is not found in the variables metadata. Warns and
+#'   uses the first row if multiple variables rows match.
 #'
 #' @details
 #' **v0.3.0 API**: This function now accepts full metadata data frames and filters
@@ -82,30 +81,32 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' # Basic usage with metadata data frames
-#' age <- create_con_var(
-#'   var = "age",
-#'   databaseStart = "cchs2001_p",
-#'   variables = variables,
-#'   variable_details = variable_details,
-#'   n = 1000,
-#'   seed = 123
+#' variables <- data.frame(
+#'   variable = "age",
+#'   variableType = "Continuous",
+#'   rType = "integer",
+#'   stringsAsFactors = FALSE
+#' )
+#' variable_details <- data.frame(
+#'   variable = "age",
+#'   recStart = "[18,85]",
+#'   recEnd = "copy",
+#'   proportion = 1,
+#'   stringsAsFactors = FALSE
 #' )
 #'
-#' # Expected output: data.frame with 1000 rows, 1 column ("age")
-#' # Values: Numeric based on distribution in metadata
-#' # Example for age with normal(50, 15):
-#' #   age
-#' # 1  45
-#' # 2  52
-#' # 3  48
-#' # 4  61
-#' # 5  39
-#' # ...
-#' # Distribution: Normal(mean=50, sd=15), clipped to [18,100]
-#' # Type: Integer (if rType="integer" in metadata)
+#' age <- create_con_var(
+#'   var = "age",
+#'   databaseStart = "example",
+#'   variables = variables,
+#'   variable_details = variable_details,
+#'   n = 100,
+#'   seed = 123
+#' )
+#' head(age)
 #'
+#' \dontrun{
+#' # Not run: requires your own metadata CSV files
 #' # With file paths instead of data frames
 #' result <- create_con_var(
 #'   var = "BMI",
@@ -130,25 +131,22 @@ create_con_var <- function(var,
   # ========== PARAMETER VALIDATION ==========
 
   # Load metadata from file paths if needed
-  if (is.character(variables) && length(variables) == 1) {
-    variables <- read.csv(variables, stringsAsFactors = FALSE, check.names = FALSE)
-  }
-  if (is.character(variable_details) && length(variable_details) == 1) {
-    variable_details <- read.csv(variable_details, stringsAsFactors = FALSE, check.names = FALSE)
-  }
+  variables <- .load_metadata_df(variables, "variables")
+  variable_details <- .load_metadata_df(variable_details, "variable_details")
 
   # ========== INTERNAL FILTERING (recodeflow pattern) ==========
 
   # Filter variables for this var
-  var_row <- variables[variables$variable == var, ]
+  var_row <- variables[variables$variable == var, , drop = FALSE]
 
   if (nrow(var_row) == 0) {
-    warning(paste0("Variable '", var, "' not found in variables metadata"))
-    return(NULL)
+    stop("Variable '", var, "' not found in variables metadata", call. = FALSE)
   }
 
-  # Take first row if multiple matches
   if (nrow(var_row) > 1) {
+    warning("Multiple rows found for '", var, "' in variables metadata (",
+            nrow(var_row), " rows); using the first row.",
+            call. = FALSE)
     var_row <- var_row[1, ]
   }
 
@@ -166,15 +164,18 @@ create_con_var <- function(var,
          databaseStart,
          allow_empty = TRUE
        )),
+      ,
+      drop = FALSE
     ]
   } else {
     # Fallback: no databaseStart filtering (for simple configs)
-    details_subset <- variable_details[variable_details$variable == var, ]
+    details_subset <- variable_details[variable_details$variable == var, , drop = FALSE]
   }
 
   # ========== CHECK IF VARIABLE ALREADY EXISTS ==========
 
   if (!is.null(df_mock) && var %in% names(df_mock)) {
+    message("Variable '", var, "' already exists in df_mock; skipping generation.")
     return(NULL)
   }
 
@@ -189,7 +190,7 @@ create_con_var <- function(var,
       "No variable_details rows found for variable '", var,
       "' and databaseStart '", databaseStart,
       "'. Using fallback uniform range [0, 100]."
-    ))
+    ), call. = FALSE)
     values <- runif(n, min = 0, max = 100)
     # Fallback still honors rType so output contracts match configured metadata.
     if ("rType" %in% names(var_row)) {
@@ -290,13 +291,13 @@ create_con_var <- function(var,
         "Variable '", var,
         "' requested normal distribution but mean and/or sd are missing. ",
         "Using uniform distribution instead."
-      ))
+      ), call. = FALSE)
     } else if (distribution_type == "exponential") {
       warning(paste0(
         "Variable '", var,
         "' requested exponential distribution but rate is missing. ",
         "Using uniform distribution instead."
-      ))
+      ), call. = FALSE)
     }
 
     # Uniform distribution (default)

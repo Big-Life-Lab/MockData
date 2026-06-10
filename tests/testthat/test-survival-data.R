@@ -306,3 +306,64 @@ test_that("create_wide_survival_data validates required parameters", {
     "databaseStart parameter is required"
   )
 })
+
+test_that("create_wide_survival_data accepts CSV file paths and propagates generator errors", {
+  # Same fixture shape as the basic entry + event test above
+  variables <- data.frame(
+    variable = c("interview_date", "primary_event_date"),
+    variableType = c("Date", "Date"),
+    role = c("enabled", "enabled"),
+    followup_min = c(NA, 365),
+    followup_max = c(NA, 3650),
+    event_prop = c(NA, 1.0),
+    stringsAsFactors = FALSE
+  )
+
+  variable_details <- data.frame(
+    variable = c("interview_date", "interview_date"),
+    recStart = c("[2001-01-01,2005-12-31]", NA),
+    recEnd = c("copy", "NA::b"),
+    stringsAsFactors = FALSE
+  )
+
+  # 1. CSV-path input: metadata supplied as file paths, not data frames
+  variables_path <- tempfile(fileext = ".csv")
+  details_path <- tempfile(fileext = ".csv")
+  write.csv(variables, variables_path, row.names = FALSE)
+  write.csv(variable_details, details_path, row.names = FALSE)
+
+  result <- create_wide_survival_data(
+    var_entry_date = "interview_date",
+    var_event_date = "primary_event_date",
+    var_death_date = NULL,
+    var_ltfu = NULL,
+    var_admin_censor = NULL,
+    databaseStart = "test",
+    variables = variables_path,
+    variable_details = details_path,
+    n = 100,
+    seed = 123
+  )
+
+  expect_s3_class(result, "data.frame")
+  expect_equal(nrow(result), 100)
+  expect_true("interview_date" %in% names(result))
+  expect_true("primary_event_date" %in% names(result))
+
+  # 2. Error propagation: unknown entry variable surfaces the generator error
+  expect_error(
+    create_wide_survival_data(
+      var_entry_date = "typo_var",
+      var_event_date = "primary_event_date",
+      var_death_date = NULL,
+      var_ltfu = NULL,
+      var_admin_censor = NULL,
+      databaseStart = "test",
+      variables = variables,
+      variable_details = variable_details,
+      n = 100,
+      seed = 123
+    ),
+    "not found in variables metadata"
+  )
+})

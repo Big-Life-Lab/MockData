@@ -1,6 +1,6 @@
 Package: MockData
 Title: Generate Mock Data from Metadata Specifications
-Version: 0.3.0
+Version: 0.4.0
 Authors@R: c(
     person("Juan", "Li", role = "aut", email = "juli@ohri.ca"),
     person("Douglas", "Manuel", role = c("aut", "cre"), email = "dmanuel@ohri.ca"),
@@ -25,13 +25,14 @@ VignetteBuilder: quarto
 Depends:
     R (>= 4.2.0)
 Imports:
-    stats,
-    dplyr
+    stats
 Suggests:
     testthat (>= 3.0.0),
+    dplyr,
     readr,
     stringr,
     lubridate,
+    simstudy (>= 0.8.1),
     knitr,
     quarto,
     devtools,

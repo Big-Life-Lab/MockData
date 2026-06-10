@@ -1,0 +1,297 @@
+---
+title: "MockData v0.4 design philosophy"
+format: html
+vignette: >
+  %\VignetteIndexEntry{MockData v0.4 design philosophy}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+input_file <- tryCatch(knitr::current_input(dir = TRUE), error = function(e) NULL)
+candidate_roots <- unique(c(
+  ".",
+  "..",
+  if (!is.null(input_file)) file.path(dirname(input_file), "..")
+))
+package_root <- NULL
+for (candidate in candidate_roots) {
+  description <- file.path(candidate, "DESCRIPTION")
+  if (file.exists(description) &&
+      any(grepl("^Package:\\s+MockData\\s*$", readLines(description, warn = FALSE)))) {
+    package_root <- candidate
+    break
+  }
+}
+
+if (!is.null(package_root)) {
+  devtools::load_all(package_root, quiet = TRUE)
+} else {
+  library(MockData)
+}
+```
+
+::: {.vignette-about}
+**About this vignette:** This explanation describes why MockData v0.4 is shaped
+around `mock_spec`, native generation, optional `simstudy`, and MockData-owned
+post-processing. It is not a tutorial; start with the v0.4 getting-started
+vignette if you want a first workflow.
+:::
+
+## Mock data, not synthetic data
+
+MockData generates mock data for package development, QA, documentation,
+examples, and training. Its output is meant to exercise code paths. It is not
+intended for privacy release, inference, or population-valid statistical
+analysis.
+
+That boundary is deliberate. In health-data and survey-data settings,
+"synthetic data" can imply privacy review, data-sharing obligations, or
+statistical validity claims. MockData avoids that claim. It helps you test a
+pipeline before you have access to real data; it does not replace real data for
+analysis.
+
+The working sentence is:
+
+> Give a recodeflow-style specification a body, so you can test the recoding
+> before you have the data.
+
+## The people v0.4 is trying to serve
+
+Three user groups shaped the v0.4 design.
+
+First, recodeflow ecosystem maintainers need data frames that can run through
+cchsflow, chmsflow, and recodeflow examples and tests. They already have
+`variables.csv` and `variable_details.csv`, so MockData should read those
+metadata files rather than invent a competing file format.
+
+Second, methodologists and package authors need examples and vignettes that run
+without restricted data. They may want a small, readable direct API rather than
+a full metadata table.
+
+Third, QA developers need deliberately bad data. Out-of-range ages, declared
+missing codes, impossible dates, and invalid category values are not incidental
+features; they are the point when testing validation code.
+
+v0.4 tries to serve all three without making any one workflow the only workflow.
+
+## Why `mock_spec` exists
+
+Before v0.4, MockData's generators read metadata, parsed ranges, generated
+values, applied missing codes, injected garbage, coerced types, and assembled
+columns in one path. That was useful while the package was young, but it made
+validation, backend choice, and diagnostics hard to reason about.
+
+v0.4 introduces `mock_spec` as the normalized internal representation. Different
+front doors can produce the same spec:
+
+- direct helpers, such as `mock_continuous()` and `mock_categorical()`
+- composable constructors, such as `mock_spec_continuous()`
+- recodeflow metadata through `mock_spec_from_recodeflow()`
+
+The spec is then consumed by generation and post-processing layers.
+
+```{r}
+spec <- mock_spec(
+  mock_spec_continuous(
+    "age",
+    range = c(18, 85),
+    distribution = "normal",
+    mean = 50,
+    sd = 12,
+    rtype = "integer"
+  ),
+  mock_spec_categorical(
+    "smoking",
+    levels = c("never", "former", "current"),
+    proportions = c(0.5, 0.3, 0.2),
+    rtype = "character"
+  )
+)
+
+names(spec$variables)
+```
+
+This is the main architectural move: parse once, validate once, then generate
+from the normalized shape.
+
+## Two tiers, one model
+
+The direct helpers are there for the first ten minutes.
+
+```{r}
+one_variable <- mock_continuous(
+  "age",
+  range = c(18, 85),
+  distribution = "normal",
+  mean = 50,
+  sd = 12,
+  rtype = "integer"
+)
+
+names(one_variable$variables)
+```
+
+The lower-level constructors are there when you want to compose multiple
+variables or build adapters.
+
+```{r}
+same_variable <- mock_spec(
+  mock_spec_continuous(
+    "age",
+    range = c(18, 85),
+    distribution = "normal",
+    mean = 50,
+    sd = 12,
+    rtype = "integer"
+  )
+)
+
+names(same_variable$variables)
+```
+
+Those are two surface syntaxes for the same internal model. That is why the
+package can support small hand-written examples and recodeflow metadata without
+duplicating generation logic.
+
+## Why the backend is hybrid
+
+MockData v0.4 has a native backend and an optional `simstudy` backend.
+
+The native backend is the default. It is always available, keeps MockData usable
+without optional dependencies, and owns the simple cases that are central to the
+package: categorical values, continuous values, dates, missing-code semantics,
+garbage values, and diagnostics.
+
+`simstudy` is optional. It is a mature GPL-3 simulation package with useful
+machinery for future advanced features, but MockData remains MIT licensed by
+keeping `simstudy` in `Suggests` and soft-gating the backend.
+
+```{r}
+native_data <- generate_mock_data_native(spec, n = 5, seed = 1)
+native_data
+```
+
+```{r}
+simstudy_available <- requireNamespace("simstudy", quietly = TRUE) &&
+  utils::packageVersion("simstudy") >= numeric_version("0.8.1")
+
+if (simstudy_available) {
+  generate_mock_data_simstudy(spec, n = 5, seed = 1)
+} else {
+  message("simstudy is not installed; the native backend remains available.")
+}
+```
+
+This split is intentionally conservative. MockData should not reimplement a
+large simulation library when a good one exists, but it also should not make a
+GPL-3 package mandatory for users who only need the core mock-data path.
+
+## Why post-processing is separate
+
+Missing codes and garbage values are not just another distribution. They are QA
+semantics layered on top of otherwise valid generated data.
+
+v0.4 therefore generates baseline values first, then applies missing-code and
+garbage rules in a separate post-processing pass.
+
+```{r}
+qa_spec <- mock_categorical(
+  "response",
+  levels = c("1", "97"),
+  proportions = c(0.7, 0.3),
+  rtype = "character",
+  missing_codes = "97",
+  missing_proportions = 0.2
+)
+
+baseline <- generate_mock_data_native(qa_spec, n = 100, seed = 11)
+processed <- postprocess_mock_data(baseline, qa_spec, seed = 12)
+
+diagnostics <- attr(processed, "mockdata_diagnostics")
+names(diagnostics$variables$response)
+```
+
+The diagnostics matter because a value can naturally collide with a declared
+missing code. In the example above, `97` is both a valid level and a missing
+code. MockData records which rows naturally drew `97` and which rows were
+assigned `97` during post-processing.
+
+```{r}
+response_diag <- diagnostics$variables$response
+
+c(
+  preexisting = length(response_diag$preexisting_missing_code_indices),
+  assigned = length(response_diag$assigned_missing_indices)
+)
+```
+
+That distinction is what makes the output auditable for QA workflows.
+
+## Why strictness increased
+
+Earlier MockData versions were often permissive: warn, skip a variable, and
+return whatever could be generated. That behavior was convenient in exploratory
+work, but risky in package tests and documentation. A silently missing column
+can make a vignette or downstream test look successful while testing the wrong
+thing.
+
+v0.4 moves toward strict generation for the new pipeline. Unsupported features
+should either fail loudly or route through an explicit compatibility path.
+
+`create_mock_data()` keeps compatibility by retaining legacy fallback routes,
+especially for `validate = FALSE`, `variable_details = NULL`, detail-level
+`databaseStart` filtering, and unsupported native-backend features. Use
+`verbose = TRUE` while migrating so the chosen path is visible.
+
+## What is deliberately deferred
+
+Several features are intentionally not solved in v0.4.
+
+Formula-derived variables are detected and kept loud rather than silently
+ignored. They need a dependency-aware evaluator, sandboxing rules, and clear
+syntax.
+
+Multi-variable correlation and richer joint distributions are future work.
+`simstudy` is one possible engine for those features, but v0.4 does not claim to
+generate statistically realistic joint distributions.
+
+Table 1 bootstrap is also future work. It is a natural third adapter: take
+published descriptive statistics and produce a `mock_spec`. That is useful, but
+it should not be squeezed into the recodeflow adapter.
+
+LinkML or another schema-first model remains a possible north star for the
+larger recodeflow ecosystem. v0.4 keeps the internal spec abstract enough that a
+future schema adapter could produce it.
+
+These are roadmap items, not hidden guarantees.
+
+## How the v0.4 refactor was reviewed
+
+The v0.4 architecture was developed through a spike, milestone PRs, and repeated
+review of code, tests, silent-failure paths, and documentation. That process
+changed the design in concrete ways:
+
+- strict-by-default behavior became more important than permissive fallback;
+- diagnostics became a first-class auditability contract;
+- `simstudy` stayed optional to preserve MockData's dependency and license
+  posture;
+- a Phase C communication note made sibling-package testing part of the release
+  process;
+- executable vignettes became part of validation, not just prose.
+
+The development notes in `development/` and maintainer-only review notes
+preserve more of that review trail. This vignette distills the user-facing
+design choices.
+
+## The design in one paragraph
+
+MockData v0.4 normalizes inputs into `mock_spec`, validates that shape strictly
+by default, generates baseline values through a native backend or optional
+`simstudy` backend, and then applies MockData-owned post-processing for missing
+codes, garbage values, and diagnostics. It keeps recodeflow metadata central,
+adds simpler direct APIs, and preserves the public `create_mock_data()` wrapper
+for compatibility. It is mock data for development and QA, not synthetic data
+for inference.

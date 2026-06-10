@@ -258,6 +258,53 @@ test_that("create_cat_var defaults to character when rType not specified", {
 })
 
 # ==============================================================================
+# create_mock_data() DISPATCH: rTypes not covered elsewhere through the
+# orchestrator (characterization tests for the legacy dispatch path)
+# ==============================================================================
+# These fixtures omit databaseStart from `variables` while including it in
+# `variable_details`, which routes create_mock_data() to the legacy create_*
+# dispatch (the v0.4 pipeline declines detail-level databaseStart filtering).
+
+test_that("create_mock_data dispatches rType = 'numeric' to the continuous generator", {
+  variables <- data.frame(
+    variable = "bmi", variableType = "Continuous", rType = "numeric",
+    role = "enabled", stringsAsFactors = FALSE
+  )
+  variable_details <- data.frame(
+    variable = "bmi", recStart = "[15,40]", recEnd = "copy",
+    proportion = 1, databaseStart = "study", stringsAsFactors = FALSE
+  )
+  result <- create_mock_data(
+    databaseStart = "study", variables = variables,
+    variable_details = variable_details, n = 25, seed = 42
+  )
+  expect_type(result$bmi, "double")
+  expect_equal(nrow(result), 25)
+})
+
+test_that("create_mock_data dispatches rType = 'logical' to the categorical generator", {
+  variables <- data.frame(
+    variable = "eligible", variableType = "Categorical", rType = "logical",
+    role = "enabled", stringsAsFactors = FALSE
+  )
+  variable_details <- data.frame(
+    variable = c("eligible", "eligible"),
+    recStart = c("TRUE", "FALSE"),
+    recEnd = c("TRUE", "FALSE"),
+    catLabel = c("Eligible", "Not eligible"),
+    proportion = c(0.5, 0.5),
+    databaseStart = c("study", "study"),
+    stringsAsFactors = FALSE
+  )
+  result <- create_mock_data(
+    databaseStart = "study", variables = variables,
+    variable_details = variable_details, n = 25, seed = 42
+  )
+  expect_true(is.logical(result$eligible))
+  expect_equal(nrow(result), 25)
+})
+
+# ==============================================================================
 # HELPER: apply_rtype_defaults()
 # ==============================================================================
 
@@ -316,4 +363,16 @@ test_that("apply_rtype_defaults validates rType values", {
     apply_rtype_defaults(details),
     "Invalid rType values found"
   )
+})
+
+test_that("apply_rtype_defaults handles NA, unknown, and logical variableType values", {
+  details <- data.frame(
+    variable = c("a", "b", "c", "d", "e"),
+    variableType = c("Continuous", NA, "weird-type", "Date", "logical"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- apply_rtype_defaults(details)
+
+  expect_equal(result$rType, c("double", "character", "character", "date", "logical"))
 })

@@ -1,0 +1,276 @@
+---
+title: "Migrate from MockData v0.3 to v0.4"
+format: html
+vignette: >
+  %\VignetteIndexEntry{Migrate from MockData v0.3 to v0.4}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+input_file <- tryCatch(knitr::current_input(dir = TRUE), error = function(e) NULL)
+candidate_roots <- unique(c(
+  ".",
+  "..",
+  if (!is.null(input_file)) file.path(dirname(input_file), "..")
+))
+package_root <- NULL
+for (candidate in candidate_roots) {
+  description <- file.path(candidate, "DESCRIPTION")
+  if (file.exists(description) &&
+      any(grepl("^Package:\\s+MockData\\s*$", readLines(description, warn = FALSE)))) {
+    package_root <- candidate
+    break
+  }
+}
+
+if (!is.null(package_root)) {
+  devtools::load_all(package_root, quiet = TRUE)
+} else {
+  library(MockData)
+}
+```
+
+::: {.vignette-about}
+**About this vignette:** This how-to is for users moving existing
+`create_mock_data()` workflows from v0.3 to v0.4. It focuses on the compatibility
+wrapper, routing messages, diagnostics, and reproducibility differences.
+:::
+
+## What stayed the same
+
+The main entry point is still `create_mock_data()`, and the existing arguments
+are still available.
+
+```{r}
+variables <- data.frame(
+  variable = c("age", "smoking"),
+  variableType = c("Continuous", "Categorical"),
+  rType = c("integer", "character"),
+  role = c("enabled", "enabled"),
+  position = c(10, 20),
+  distribution = c("normal", NA),
+  mean = c(50, NA),
+  sd = c(12, NA),
+  stringsAsFactors = FALSE
+)
+
+variable_details <- data.frame(
+  variable = c("age", "age", "smoking", "smoking", "smoking"),
+  recStart = c("[18, 85]", "999", "1", "2", "7"),
+  recEnd = c("copy", "NA::b", "copy", "copy", "NA::b"),
+  proportion = c(0.95, 0.05, 0.60, 0.35, 0.05),
+  stringsAsFactors = FALSE
+)
+```
+
+```{r}
+mock_data <- create_mock_data(
+  databaseStart = "study",
+  variables = variables,
+  variable_details = variable_details,
+  n = 100,
+  seed = 123
+)
+
+head(mock_data)
+```
+
+For supported metadata, v0.4 routes this call through the new `mock_spec`
+pipeline.
+
+## See which path ran
+
+Use `verbose = TRUE` when migrating. The message tells you whether the v0.4 path
+or the legacy path was used.
+
+```{r}
+strict_data <- create_mock_data(
+  databaseStart = "study",
+  variables = variables,
+  variable_details = variable_details,
+  n = 50,
+  seed = 456,
+  verbose = TRUE
+)
+```
+
+The v0.4 path returns a data frame with a diagnostics attribute.
+
+```{r}
+!is.null(attr(strict_data, "mockdata_diagnostics"))
+```
+
+## Opt into legacy behavior
+
+Set `validate = FALSE` when you need the legacy v0.3 dispatch path during
+migration. This is the explicit compatibility opt-out.
+
+```{r}
+legacy_data <- create_mock_data(
+  databaseStart = "study",
+  variables = variables,
+  variable_details = variable_details,
+  n = 50,
+  seed = 456,
+  validate = FALSE,
+  verbose = TRUE
+)
+```
+
+Legacy output is a plain data frame without the v0.4 diagnostics attribute.
+
+```{r}
+is.null(attr(legacy_data, "mockdata_diagnostics"))
+```
+
+The strict and legacy paths should agree on the broad shape of supported data,
+but exact values can differ.
+
+```{r}
+names(strict_data)
+names(legacy_data)
+
+table(strict_data$smoking)
+table(legacy_data$smoking)
+```
+
+## Understand seed differences
+
+In v0.3, the public seed controlled the legacy generators. In v0.4, the wrapper
+uses the public seed for baseline generation and `seed + 1L` for missing-code
+and garbage-value post-processing.
+
+That makes both stages reproducible, but it means exact values may differ from
+v0.3 even when you pass the same seed.
+
+```{r}
+strict_again <- create_mock_data(
+  databaseStart = "study",
+  variables = variables,
+  variable_details = variable_details,
+  n = 50,
+  seed = 456
+)
+
+identical(strict_data, strict_again)
+```
+
+When testing migrations, compare structure, types, ranges, and proportions
+rather than expecting row-for-row equality with v0.3 output.
+
+```{r}
+str(strict_data)
+prop.table(table(strict_data$smoking))
+```
+
+## Know the fallback conditions
+
+`create_mock_data()` deliberately uses the legacy path when:
+
+- `validate = FALSE`
+- `variable_details = NULL`
+- detail-level `databaseStart` filtering is needed but `variables` has no
+  `databaseStart` column
+- the requested metadata uses a feature not yet supported by the v0.4 native
+  backend
+
+For example, `variable_details = NULL` keeps the simple legacy fallback.
+
+```{r}
+fallback_data <- create_mock_data(
+  databaseStart = "study",
+  variables = variables[1, ],
+  variable_details = NULL,
+  n = 20,
+  seed = 789,
+  verbose = TRUE
+)
+
+head(fallback_data)
+```
+
+```{r}
+is.null(attr(fallback_data, "mockdata_diagnostics"))
+```
+
+Unsupported v0.4 backend features also route to legacy dispatch. This example
+uses an exponential continuous distribution, which remains available through the
+legacy generator.
+
+```{r}
+exp_variables <- data.frame(
+  variable = "time_to_visit",
+  variableType = "Continuous",
+  rType = "double",
+  role = "enabled",
+  distribution = "exponential",
+  rate = 0.5,
+  stringsAsFactors = FALSE
+)
+
+exp_details <- data.frame(
+  variable = "time_to_visit",
+  recStart = "[0, 10]",
+  recEnd = "copy",
+  proportion = 1,
+  stringsAsFactors = FALSE
+)
+
+exp_data <- create_mock_data(
+  databaseStart = "study",
+  variables = exp_variables,
+  variable_details = exp_details,
+  n = 20,
+  seed = 321,
+  verbose = TRUE
+)
+
+head(exp_data)
+```
+
+## Inspect the v0.4 path directly
+
+When debugging a migration, split the wrapper into its three v0.4 steps:
+
+```{r}
+spec <- mock_spec_from_recodeflow(variables, variable_details)
+validate_mock_spec(spec, strict = TRUE)
+```
+
+```{r}
+baseline <- generate_mock_data_native(spec, n = 50, seed = 456)
+postprocessed <- postprocess_mock_data(baseline, spec, seed = 457)
+
+identical(strict_data, postprocessed)
+```
+
+This makes it easier to tell whether an issue is coming from metadata parsing,
+baseline generation, or post-processing.
+
+## What to check in sibling packages
+
+For cchsflow, chmsflow, and recodeflow workflows, test representative
+`variables.csv` and `variable_details.csv` files with:
+
+```{r}
+#| eval: false
+mock <- create_mock_data(
+  databaseStart = "your-cycle",
+  variables = "variables.csv",
+  variable_details = "variable_details.csv",
+  n = 100,
+  seed = 123,
+  validate = TRUE,
+  verbose = TRUE
+)
+
+str(mock)
+attr(mock, "mockdata_diagnostics")
+```
+
+Report cases where metadata unexpectedly falls back to legacy dispatch, where a
+variable generated in v0.3 but errors in v0.4, or where the generated values,
+types, or diagnostics are surprising.

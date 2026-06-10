@@ -31,10 +31,12 @@
 #'
 #' @return data.frame with one column (the generated categorical variable), or NULL if:
 #'   \itemize{
-#'     \item Variable not found in metadata
-#'     \item Variable already exists in df_mock
+#'     \item Variable already exists in df_mock (a message is emitted)
 #'     \item No valid categories found in variable_details
 #'   }
+#'
+#'   Errors if the variable is not found in the variables metadata. Warns and
+#'   uses the first row if multiple variables rows match.
 #'
 #' @details
 #' **v0.3.0 API**: This function now accepts full metadata data frames and filters
@@ -76,39 +78,37 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' # Basic usage with metadata data frames
+#' variables <- data.frame(
+#'   variable = "smoking",
+#'   variableType = "Categorical",
+#'   rType = "factor",
+#'   stringsAsFactors = FALSE
+#' )
+#' variable_details <- data.frame(
+#'   variable = "smoking",
+#'   recStart = c("1", "2", "3", "7"),
+#'   recEnd = c("1", "2", "3", "NA::b"),
+#'   proportion = c(0.5, 0.3, 0.17, 0.03),
+#'   catLabel = c(
+#'     "Never smoker", "Former smoker", "Current smoker", "Don't know"
+#'   ),
+#'   stringsAsFactors = FALSE
+#' )
+#'
 #' smoking <- create_cat_var(
 #'   var = "smoking",
-#'   databaseStart = "cchs2001_p",
+#'   databaseStart = "example",
 #'   variables = variables,
 #'   variable_details = variable_details,
-#'   n = 1000,
+#'   n = 100,
 #'   seed = 123
 #' )
+#' # Code 7 ("Don't know") is an NA::b missing code, generated at its
+#' # configured proportion alongside the substantive categories.
+#' table(smoking$smoking)
 #'
-#' # Expected output: data.frame with 1000 rows, 1 column ("smoking")
-#' # Values: Factor with levels from metadata (e.g., "1", "2", "3", "7")
-#' # Distribution: Based on proportions in variable_details
-#' # Example:
-#' #   smoking
-#' # 1       1
-#' # 2       3
-#' # 3       2
-#' # 4       1
-#' # 5       7
-#' # ...
-#'
-#' # With missing data (uses proportions from metadata)
-#' smoking <- create_cat_var(
-#'   var = "smoking",
-#'   databaseStart = "cchs2001_p",
-#'   variables = variables,
-#'   variable_details = variable_details,
-#'   n = 1000
-#' )
-#' # Missing codes (recEnd = "NA::b") automatically included based on proportions
-#'
+#' \dontrun{
+#' # Not run: requires your own metadata CSV files
 #' # With file paths instead of data frames
 #' result <- create_cat_var(
 #'   var = "smoking",
@@ -133,25 +133,22 @@ create_cat_var <- function(var,
   # ========== PARAMETER VALIDATION ==========
 
   # Load metadata from file paths if needed
-  if (is.character(variables) && length(variables) == 1) {
-    variables <- read.csv(variables, stringsAsFactors = FALSE, check.names = FALSE)
-  }
-  if (is.character(variable_details) && length(variable_details) == 1) {
-    variable_details <- read.csv(variable_details, stringsAsFactors = FALSE, check.names = FALSE)
-  }
+  variables <- .load_metadata_df(variables, "variables")
+  variable_details <- .load_metadata_df(variable_details, "variable_details")
 
   # ========== INTERNAL FILTERING (recodeflow pattern) ==========
 
   # Filter variables for this var
-  var_row <- variables[variables$variable == var, ]
+  var_row <- variables[variables$variable == var, , drop = FALSE]
 
   if (nrow(var_row) == 0) {
-    warning(paste0("Variable '", var, "' not found in variables metadata"))
-    return(NULL)
+    stop("Variable '", var, "' not found in variables metadata", call. = FALSE)
   }
 
-  # Take first row if multiple matches
   if (nrow(var_row) > 1) {
+    warning("Multiple rows found for '", var, "' in variables metadata (",
+            nrow(var_row), " rows); using the first row.",
+            call. = FALSE)
     var_row <- var_row[1, ]
   }
 
@@ -169,15 +166,18 @@ create_cat_var <- function(var,
          databaseStart,
          allow_empty = TRUE
        )),
+      ,
+      drop = FALSE
     ]
   } else {
     # Fallback: no databaseStart filtering (for simple configs)
-    details_subset <- variable_details[variable_details$variable == var, ]
+    details_subset <- variable_details[variable_details$variable == var, , drop = FALSE]
   }
 
   # ========== CHECK IF VARIABLE ALREADY EXISTS ==========
 
   if (!is.null(df_mock) && var %in% names(df_mock)) {
+    message("Variable '", var, "' already exists in df_mock; skipping generation.")
     return(NULL)
   }
 
@@ -192,7 +192,7 @@ create_cat_var <- function(var,
       "No variable_details rows found for variable '", var,
       "' and databaseStart '", databaseStart,
       "'. Using fallback categories c('1', '2')."
-    ))
+    ), call. = FALSE)
     # Generate simple 2-category variable with uniform distribution
     values <- sample(c("1", "2"), size = n, replace = TRUE)
     # Fallback still honors rType so output contracts match configured metadata.
@@ -223,7 +223,7 @@ create_cat_var <- function(var,
 
   # Check if we have valid categories
   if (length(props$categories) == 0) {
-    warning(paste0("No valid categories found for ", var))
+    warning(paste0("No valid categories found for ", var), call. = FALSE)
     return(NULL)
   }
 

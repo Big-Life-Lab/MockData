@@ -16,10 +16,12 @@
 #'   censoring date. Set to NULL to skip.
 #' @param databaseStart character. Required. Database identifier for filtering metadata
 #'   (used with databaseStart column in variable_details).
-#' @param variables data.frame. Required. Full variables metadata (not pre-filtered).
+#' @param variables data.frame or character. Full variables metadata (not pre-filtered).
 #'   Must contain columns: variable, variableType.
-#' @param variable_details data.frame. Required. Full variable details metadata
+#'   Can also be a file path (character) to variables.csv.
+#' @param variable_details data.frame or character. Full variable details metadata
 #'   (not pre-filtered). Will be filtered internally using databaseStart column.
+#'   Can also be a file path (character) to variable_details.csv.
 #' @param df_mock data.frame. Optional. The current mock data to check if variables
 #'   already exist and to use as anchor_date source. Default: NULL.
 #' @param n integer. Required. Number of observations to generate.
@@ -183,11 +185,18 @@ create_wide_survival_data <- function(var_entry_date,
   if (missing(databaseStart) || is.null(databaseStart)) {
     stop("databaseStart parameter is required")
   }
+  # Load metadata from file paths if needed
+  if (!missing(variables)) {
+    variables <- .load_metadata_df(variables, "variables")
+  }
+  if (!missing(variable_details)) {
+    variable_details <- .load_metadata_df(variable_details, "variable_details")
+  }
   if (missing(variables) || !is.data.frame(variables)) {
-    stop("variables must be a data frame (full metadata, not pre-filtered)")
+    stop("variables must be a data frame or a CSV file path (full metadata, not pre-filtered)")
   }
   if (missing(variable_details) || !is.data.frame(variable_details)) {
-    stop("variable_details must be a data frame (full metadata, not pre-filtered)")
+    stop("variable_details must be a data frame or a CSV file path (full metadata, not pre-filtered)")
   }
   if (missing(n) || is.null(n) || !is.numeric(n) || n <= 0) {
     stop("n must be a positive integer")
