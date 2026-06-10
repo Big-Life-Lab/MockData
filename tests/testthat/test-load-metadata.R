@@ -55,6 +55,6 @@ test_that(".load_metadata_df rejects a directory path", {
 
   expect_error(
     MockData:::.load_metadata_df(dir_path, "variables"),
-    "variables file does not exist"
+    "is a directory, not a CSV file"
   )
 })

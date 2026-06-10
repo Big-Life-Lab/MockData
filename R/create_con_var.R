@@ -30,8 +30,10 @@
 #' @param n integer. Number of observations to generate.
 #' @param seed integer. Optional. Random seed for reproducibility.
 #'
-#' @return data.frame with one column (the generated continuous variable), or NULL if
-#'   the variable already exists in df_mock.
+#' @return data.frame with one column (the generated continuous variable), or NULL if:
+#'   \itemize{
+#'     \item Variable already exists in df_mock
+#'   }
 #'
 #'   Errors if the variable is not found in the variables metadata. Warns and
 #'   uses the first row if multiple variables rows match.

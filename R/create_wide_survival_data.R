@@ -193,10 +193,10 @@ create_wide_survival_data <- function(var_entry_date,
     variable_details <- .load_metadata_df(variable_details, "variable_details")
   }
   if (missing(variables) || !is.data.frame(variables)) {
-    stop("variables must be a data frame (full metadata, not pre-filtered)")
+    stop("variables must be a data frame or a CSV file path (full metadata, not pre-filtered)")
   }
   if (missing(variable_details) || !is.data.frame(variable_details)) {
-    stop("variable_details must be a data frame (full metadata, not pre-filtered)")
+    stop("variable_details must be a data frame or a CSV file path (full metadata, not pre-filtered)")
   }
   if (missing(n) || is.null(n) || !is.numeric(n) || n <= 0) {
     stop("n must be a positive integer")

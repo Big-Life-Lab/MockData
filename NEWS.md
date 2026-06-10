@@ -13,6 +13,9 @@
   path. Duplicate `variables` rows for the same variable now produce a warning
   in the legacy `create_*` path before the first row is used (the v0.4
   `mock_spec` path already errors on duplicate names).
+- `create_mock_data()` error messages for missing metadata files changed from
+  `Configuration file does not exist:` / `Details file does not exist:` to
+  `variables file does not exist:` / `variable_details file does not exist:`.
 
 ## Development
 

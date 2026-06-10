@@ -22,7 +22,10 @@
     return(x)
   }
   if (is.character(x) && length(x) == 1) {
-    if (!file.exists(x) || dir.exists(x)) {
+    if (dir.exists(x)) {
+      stop(what, " path is a directory, not a CSV file: ", x, call. = FALSE)
+    }
+    if (!file.exists(x)) {
       stop(what, " file does not exist: ", x, call. = FALSE)
     }
     if (verbose) message("Reading ", what, " file: ", x)
