@@ -81,30 +81,31 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' # Basic usage with metadata data frames
-#' age <- create_con_var(
-#'   var = "age",
-#'   databaseStart = "cchs2001_p",
-#'   variables = variables,
-#'   variable_details = variable_details,
-#'   n = 1000,
-#'   seed = 123
+#' variables <- data.frame(
+#'   variable = "age",
+#'   variableType = "Continuous",
+#'   rType = "integer",
+#'   stringsAsFactors = FALSE
+#' )
+#' variable_details <- data.frame(
+#'   variable = "age",
+#'   recStart = "[18,85]",
+#'   recEnd = "copy",
+#'   proportion = 1,
+#'   stringsAsFactors = FALSE
 #' )
 #'
-#' # Expected output: data.frame with 1000 rows, 1 column ("age")
-#' # Values: Numeric based on distribution in metadata
-#' # Example for age with normal(50, 15):
-#' #   age
-#' # 1  45
-#' # 2  52
-#' # 3  48
-#' # 4  61
-#' # 5  39
-#' # ...
-#' # Distribution: Normal(mean=50, sd=15), clipped to [18,100]
-#' # Type: Integer (if rType="integer" in metadata)
+#' age <- create_con_var(
+#'   var = "age",
+#'   databaseStart = "example",
+#'   variables = variables,
+#'   variable_details = variable_details,
+#'   n = 100,
+#'   seed = 123
+#' )
+#' head(age)
 #'
+#' \dontrun{
 #' # With file paths instead of data frames
 #' result <- create_con_var(
 #'   var = "BMI",

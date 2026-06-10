@@ -181,30 +181,21 @@
 #' see \code{vignette("reference-config", package = "MockData")}.
 #'
 #' @examples
+#' mock_data <- create_mock_data(
+#'   databaseStart = "minimal-example",
+#'   variables = system.file("extdata/minimal-example/variables.csv",
+#'     package = "MockData"
+#'   ),
+#'   variable_details = system.file("extdata/minimal-example/variable_details.csv",
+#'     package = "MockData"
+#'   ),
+#'   n = 100,
+#'   seed = 123
+#' )
+#' head(mock_data)
+#' str(mock_data)
+#'
 #' \dontrun{
-#' # Basic usage with file paths
-#' mock_data <- create_mock_data(
-#'   databaseStart = "minimal-example",
-#'   variables = "inst/extdata/minimal-example/variables.csv",
-#'   variable_details = "inst/extdata/minimal-example/variable_details.csv",
-#'   n = 1000,
-#'   seed = 123
-#' )
-#'
-#' # With data frames instead of file paths
-#' variables <- read.csv("inst/extdata/minimal-example/variables.csv",
-#'                       stringsAsFactors = FALSE)
-#' variable_details <- read.csv("inst/extdata/minimal-example/variable_details.csv",
-#'                               stringsAsFactors = FALSE)
-#'
-#' mock_data <- create_mock_data(
-#'   databaseStart = "minimal-example",
-#'   variables = variables,
-#'   variable_details = variable_details,
-#'   n = 1000,
-#'   seed = 123
-#' )
-#'
 #' # Fallback mode (uniform distributions, no variable_details)
 #' mock_data <- create_mock_data(
 #'   databaseStart = "minimal-example",
@@ -212,10 +203,6 @@
 #'   variable_details = NULL,
 #'   n = 500
 #' )
-#'
-#' # View structure
-#' str(mock_data)
-#' head(mock_data)
 #' }
 #'
 #' @family generators

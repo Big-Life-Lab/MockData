@@ -78,39 +78,35 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' # Basic usage with metadata data frames
+#' variables <- data.frame(
+#'   variable = "smoking",
+#'   variableType = "Categorical",
+#'   rType = "factor",
+#'   stringsAsFactors = FALSE
+#' )
+#' variable_details <- data.frame(
+#'   variable = "smoking",
+#'   recStart = c("1", "2", "3", "7"),
+#'   recEnd = c("1", "2", "3", "NA::b"),
+#'   proportion = c(0.5, 0.3, 0.17, 0.03),
+#'   catLabel = c(
+#'     "Never smoker", "Former smoker", "Current smoker", "Don't know"
+#'   ),
+#'   stringsAsFactors = FALSE
+#' )
+#'
 #' smoking <- create_cat_var(
 #'   var = "smoking",
-#'   databaseStart = "cchs2001_p",
+#'   databaseStart = "example",
 #'   variables = variables,
 #'   variable_details = variable_details,
-#'   n = 1000,
+#'   n = 100,
 #'   seed = 123
 #' )
+#' # Missing codes (recEnd = "NA::b") are included based on proportions
+#' table(smoking$smoking)
 #'
-#' # Expected output: data.frame with 1000 rows, 1 column ("smoking")
-#' # Values: Factor with levels from metadata (e.g., "1", "2", "3", "7")
-#' # Distribution: Based on proportions in variable_details
-#' # Example:
-#' #   smoking
-#' # 1       1
-#' # 2       3
-#' # 3       2
-#' # 4       1
-#' # 5       7
-#' # ...
-#'
-#' # With missing data (uses proportions from metadata)
-#' smoking <- create_cat_var(
-#'   var = "smoking",
-#'   databaseStart = "cchs2001_p",
-#'   variables = variables,
-#'   variable_details = variable_details,
-#'   n = 1000
-#' )
-#' # Missing codes (recEnd = "NA::b") automatically included based on proportions
-#'
+#' \dontrun{
 #' # With file paths instead of data frames
 #' result <- create_cat_var(
 #'   var = "smoking",
