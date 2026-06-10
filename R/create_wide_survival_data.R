@@ -16,10 +16,12 @@
 #'   censoring date. Set to NULL to skip.
 #' @param databaseStart character. Required. Database identifier for filtering metadata
 #'   (used with databaseStart column in variable_details).
-#' @param variables data.frame. Required. Full variables metadata (not pre-filtered).
+#' @param variables data.frame or character. Full variables metadata (not pre-filtered).
 #'   Must contain columns: variable, variableType.
-#' @param variable_details data.frame. Required. Full variable details metadata
+#'   Can also be a file path (character) to variables.csv.
+#' @param variable_details data.frame or character. Full variable details metadata
 #'   (not pre-filtered). Will be filtered internally using databaseStart column.
+#'   Can also be a file path (character) to variable_details.csv.
 #' @param df_mock data.frame. Optional. The current mock data to check if variables
 #'   already exist and to use as anchor_date source. Default: NULL.
 #' @param n integer. Required. Number of observations to generate.
