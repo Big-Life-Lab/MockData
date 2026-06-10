@@ -106,6 +106,7 @@
 #' head(age)
 #'
 #' \dontrun{
+#' # Not run: requires your own metadata CSV files
 #' # With file paths instead of data frames
 #' result <- create_con_var(
 #'   var = "BMI",

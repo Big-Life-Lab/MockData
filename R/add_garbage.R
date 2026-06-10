@@ -98,16 +98,8 @@
 #'   )
 #' vars_with_garbage
 #'
-#' \dontrun{
-#' # Generate data with garbage
-#' mock_data <- create_mock_data(
-#'   databaseStart = "minimal-example",
-#'   variables = vars_with_garbage,
-#'   variable_details = variable_details,
-#'   n = 1000,
-#'   seed = 123
-#' )
-#' }
+#' # Pass the result as the `variables` argument of create_mock_data() —
+#' # see ?create_mock_data.
 add_garbage <- function(variables, var,
                         garbage_low_prop = NULL, garbage_low_range = NULL,
                         garbage_high_prop = NULL, garbage_high_range = NULL) {

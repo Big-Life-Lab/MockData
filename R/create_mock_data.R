@@ -181,6 +181,9 @@
 #' see \code{vignette("reference-config", package = "MockData")}.
 #'
 #' @examples
+#' # The packaged minimal example includes deliberately messy metadata
+#' # (auto-normalized proportions, survival dates without an anchor): the
+#' # warnings it generates are expected and demonstrate MockData's diagnostics.
 #' mock_data <- create_mock_data(
 #'   databaseStart = "minimal-example",
 #'   variables = system.file("extdata/minimal-example/variables.csv",
@@ -192,18 +195,20 @@
 #'   n = 100,
 #'   seed = 123
 #' )
-#' head(mock_data)
 #' str(mock_data)
 #'
-#' \dontrun{
-#' # Fallback mode (uniform distributions, no variable_details)
+#' # Columns with straightforward metadata generate cleanly:
+#' head(mock_data[, c("age", "smoking", "interview_date")])
+#'
+#' # Fallback mode: no variable_details, simple default generators
 #' mock_data <- create_mock_data(
 #'   databaseStart = "minimal-example",
-#'   variables = "inst/extdata/minimal-example/variables.csv",
+#'   variables = system.file("extdata/minimal-example/variables.csv",
+#'     package = "MockData"
+#'   ),
 #'   variable_details = NULL,
 #'   n = 500
 #' )
-#' }
 #'
 #' @family generators
 #' @family mock generation APIs

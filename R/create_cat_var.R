@@ -103,10 +103,12 @@
 #'   n = 100,
 #'   seed = 123
 #' )
-#' # Missing codes (recEnd = "NA::b") are included based on proportions
+#' # Code 7 ("Don't know") is an NA::b missing code, generated at its
+#' # configured proportion alongside the substantive categories.
 #' table(smoking$smoking)
 #'
 #' \dontrun{
+#' # Not run: requires your own metadata CSV files
 #' # With file paths instead of data frames
 #' result <- create_cat_var(
 #'   var = "smoking",
