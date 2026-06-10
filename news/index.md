@@ -1,5 +1,98 @@
 # Changelog
 
+## MockData 0.4.0 (2026-06-10)
+
+### Breaking changes
+
+- [`create_cat_var()`](https://big-life-lab.github.io/MockData/reference/create_cat_var.md),
+  [`create_con_var()`](https://big-life-lab.github.io/MockData/reference/create_con_var.md),
+  and
+  [`create_date_var()`](https://big-life-lab.github.io/MockData/reference/create_date_var.md)
+  now stop with the error
+  `Variable '<name>' not found in variables metadata` when the requested
+  variable is absent, instead of warning and returning `NULL`. This
+  affects direct generator calls and
+  [`create_wide_survival_data()`](https://big-life-lab.github.io/MockData/reference/create_wide_survival_data.md)
+  (a misspelled date-variable name now errors instead of being skipped
+  with a warning).
+  [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+  itself derives variable names from the `variables` metadata, so it
+  cannot trigger this error; its `validate = FALSE` flag continues to
+  convert any generator error to warn-and-skip on the legacy path.
+  Duplicate `variables` rows for the same variable now produce a warning
+  in the legacy `create_*` path before the first row is used (the v0.4
+  `mock_spec` path already errors on duplicate names).
+- [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+  error messages for missing metadata files changed from
+  `Configuration file does not exist:` / `Details file does not exist:`
+  to `variables file does not exist:` /
+  `variable_details file does not exist:`.
+
+### New features
+
+- Started the v0.4 production refactor around a normalized `mock_spec`
+  architecture.
+- Added
+  [`mock_spec()`](https://big-life-lab.github.io/MockData/reference/mock_spec.md),
+  [`mock_spec_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_spec_continuous.md),
+  [`mock_spec_categorical()`](https://big-life-lab.github.io/MockData/reference/mock_spec_categorical.md),
+  [`mock_spec_date()`](https://big-life-lab.github.io/MockData/reference/mock_spec_date.md),
+  [`is_mock_spec()`](https://big-life-lab.github.io/MockData/reference/is_mock_spec.md),
+  and
+  [`validate_mock_spec()`](https://big-life-lab.github.io/MockData/reference/validate_mock_spec.md).
+- Added direct specification helpers
+  [`mock_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_continuous.md),
+  [`mock_categorical()`](https://big-life-lab.github.io/MockData/reference/mock_categorical.md),
+  and
+  [`mock_date()`](https://big-life-lab.github.io/MockData/reference/mock_date.md)
+  for simple use without recodeflow-style metadata tables.
+- Added
+  [`mock_spec_from_recodeflow()`](https://big-life-lab.github.io/MockData/reference/mock_spec_from_recodeflow.md)
+  to adapt recodeflow-style `variables` and `variable_details` metadata
+  into validated `mock_spec` objects while preserving role/database
+  filtering, categorical proportions, `recEnd` missing-code semantics,
+  valid ranges, garbage rules, date ranges, and survival/date fields.
+- Added
+  [`generate_mock_data_native()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_native.md)
+  to generate baseline valid mock data from `mock_spec` objects with the
+  native R backend.
+- Added
+  [`postprocess_mock_data()`](https://big-life-lab.github.io/MockData/reference/postprocess_mock_data.md)
+  to apply `mock_spec` missing-code and garbage-value rules after
+  baseline generation, with diagnostics that distinguish assigned
+  missing/garbage rows from naturally drawn values.
+- Post-processing diagnostics now protect naturally drawn missing-code
+  collisions from later garbage assignment, apply garbage rules in
+  canonical `low` -\> `high` -\> other order, and stop on repeated
+  post-processing. This prevents silent diagnostic drift when a
+  naturally drawn missing-code value would otherwise be overwritten by
+  garbage assignment.
+- Added
+  [`generate_mock_data_simstudy()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_simstudy.md)
+  as a soft-gated optional backend for baseline categorical and uniform
+  continuous generation when `simstudy` is installed, with native
+  generation retained for MockData-specific semantics.
+- The optional `simstudy` backend is kept in `Suggests`, requires
+  `simstudy >= 0.8.1`, and validates categorical labels before
+  converting generated values back into MockData’s `mock_spec` levels.
+- The optional `simstudy` backend now rejects variables named `id`,
+  which conflicts with `simstudy`’s generated row identifier, and
+  normalizes categorical output through an explicit label-or-index
+  validation path.
+- [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+  now attempts the v0.4 `mock_spec` pipeline in strict mode for
+  supported recodeflow metadata, while retaining the legacy `create_*`
+  dispatch path for unsupported v0.4 backend features and lenient
+  generation. The v0.4 path attaches `mockdata_diagnostics` and uses
+  `seed` for baseline generation plus `seed + 1` for post-processing, so
+  exact seeded output may differ from v0.3.x even when the public seed
+  is unchanged. Verbose mode now reports whether the v0.4 or legacy path
+  was chosen.
+- Added forward-compatible specification fields: `spec_version`,
+  `provenance`, and `model_hint`.
+- Existing v0.3 generator APIs remain available while v0.4 internals are
+  built.
+
 ## MockData 0.3.0
 
 ### Breaking changes

@@ -1,5 +1,45 @@
 # Package index
 
+## v0.4 specification API
+
+Build and validate normalized `mock_spec` objects using direct helpers
+or composable variable constructors.
+
+- [`mock_spec()`](https://big-life-lab.github.io/MockData/reference/mock_spec.md)
+  : Create a MockData specification
+- [`mock_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_continuous.md)
+  : Create a direct continuous mock-data specification
+- [`mock_categorical()`](https://big-life-lab.github.io/MockData/reference/mock_categorical.md)
+  : Create a direct categorical mock-data specification
+- [`mock_date()`](https://big-life-lab.github.io/MockData/reference/mock_date.md)
+  : Create a direct date mock-data specification
+- [`mock_spec_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_spec_continuous.md)
+  : Create a continuous variable specification
+- [`mock_spec_categorical()`](https://big-life-lab.github.io/MockData/reference/mock_spec_categorical.md)
+  : Create a categorical variable specification
+- [`mock_spec_date()`](https://big-life-lab.github.io/MockData/reference/mock_spec_date.md)
+  : Create a date variable specification
+- [`is_mock_spec()`](https://big-life-lab.github.io/MockData/reference/is_mock_spec.md)
+  : Check whether an object is a MockData specification
+- [`validate_mock_spec()`](https://big-life-lab.github.io/MockData/reference/validate_mock_spec.md)
+  : Validate a MockData specification
+- [`mock_spec_model_hints`](https://big-life-lab.github.io/MockData/reference/mock_spec_model_hints.md)
+  : Model hints for MockData specifications
+
+## v0.4 adapters and generation pipeline
+
+Convert recodeflow metadata into `mock_spec` objects, generate baseline
+data, and apply post-processing diagnostics.
+
+- [`mock_spec_from_recodeflow()`](https://big-life-lab.github.io/MockData/reference/mock_spec_from_recodeflow.md)
+  : Convert recodeflow metadata to a MockData specification
+- [`generate_mock_data_native()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_native.md)
+  : Generate mock data with the native backend
+- [`generate_mock_data_simstudy()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_simstudy.md)
+  : Generate mock data with the optional simstudy backend
+- [`postprocess_mock_data()`](https://big-life-lab.github.io/MockData/reference/postprocess_mock_data.md)
+  : Apply mock_spec post-processing rules
+
 ## Main generation functions
 
 Generate categorical, continuous, date, and survival variables. Use

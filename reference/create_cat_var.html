@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -20,6 +20,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
+    <li><a class="dropdown-item" href="../articles/getting-started-v04.html">Getting started with MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting started with MockData</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-categorical-continuous.html">Generating categorical and continuous variables</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-dates.html">Working with date variables</a></li>
@@ -28,9 +29,14 @@
     <li><a class="dropdown-item" href="../articles/tutorial-garbage-data.html">Generating garbage data for validation testing</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
+    <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
     <li><a class="dropdown-item" href="../articles/for-recodeflow-users.html">MockData for recodeflow users</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
+    <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -121,10 +127,11 @@ If &gt; 0, function looks for rows with recEnd containing "NA::" in variable_det
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>data.frame with one column (the generated categorical variable), or NULL if:</p><ul><li><p>Variable not found in metadata</p></li>
-<li><p>Variable already exists in df_mock</p></li>
+    <p>data.frame with one column (the generated categorical variable), or NULL if:</p><ul><li><p>Variable already exists in df_mock (a message is emitted)</p></li>
 <li><p>No valid categories found in variable_details</p></li>
-</ul></div>
+</ul><p>Errors if the variable is not found in the variables metadata. Warns and
+uses the first row if multiple variables rows match.</p>
+    </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p><strong>v0.3.0 API</strong>: This function now accepts full metadata data frames and filters
@@ -161,39 +168,40 @@ Garbage parameters are read from variables.csv:</p><ul><li><p><code>garbage_low_
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Basic usage with metadata data frames</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  variable <span class="op">=</span> <span class="st">"smoking"</span>,</span></span>
+<span class="r-in"><span>  variableType <span class="op">=</span> <span class="st">"Categorical"</span>,</span></span>
+<span class="r-in"><span>  rType <span class="op">=</span> <span class="st">"factor"</span>,</span></span>
+<span class="r-in"><span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">variable_details</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  variable <span class="op">=</span> <span class="st">"smoking"</span>,</span></span>
+<span class="r-in"><span>  recStart <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"1"</span>, <span class="st">"2"</span>, <span class="st">"3"</span>, <span class="st">"7"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  recEnd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"1"</span>, <span class="st">"2"</span>, <span class="st">"3"</span>, <span class="st">"NA::b"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  proportion <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0.3</span>, <span class="fl">0.17</span>, <span class="fl">0.03</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  catLabel <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>    <span class="st">"Never smoker"</span>, <span class="st">"Former smoker"</span>, <span class="st">"Current smoker"</span>, <span class="st">"Don't know"</span></span></span>
+<span class="r-in"><span>  <span class="op">)</span>,</span></span>
+<span class="r-in"><span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">smoking</span> <span class="op">&lt;-</span> <span class="fu">create_cat_var</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  var <span class="op">=</span> <span class="st">"smoking"</span>,</span></span>
-<span class="r-in"><span>  databaseStart <span class="op">=</span> <span class="st">"cchs2001_p"</span>,</span></span>
+<span class="r-in"><span>  databaseStart <span class="op">=</span> <span class="st">"example"</span>,</span></span>
 <span class="r-in"><span>  variables <span class="op">=</span> <span class="va">variables</span>,</span></span>
 <span class="r-in"><span>  variable_details <span class="op">=</span> <span class="va">variable_details</span>,</span></span>
-<span class="r-in"><span>  n <span class="op">=</span> <span class="fl">1000</span>,</span></span>
+<span class="r-in"><span>  n <span class="op">=</span> <span class="fl">100</span>,</span></span>
 <span class="r-in"><span>  seed <span class="op">=</span> <span class="fl">123</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># Code 7 ("Don't know") is an NA::b missing code, generated at its</span></span></span>
+<span class="r-in"><span><span class="co"># configured proportion alongside the substantive categories.</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">smoking</span><span class="op">$</span><span class="va">smoking</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  1  2  3  7 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 51 31 15  3 </span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Expected output: data.frame with 1000 rows, 1 column ("smoking")</span></span></span>
-<span class="r-in"><span><span class="co"># Values: Factor with levels from metadata (e.g., "1", "2", "3", "7")</span></span></span>
-<span class="r-in"><span><span class="co"># Distribution: Based on proportions in variable_details</span></span></span>
-<span class="r-in"><span><span class="co"># Example:</span></span></span>
-<span class="r-in"><span><span class="co">#   smoking</span></span></span>
-<span class="r-in"><span><span class="co"># 1       1</span></span></span>
-<span class="r-in"><span><span class="co"># 2       3</span></span></span>
-<span class="r-in"><span><span class="co"># 3       2</span></span></span>
-<span class="r-in"><span><span class="co"># 4       1</span></span></span>
-<span class="r-in"><span><span class="co"># 5       7</span></span></span>
-<span class="r-in"><span><span class="co"># ...</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># With missing data (uses proportions from metadata)</span></span></span>
-<span class="r-in"><span><span class="va">smoking</span> <span class="op">&lt;-</span> <span class="fu">create_cat_var</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  var <span class="op">=</span> <span class="st">"smoking"</span>,</span></span>
-<span class="r-in"><span>  databaseStart <span class="op">=</span> <span class="st">"cchs2001_p"</span>,</span></span>
-<span class="r-in"><span>  variables <span class="op">=</span> <span class="va">variables</span>,</span></span>
-<span class="r-in"><span>  variable_details <span class="op">=</span> <span class="va">variable_details</span>,</span></span>
-<span class="r-in"><span>  n <span class="op">=</span> <span class="fl">1000</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="co"># Missing codes (recEnd = "NA::b") automatically included based on proportions</span></span></span>
-<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+<span class="r-in"><span><span class="co"># Not run: requires your own metadata CSV files</span></span></span>
 <span class="r-in"><span><span class="co"># With file paths instead of data frames</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">create_cat_var</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  var <span class="op">=</span> <span class="st">"smoking"</span>,</span></span>

@@ -4,6 +4,8 @@
 
 Learning-oriented step-by-step guides
 
+- [Getting started with MockData
+  v0.4](https://big-life-lab.github.io/MockData/articles/getting-started-v04.md):
 - [Getting started with
   MockData](https://big-life-lab.github.io/MockData/articles/getting-started.md):
 - [Generating categorical and continuous
@@ -21,6 +23,14 @@ Learning-oriented step-by-step guides
 
 Task-oriented practical examples
 
+- [Use recodeflow metadata with MockData
+  v0.4](https://big-life-lab.github.io/MockData/articles/recodeflow-metadata-v04.md):
+- [Inspect diagnostics and garbage rules in MockData
+  v0.4](https://big-life-lab.github.io/MockData/articles/diagnostics-and-garbage-v04.md):
+- [Migrate from MockData v0.3 to
+  v0.4](https://big-life-lab.github.io/MockData/articles/migrating-from-v03-v04.md):
+- [Choose a MockData v0.4
+  backend](https://big-life-lab.github.io/MockData/articles/choosing-a-backend-v04.md):
 - [MockData for recodeflow
   users](https://big-life-lab.github.io/MockData/articles/for-recodeflow-users.md):
 
@@ -28,6 +38,8 @@ Task-oriented practical examples
 
 Understanding concepts and design decisions
 
+- [MockData v0.4 design
+  philosophy](https://big-life-lab.github.io/MockData/articles/design-philosophy-v04.md):
 - [Advanced
   topics](https://big-life-lab.github.io/MockData/articles/advanced-topics.md):
 

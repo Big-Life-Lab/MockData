@@ -566,7 +566,7 @@ future_dates_sample <- head(sort(birth_data$birth_date[birth_data$birth_date > f
 
 **Result:** 20 birth dates (2%) are in the future (after 2025-12-31),
 which is impossible for current data. Sample of future dates:
-2026-01-18, 2026-05-28, 2026-08-02, 2026-11-24, 2027-02-09.
+2026-01-12, 2026-04-06, 2026-05-14, 2026-05-14, 2026-06-01.
 
 **Key insight:** Garbage data is now specified at the **variable level**
 in variables.csv, not in variable_details.csv.
@@ -624,8 +624,8 @@ old_dates_sample <- head(sort(diag_data$diagnosis_date[diag_data$diagnosis_date 
 
 **Result:** 30 diagnosis dates (3%) are from before 1950-01-01
 (1850-1900 range), which is unrealistic for modern medical data. Sample
-of old dates: 1851-10-23, 1851-12-19, 1853-09-30, 1854-07-24,
-1854-07-27.
+of old dates: 1850-05-18, 1853-03-07, 1854-09-07, 1855-05-01,
+1860-06-13.
 
 ### Use cases for garbage dates
 

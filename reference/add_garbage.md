@@ -121,34 +121,28 @@ pipe-friendly:
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-# Load metadata
-variables <- read.csv(
-  system.file("extdata/minimal-example/variables.csv",
-    package = "MockData"),
-  stringsAsFactors = FALSE, check.names = FALSE
+variables <- data.frame(
+  variable = c("age", "smoking"),
+  variableType = c("Continuous", "Categorical"),
+  stringsAsFactors = FALSE
 )
 
-# Add garbage to age (high-range only)
-vars <- add_garbage(variables, "age",
-  garbage_high_prop = 0.03, garbage_high_range = "[150, 200]")
+# Add high-range garbage to age and low-range garbage to smoking
+vars_with_garbage <- variables |>
+  add_garbage("age",
+    garbage_high_prop = 0.03, garbage_high_range = "[150, 200]"
+  ) |>
+  add_garbage("smoking",
+    garbage_low_prop = 0.02, garbage_low_range = "[-2, 0]"
+  )
+vars_with_garbage
+#>   variable variableType garbage_high_prop garbage_high_range garbage_low_prop
+#> 1      age   Continuous              0.03         [150, 200]               NA
+#> 2  smoking  Categorical                NA               <NA>             0.02
+#>   garbage_low_range
+#> 1              <NA>
+#> 2           [-2, 0]
 
-# Add garbage to smoking (low-range only)
-vars <- add_garbage(vars, "smoking",
-  garbage_low_prop = 0.02, garbage_low_range = "[-2, 0]")
-
-# Add garbage to BMI (two-sided invalid values)
-vars <- add_garbage(vars, "BMI",
-  garbage_low_prop = 0.02, garbage_low_range = "[-10, 15)",
-  garbage_high_prop = 0.01, garbage_high_range = "[60, 150]")
-
-# Generate data with garbage
-mock_data <- create_mock_data(
-  databaseStart = "minimal-example",
-  variables = vars,
-  variable_details = variable_details,
-  n = 1000,
-  seed = 123
-)
-} # }
+# Pass the result as the `variables` argument of create_mock_data() —
+# see ?create_mock_data.
 ```

@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
+    <li><a class="dropdown-item" href="../articles/getting-started-v04.html">Getting started with MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting started with MockData</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-categorical-continuous.html">Generating categorical and continuous variables</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-dates.html">Working with date variables</a></li>
@@ -47,9 +48,14 @@
     <li><a class="dropdown-item" href="../articles/tutorial-garbage-data.html">Generating garbage data for validation testing</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
+    <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
     <li><a class="dropdown-item" href="../articles/for-recodeflow-users.html">MockData for recodeflow users</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
+    <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -629,7 +635,7 @@
 <span><span class="va">prop_future</span> <span class="op">&lt;-</span> <span class="va">n_future</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">birth_data</span><span class="op">)</span></span>
 <span><span class="va">future_dates_sample</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">birth_data</span><span class="op">$</span><span class="va">birth_date</span><span class="op">[</span><span class="va">birth_data</span><span class="op">$</span><span class="va">birth_date</span> <span class="op">&gt;</span> <span class="va">future_threshold</span><span class="op">]</span><span class="op">)</span>, <span class="fl">5</span><span class="op">)</span></span></code></pre></div>
 </div>
-<p><strong>Result:</strong> 20 birth dates (2%) are in the future (after 2025-12-31), which is impossible for current data. Sample of future dates: 2026-01-18, 2026-05-28, 2026-08-02, 2026-11-24, 2027-02-09.</p>
+<p><strong>Result:</strong> 20 birth dates (2%) are in the future (after 2025-12-31), which is impossible for current data. Sample of future dates: 2026-01-12, 2026-04-06, 2026-05-14, 2026-05-14, 2026-06-01.</p>
 <p><strong>Key insight:</strong> Garbage data is now specified at the <strong>variable level</strong> in variables.csv, not in variable_details.csv.</p>
 </section><section class="level3"><h3 id="past-dates-temporal-violations">Past dates (temporal violations)<a class="anchor" aria-label="anchor" href="#past-dates-temporal-violations"></a>
 </h3>
@@ -680,7 +686,7 @@
 <span><span class="va">prop_old</span> <span class="op">&lt;-</span> <span class="va">n_old</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">diag_data</span><span class="op">)</span></span>
 <span><span class="va">old_dates_sample</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">diag_data</span><span class="op">$</span><span class="va">diagnosis_date</span><span class="op">[</span><span class="va">diag_data</span><span class="op">$</span><span class="va">diagnosis_date</span> <span class="op">&lt;</span> <span class="va">old_threshold</span><span class="op">]</span><span class="op">)</span>, <span class="fl">5</span><span class="op">)</span></span></code></pre></div>
 </div>
-<p><strong>Result:</strong> 30 diagnosis dates (3%) are from before 1950-01-01 (1850-1900 range), which is unrealistic for modern medical data. Sample of old dates: 1851-10-23, 1851-12-19, 1853-09-30, 1854-07-24, 1854-07-27.</p>
+<p><strong>Result:</strong> 30 diagnosis dates (3%) are from before 1950-01-01 (1850-1900 range), which is unrealistic for modern medical data. Sample of old dates: 1850-05-18, 1853-03-07, 1854-09-07, 1855-05-01, 1860-06-13.</p>
 </section><section class="level3"><h3 id="use-cases-for-garbage-dates">Use cases for garbage dates<a class="anchor" aria-label="anchor" href="#use-cases-for-garbage-dates"></a>
 </h3>
 <ul>

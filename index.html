@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
+    <li><a class="dropdown-item" href="articles/getting-started-v04.html">Getting started with MockData v0.4</a></li>
     <li><a class="dropdown-item" href="articles/getting-started.html">Getting started with MockData</a></li>
     <li><a class="dropdown-item" href="articles/tutorial-categorical-continuous.html">Generating categorical and continuous variables</a></li>
     <li><a class="dropdown-item" href="articles/tutorial-dates.html">Working with date variables</a></li>
@@ -47,9 +48,14 @@
     <li><a class="dropdown-item" href="articles/tutorial-garbage-data.html">Generating garbage data for validation testing</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
+    <li><a class="dropdown-item" href="articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
+    <li><a class="dropdown-item" href="articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
     <li><a class="dropdown-item" href="articles/for-recodeflow-users.html">MockData for recodeflow users</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
+    <li><a class="dropdown-item" href="articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
     <li><a class="dropdown-item" href="articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -76,8 +82,8 @@
 <!-- badges: start -->
 
 <!-- badges: end -->
-<p><strong>Status: Experimental, pre-release software</strong></p>
-<p>MockData is a work-in-progress R package for generating mock testing data from small metadata specifications. It is useful today for development and documentation workflows, especially when paired with recodeflow-style metadata (see below), but it should be treated as experimental infrastructure rather than a stable released package.</p>
+<p><strong>Status: Experimental v0.4.0 release</strong></p>
+<p>MockData is a work-in-progress R package for generating mock testing data from small metadata specifications. Version 0.4 introduces the <code>mock_spec</code> architecture: direct specification helpers, a recodeflow metadata adapter, native generation, optional <code>simstudy</code> generation, and post-processing diagnostics. It is useful today for development and documentation workflows, especially when paired with recodeflow-style metadata (see below), but it should be treated as experimental infrastructure rather than a stable released package.</p>
 <p>People are using MockData and reporting that it is helpful. We take that as an encouraging signal, not as evidence that the package is mature. Please review the generated data before using it in any workflow that matters.</p>
 <p><strong>v0.4 release candidate on <code>dev</code>:</strong> The next MockData release is currently on the <code>dev</code> branch for testing before it is merged forward to <code>main</code>. v0.4 adds the <code>mock_spec</code> pipeline, direct specification helpers, a recodeflow metadata adapter, native generation, optional <code>simstudy</code> generation, post-processing diagnostics, and a new Divio-style documentation set.</p>
 <p>The v0.4 work keeps the existing v0.3 public functions available. Several larger ideas were deliberately deferred rather than rushed into this release: formula-derived variables, multi-variable correlation, Table 1 bootstrap, LinkML/schema-first integration, and advanced survival simulation. MockData also remains framed as mock data for development and QA, not synthetic data for privacy release or inference.</p>
@@ -94,13 +100,42 @@
 <p><strong>Current development limitations:</strong></p>
 <ul>
 <li>APIs may change before a formal release</li>
-<li>Error handling is too permissive and can fail with warnings instead of stopping</li>
+<li>Some legacy v0.3-compatible paths still fall back with warnings; the v0.4 <code>mock_spec</code> path is stricter and records diagnostics</li>
 <li>The test suite does not yet cover every important edge case</li>
 <li>Generated data should be manually checked against your intended metadata rules</li>
 </ul>
+<p><strong>v0.4 direct API example</strong></p>
+<p>The v0.4 API separates specification, baseline generation, and post-processing. That makes the generated values easier to inspect and audit.</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://big-life-lab.github.io/MockData/">MockData</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">spec</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/mock_spec.html">mock_spec</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="reference/mock_spec_continuous.html">mock_spec_continuous</a></span><span class="op">(</span></span>
+<span>    <span class="st">"age"</span>,</span>
+<span>    range <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">18</span>, <span class="fl">85</span><span class="op">)</span>,</span>
+<span>    distribution <span class="op">=</span> <span class="st">"normal"</span>,</span>
+<span>    mean <span class="op">=</span> <span class="fl">50</span>,</span>
+<span>    sd <span class="op">=</span> <span class="fl">12</span>,</span>
+<span>    rtype <span class="op">=</span> <span class="st">"integer"</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="reference/mock_spec_categorical.html">mock_spec_categorical</a></span><span class="op">(</span></span>
+<span>    <span class="st">"smoking"</span>,</span>
+<span>    levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"never"</span>, <span class="st">"former"</span>, <span class="st">"current"</span><span class="op">)</span>,</span>
+<span>    proportions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0.3</span>, <span class="fl">0.2</span><span class="op">)</span>,</span>
+<span>    rtype <span class="op">=</span> <span class="st">"character"</span>,</span>
+<span>    missing_codes <span class="op">=</span> <span class="st">"unknown"</span>,</span>
+<span>    missing_proportions <span class="op">=</span> <span class="fl">0.05</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">baseline</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/generate_mock_data_native.html">generate_mock_data_native</a></span><span class="op">(</span><span class="va">spec</span>, n <span class="op">=</span> <span class="fl">100</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">mock_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/postprocess_mock_data.html">postprocess_mock_data</a></span><span class="op">(</span><span class="va">baseline</span>, <span class="va">spec</span>, seed <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">mock_data</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">mock_data</span>, <span class="st">"mockdata_diagnostics"</span><span class="op">)</span><span class="op">$</span><span class="va">variables</span><span class="op">$</span><span class="va">smoking</span></span></code></pre></div>
 <p><strong>30-second standalone example</strong></p>
 <p>For a quick numeric variable, <code><a href="reference/create_con_var.html">create_con_var()</a></code> can use two small metadata data frames.</p>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://big-life-lab.github.io/MockData/">MockData</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
@@ -140,7 +175,7 @@
 <h2 id="standalone-example-with-a-continuous-age-range">Standalone example with a continuous age range<a class="anchor" aria-label="anchor" href="#standalone-example-with-a-continuous-age-range"></a>
 </h2>
 <p>Here, <code>rType = "double"</code> keeps age as a continuous numeric value while <code>variable_details</code> defines the valid age range.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://big-life-lab.github.io/MockData/">MockData</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
@@ -182,7 +217,7 @@
 <h2 id="example-with-metadata-files">Example with metadata files<a class="anchor" aria-label="anchor" href="#example-with-metadata-files"></a>
 </h2>
 <p>For use with the <a href="#the-recodeflow-universe"><code>recodeflow</code> universe</a>, including cchsflow, chmsflow, and other packages.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://big-life-lab.github.io/MockData/">MockData</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Generate mock data from recode metadata files</span></span>
@@ -272,7 +307,7 @@
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Install from local directory</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install-deprecated.html" class="external-link">install_local</a></span><span class="op">(</span><span class="st">"~/github/mock-data"</span><span class="op">)</span></span>
 <span></span>
@@ -285,6 +320,8 @@
 </h2>
 <p><strong>Tutorials:</strong></p>
 <ul>
+<li>
+<a href="vignettes/getting-started-v04.qmd">v0.4 getting started</a> - Direct <code>mock_spec</code>, recodeflow adapter, and diagnostics workflow</li>
 <li>
 <a href="vignettes/getting-started.qmd">Getting started</a> - Complete tutorial from single variables to full datasets</li>
 <li>
@@ -328,7 +365,7 @@
 </ul>
 </li>
 <li>
-<p><strong>MockData-specific parameters</strong> (<code>mock_config.csv</code>, optional)</p>
+<p><strong>MockData-specific parameters</strong> (<code>mock_data_config.csv</code>, optional)</p>
 <ul>
 <li>Proportions of variable categories</li>
 <li>Event occurrence probabilities (<code>event_occurs</code>)</li>
@@ -399,7 +436,7 @@
 <h3 id="for-new-contributors">For new contributors<a class="anchor" aria-label="anchor" href="#for-new-contributors"></a>
 </h3>
 <p>After cloning the repository:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Restore the package environment (installs all dependencies)</span></span>
 <span><span class="fu">renv</span><span class="fu">::</span><span class="fu"><a href="https://rstudio.github.io/renv/reference/restore.html" class="external-link">restore</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
@@ -424,7 +461,7 @@
 <div class="section level3">
 <h3 id="daily-development-workflow">Daily development workflow<a class="anchor" aria-label="anchor" href="#daily-development-workflow"></a>
 </h3>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Install new packages as normal</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"packagename"</span><span class="op">)</span></span>
 <span></span>
@@ -439,7 +476,7 @@
 <div class="section level3">
 <h3 id="building-documentation-and-site">Building documentation and site<a class="anchor" aria-label="anchor" href="#building-documentation-and-site"></a>
 </h3>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Generate function documentation</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/document.html" class="external-link">document</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
@@ -455,7 +492,7 @@
 <div class="section level3">
 <h3 id="troubleshooting">Troubleshooting<a class="anchor" aria-label="anchor" href="#troubleshooting"></a>
 </h3>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># If packages seem out of sync:</span></span>
 <span><span class="fu">renv</span><span class="fu">::</span><span class="fu"><a href="https://rstudio.github.io/renv/reference/status.html" class="external-link">status</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
@@ -514,7 +551,7 @@
 <h2 data-toc-skip>Dev status</h2>
 <ul class="list-unstyled">
 <li><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a></li>
-<li><a href="https://github.com/Big-Life-Lab/MockData" class="external-link"><img src="https://img.shields.io/badge/version-0.3.0-blue.svg" alt="Version: 0.3.0"></a></li>
+<li><a href="https://github.com/Big-Life-Lab/MockData" class="external-link"><img src="https://img.shields.io/badge/version-0.4.0-blue.svg" alt="Version: 0.4.0"></a></li>
 <li><a href="https://github.com/Big-Life-Lab/MockData/actions/workflows/pkgdown.yaml" class="external-link"><img src="https://github.com/Big-Life-Lab/MockData/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"></a></li>
 <li><a href="https://opensource.org/licenses/MIT" class="external-link"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a></li>
 </ul>

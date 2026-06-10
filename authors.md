@@ -14,13 +14,13 @@ Source:
 [`DESCRIPTION`](https://github.com/Big-Life-Lab/MockData/blob/main/DESCRIPTION)
 
 Li J, Manuel D (2026). *MockData: Generate Mock Data from Metadata
-Specifications*. R package version 0.3.0,
+Specifications*. R package version 0.4.0,
 <https://big-life-lab.github.io/MockData/>.
 
     @Manual{,
       title = {MockData: Generate Mock Data from Metadata Specifications},
       author = {Juan Li and Douglas Manuel},
       year = {2026},
-      note = {R package version 0.3.0},
+      note = {R package version 0.4.0},
       url = {https://big-life-lab.github.io/MockData/},
     }

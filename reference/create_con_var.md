@@ -84,13 +84,10 @@ create_con_var(
 ## Value
 
 data.frame with one column (the generated continuous variable), or NULL
-if:
+(with a message) if the variable already exists in df_mock.
 
-- Variable not found in metadata
-
-- Variable already exists in df_mock
-
-- No valid range found in variable_details
+Errors if the variable is not found in the variables metadata. Warns and
+uses the first row if multiple variables rows match.
 
 ## Details
 
@@ -156,30 +153,39 @@ Other generators:
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-# Basic usage with metadata data frames
-age <- create_con_var(
-  var = "age",
-  databaseStart = "cchs2001_p",
-  variables = variables,
-  variable_details = variable_details,
-  n = 1000,
-  seed = 123
+variables <- data.frame(
+  variable = "age",
+  variableType = "Continuous",
+  rType = "integer",
+  stringsAsFactors = FALSE
+)
+variable_details <- data.frame(
+  variable = "age",
+  recStart = "[18,85]",
+  recEnd = "copy",
+  proportion = 1,
+  stringsAsFactors = FALSE
 )
 
-# Expected output: data.frame with 1000 rows, 1 column ("age")
-# Values: Numeric based on distribution in metadata
-# Example for age with normal(50, 15):
-#   age
-# 1  45
-# 2  52
-# 3  48
-# 4  61
-# 5  39
-# ...
-# Distribution: Normal(mean=50, sd=15), clipped to [18,100]
-# Type: Integer (if rType="integer" in metadata)
+age <- create_con_var(
+  var = "age",
+  databaseStart = "example",
+  variables = variables,
+  variable_details = variable_details,
+  n = 100,
+  seed = 123
+)
+head(age)
+#>   age
+#> 1  37
+#> 2  71
+#> 3  45
+#> 4  77
+#> 5  81
+#> 6  21
 
+if (FALSE) { # \dontrun{
+# Not run: requires your own metadata CSV files
 # With file paths instead of data frames
 result <- create_con_var(
   var = "BMI",

@@ -57,13 +57,15 @@ create_wide_survival_data(
 
 - variables:
 
-  data.frame. Required. Full variables metadata (not pre-filtered). Must
-  contain columns: variable, variableType.
+  data.frame or character. Full variables metadata (not pre-filtered).
+  Must contain columns: variable, variableType. Can also be a file path
+  (character) to variables.csv.
 
 - variable_details:
 
-  data.frame. Required. Full variable details metadata (not
+  data.frame or character. Full variable details metadata (not
   pre-filtered). Will be filtered internally using databaseStart column.
+  Can also be a file path (character) to variable_details.csv.
 
 - df_mock:
 

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -20,6 +20,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
+    <li><a class="dropdown-item" href="../articles/getting-started-v04.html">Getting started with MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting started with MockData</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-categorical-continuous.html">Generating categorical and continuous variables</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-dates.html">Working with date variables</a></li>
@@ -28,9 +29,14 @@
     <li><a class="dropdown-item" href="../articles/tutorial-garbage-data.html">Generating garbage data for validation testing</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
+    <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
     <li><a class="dropdown-item" href="../articles/for-recodeflow-users.html">MockData for recodeflow users</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
+    <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -123,10 +129,14 @@ For survival variables, may contain anchor_date column for computing event dates
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>data.frame with one column (the generated date variable), or NULL if:</p><ul><li><p>Variable not found in metadata</p></li>
-<li><p>Variable already exists in df_mock</p></li>
-<li><p>No valid date range found in variable_details</p></li>
-</ul></div>
+    <p>data.frame with one column (the generated date variable), or NULL if:</p><ul><li><p>Variable already exists in df_mock (a message is emitted)</p></li>
+<li><p>No valid date range found in variable_details, or the date
+range cannot be parsed</p></li>
+<li><p>Survival-variable preconditions are not met (e.g. df_mock lacks
+an anchor_date column, or followup parameters are NA)</p></li>
+</ul><p>Errors if the variable is not found in the variables metadata. Warns and
+uses the first row if multiple variables rows match.</p>
+    </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p><strong>v0.3.0 API</strong>: This function now accepts full metadata data frames and filters

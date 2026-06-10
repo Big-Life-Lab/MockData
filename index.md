@@ -1,12 +1,15 @@
 # MockData
 
-**Status: Experimental, pre-release software**
+**Status: Experimental v0.4.0 release**
 
 MockData is a work-in-progress R package for generating mock testing
-data from small metadata specifications. It is useful today for
-development and documentation workflows, especially when paired with
-recodeflow-style metadata (see below), but it should be treated as
-experimental infrastructure rather than a stable released package.
+data from small metadata specifications. Version 0.4 introduces the
+`mock_spec` architecture: direct specification helpers, a recodeflow
+metadata adapter, native generation, optional `simstudy` generation, and
+post-processing diagnostics. It is useful today for development and
+documentation workflows, especially when paired with recodeflow-style
+metadata (see below), but it should be treated as experimental
+infrastructure rather than a stable released package.
 
 People are using MockData and reporting that it is helpful. We take that
 as an encouraging signal, not as evidence that the package is mature.
@@ -50,11 +53,47 @@ feedback is welcome in [GitHub Discussion
 **Current development limitations:**
 
 - APIs may change before a formal release
-- Error handling is too permissive and can fail with warnings instead of
-  stopping
+- Some legacy v0.3-compatible paths still fall back with warnings; the
+  v0.4 `mock_spec` path is stricter and records diagnostics
 - The test suite does not yet cover every important edge case
 - Generated data should be manually checked against your intended
   metadata rules
+
+**v0.4 direct API example**
+
+The v0.4 API separates specification, baseline generation, and
+post-processing. That makes the generated values easier to inspect and
+audit.
+
+``` r
+
+library(MockData)
+
+spec <- mock_spec(
+  mock_spec_continuous(
+    "age",
+    range = c(18, 85),
+    distribution = "normal",
+    mean = 50,
+    sd = 12,
+    rtype = "integer"
+  ),
+  mock_spec_categorical(
+    "smoking",
+    levels = c("never", "former", "current"),
+    proportions = c(0.5, 0.3, 0.2),
+    rtype = "character",
+    missing_codes = "unknown",
+    missing_proportions = 0.05
+  )
+)
+
+baseline <- generate_mock_data_native(spec, n = 100, seed = 1)
+mock_data <- postprocess_mock_data(baseline, spec, seed = 2)
+
+head(mock_data)
+attr(mock_data, "mockdata_diagnostics")$variables$smoking
+```
 
 **30-second standalone example**
 
@@ -275,6 +314,9 @@ vignettes locally, you need [Quarto](https://quarto.org/) installed.
 
 **Tutorials:**
 
+- [v0.4 getting
+  started](https://big-life-lab.github.io/MockData/vignettes/getting-started-v04.qmd) -
+  Direct `mock_spec`, recodeflow adapter, and diagnostics workflow
 - [Getting
   started](https://big-life-lab.github.io/MockData/vignettes/getting-started.qmd) -
   Complete tutorial from single variables to full datasets
@@ -313,7 +355,7 @@ dictionaries, study specifications, and MockData-specific parameters:
     - Transformation rules (recStart, recEnd, copy, catLabel)
     - Example: `uvariable, recStart, catLabel`
 
-3.  **MockData-specific parameters** (`mock_config.csv`, optional)
+3.  **MockData-specific parameters** (`mock_data_config.csv`, optional)
 
     - Proportions of variable categories
     - Event occurrence probabilities (`event_occurs`)

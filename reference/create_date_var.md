@@ -86,11 +86,16 @@ create_date_var(
 
 data.frame with one column (the generated date variable), or NULL if:
 
-- Variable not found in metadata
+- Variable already exists in df_mock (a message is emitted)
 
-- Variable already exists in df_mock
+- No valid date range found in variable_details, or the date range
+  cannot be parsed
 
-- No valid date range found in variable_details
+- Survival-variable preconditions are not met (e.g. df_mock lacks an
+  anchor_date column, or followup parameters are NA)
+
+Errors if the variable is not found in the variables metadata. Warns and
+uses the first row if multiple variables rows match.
 
 ## Details
 

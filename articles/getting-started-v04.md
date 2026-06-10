@@ -1,0 +1,231 @@
+# Getting started with MockData v0.4
+
+**About this vignette:** This tutorial introduces the v0.4 `mock_spec`
+workflow. All code is executed when the vignette builds, so this page
+also serves as a user-flow test for the public API.
+
+## The v0.4 workflow
+
+MockData v0.4 separates data generation into three steps:
+
+1.  Create a `mock_spec`
+2.  Generate baseline valid values
+3.  Apply missing-code and garbage-value post-processing
+
+That separation makes it easier to inspect what was requested and what
+was changed after generation.
+
+## Specify variables directly
+
+Use the direct helpers when you want a small mock dataset without
+creating CSV metadata files.
+
+``` r
+
+spec <- mock_spec(
+  mock_spec_continuous(
+    "age",
+    range = c(18, 85),
+    distribution = "normal",
+    mean = 50,
+    sd = 12,
+    rtype = "integer"
+  ),
+  mock_spec_categorical(
+    "smoking",
+    levels = c("never", "former", "current"),
+    proportions = c(0.5, 0.3, 0.2),
+    rtype = "character",
+    missing_codes = "unknown",
+    missing_proportions = 0.05
+  )
+)
+
+validate_mock_spec(spec)
+```
+
+    MockData mock_spec validation result: valid
+
+Generate baseline values first. These are values within the intended
+valid space.
+
+``` r
+
+baseline <- generate_mock_data_native(spec, n = 100, seed = 101)
+head(baseline)
+```
+
+      age smoking
+    1  46  former
+    2  57  former
+    3  42   never
+    4  53   never
+    5  54 current
+    6  64   never
+
+Then apply missing-code and garbage-value rules. This step adds
+diagnostics as an attribute on the returned data frame.
+
+``` r
+
+mock_data <- postprocess_mock_data(baseline, spec, seed = 102)
+head(mock_data)
+```
+
+      age smoking
+    1  46  former
+    2  57  former
+    3  42   never
+    4  53   never
+    5  54 current
+    6  64   never
+
+``` r
+
+diagnostics <- attr(mock_data, "mockdata_diagnostics")
+diagnostics$variables$smoking
+```
+
+    $n
+    [1] 100
+
+    $preexisting_missing_code_indices
+    integer(0)
+
+    $assigned_missing_indices
+    [1] 87 46 33 84  8
+
+    $assigned_missing_codes
+    [1] "unknown" "unknown" "unknown" "unknown" "unknown"
+
+    $assigned_garbage_indices
+    named list()
+
+    $assigned_garbage_values
+    named list()
+
+The diagnostics distinguish values assigned by post-processing from
+values that were drawn naturally during baseline generation.
+
+## Use recodeflow metadata
+
+If you already have recodeflow-style `variables` and `variable_details`
+metadata, adapt those tables to the same `mock_spec` shape.
+
+``` r
+
+variables <- data.frame(
+  variable = c("age", "smoking"),
+  variableType = c("Continuous", "Categorical"),
+  rType = c("integer", "character"),
+  role = c("enabled", "enabled"),
+  stringsAsFactors = FALSE
+)
+
+variable_details <- data.frame(
+  variable = c("age", "smoking", "smoking", "smoking"),
+  recStart = c("[18, 85]", "1", "2", "97"),
+  recEnd = c("copy", "copy", "copy", "NA::b"),
+  proportion = c(1, 0.6, 0.3, 0.1),
+  stringsAsFactors = FALSE
+)
+
+spec_from_metadata <- mock_spec_from_recodeflow(variables, variable_details)
+names(spec_from_metadata$variables)
+```
+
+    [1] "age"     "smoking"
+
+The adapter preserves recodeflow semantics: valid ranges, categorical
+proportions, `recEnd` missing-code rows, and garbage settings.
+
+``` r
+
+metadata_baseline <- generate_mock_data_native(
+  spec_from_metadata,
+  n = 100,
+  seed = 201
+)
+
+metadata_mock <- postprocess_mock_data(
+  metadata_baseline,
+  spec_from_metadata,
+  seed = 202
+)
+
+head(metadata_mock)
+```
+
+      age smoking
+    1  59       1
+    2  29       1
+    3  42       1
+    4  21       1
+    5  60       1
+    6  27       2
+
+``` r
+
+metadata_diag <- attr(metadata_mock, "mockdata_diagnostics")
+metadata_diag$variables$smoking$assigned_missing_indices[1:5]
+```
+
+    [1] 16 40 72 70 80
+
+## Use the compatibility wrapper
+
+[`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+remains available for v0.3-style workflows. In strict mode, it attempts
+the v0.4 pipeline for supported metadata and falls back to the legacy
+`create_*` dispatch path for features that are not yet supported by the
+v0.4 native backend.
+
+``` r
+
+wrapped <- create_mock_data(
+  databaseStart = "example",
+  variables = variables,
+  variable_details = variable_details,
+  n = 100,
+  seed = 301
+)
+
+head(wrapped)
+```
+
+      age smoking
+    1  58       2
+    2  27       2
+    3  18      97
+    4  69       1
+    5  59       1
+    6  47       2
+
+``` r
+
+!is.null(attr(wrapped, "mockdata_diagnostics"))
+```
+
+    [1] TRUE
+
+When the v0.4 path is used,
+[`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+returns diagnostics. Legacy fallback paths return plain data frames
+without that attribute.
+
+## Choosing the next function
+
+- Use `mock_*()` or `mock_spec_*()` for small examples and tests.
+- Use
+  [`mock_spec_from_recodeflow()`](https://big-life-lab.github.io/MockData/reference/mock_spec_from_recodeflow.md)
+  when metadata already exists.
+- Use
+  [`generate_mock_data_native()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_native.md)
+  for the default MIT-licensed backend.
+- Use
+  [`generate_mock_data_simstudy()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_simstudy.md)
+  only when the optional `simstudy` package is installed and you want to
+  test that backend.
+- Use
+  [`postprocess_mock_data()`](https://big-life-lab.github.io/MockData/reference/postprocess_mock_data.md)
+  when you need missing codes, garbage values, or diagnostics.

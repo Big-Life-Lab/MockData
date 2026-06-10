@@ -1,12 +1,15 @@
 # MockData
 
-**Status: Experimental, pre-release software**
+**Status: Experimental v0.4.0 release**
 
 MockData is a work-in-progress R package for generating mock testing
-data from small metadata specifications. It is useful today for
-development and documentation workflows, especially when paired with
-recodeflow-style metadata (see below), but it should be treated as
-experimental infrastructure rather than a stable released package.
+data from small metadata specifications. Version 0.4 introduces the
+`mock_spec` architecture: direct specification helpers, a recodeflow
+metadata adapter, native generation, optional `simstudy` generation, and
+post-processing diagnostics. It is useful today for development and
+documentation workflows, especially when paired with recodeflow-style
+metadata (see below), but it should be treated as experimental
+infrastructure rather than a stable released package.
 
 People are using MockData and reporting that it is helpful. We take that
 as an encouraging signal, not as evidence that the package is mature.
@@ -50,11 +53,47 @@ feedback is welcome in [GitHub Discussion
 **Current development limitations:**
 
 - APIs may change before a formal release
-- Error handling is too permissive and can fail with warnings instead of
-  stopping
+- Some legacy v0.3-compatible paths still fall back with warnings; the
+  v0.4 `mock_spec` path is stricter and records diagnostics
 - The test suite does not yet cover every important edge case
 - Generated data should be manually checked against your intended
   metadata rules
+
+**v0.4 direct API example**
+
+The v0.4 API separates specification, baseline generation, and
+post-processing. That makes the generated values easier to inspect and
+audit.
+
+``` r
+
+library(MockData)
+
+spec <- mock_spec(
+  mock_spec_continuous(
+    "age",
+    range = c(18, 85),
+    distribution = "normal",
+    mean = 50,
+    sd = 12,
+    rtype = "integer"
+  ),
+  mock_spec_categorical(
+    "smoking",
+    levels = c("never", "former", "current"),
+    proportions = c(0.5, 0.3, 0.2),
+    rtype = "character",
+    missing_codes = "unknown",
+    missing_proportions = 0.05
+  )
+)
+
+baseline <- generate_mock_data_native(spec, n = 100, seed = 1)
+mock_data <- postprocess_mock_data(baseline, spec, seed = 2)
+
+head(mock_data)
+attr(mock_data, "mockdata_diagnostics")$variables$smoking
+```
 
 **30-second standalone example**
 
@@ -275,6 +314,9 @@ vignettes locally, you need [Quarto](https://quarto.org/) installed.
 
 **Tutorials:**
 
+- [v0.4 getting
+  started](https://big-life-lab.github.io/MockData/vignettes/getting-started-v04.qmd) -
+  Direct `mock_spec`, recodeflow adapter, and diagnostics workflow
 - [Getting
   started](https://big-life-lab.github.io/MockData/vignettes/getting-started.qmd) -
   Complete tutorial from single variables to full datasets
@@ -313,7 +355,7 @@ dictionaries, study specifications, and MockData-specific parameters:
     - Transformation rules (recStart, recEnd, copy, catLabel)
     - Example: `uvariable, recStart, catLabel`
 
-3.  **MockData-specific parameters** (`mock_config.csv`, optional)
+3.  **MockData-specific parameters** (`mock_data_config.csv`, optional)
 
     - Proportions of variable categories
     - Event occurrence probabilities (`event_occurs`)
@@ -472,6 +514,46 @@ For more details, see
 
 # Package index
 
+## v0.4 specification API
+
+Build and validate normalized `mock_spec` objects using direct helpers
+or composable variable constructors.
+
+- [`mock_spec()`](https://big-life-lab.github.io/MockData/reference/mock_spec.md)
+  : Create a MockData specification
+- [`mock_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_continuous.md)
+  : Create a direct continuous mock-data specification
+- [`mock_categorical()`](https://big-life-lab.github.io/MockData/reference/mock_categorical.md)
+  : Create a direct categorical mock-data specification
+- [`mock_date()`](https://big-life-lab.github.io/MockData/reference/mock_date.md)
+  : Create a direct date mock-data specification
+- [`mock_spec_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_spec_continuous.md)
+  : Create a continuous variable specification
+- [`mock_spec_categorical()`](https://big-life-lab.github.io/MockData/reference/mock_spec_categorical.md)
+  : Create a categorical variable specification
+- [`mock_spec_date()`](https://big-life-lab.github.io/MockData/reference/mock_spec_date.md)
+  : Create a date variable specification
+- [`is_mock_spec()`](https://big-life-lab.github.io/MockData/reference/is_mock_spec.md)
+  : Check whether an object is a MockData specification
+- [`validate_mock_spec()`](https://big-life-lab.github.io/MockData/reference/validate_mock_spec.md)
+  : Validate a MockData specification
+- [`mock_spec_model_hints`](https://big-life-lab.github.io/MockData/reference/mock_spec_model_hints.md)
+  : Model hints for MockData specifications
+
+## v0.4 adapters and generation pipeline
+
+Convert recodeflow metadata into `mock_spec` objects, generate baseline
+data, and apply post-processing diagnostics.
+
+- [`mock_spec_from_recodeflow()`](https://big-life-lab.github.io/MockData/reference/mock_spec_from_recodeflow.md)
+  : Convert recodeflow metadata to a MockData specification
+- [`generate_mock_data_native()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_native.md)
+  : Generate mock data with the native backend
+- [`generate_mock_data_simstudy()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_simstudy.md)
+  : Generate mock data with the optional simstudy backend
+- [`postprocess_mock_data()`](https://big-life-lab.github.io/MockData/reference/postprocess_mock_data.md)
+  : Apply mock_spec post-processing rules
+
 ## Main generation functions
 
 Generate categorical, continuous, date, and survival variables. Use
@@ -574,6 +656,8 @@ Extract structured information from metadata for mock data generation.
 
 Learning-oriented step-by-step guides
 
+- [Getting started with MockData
+  v0.4](https://big-life-lab.github.io/MockData/articles/getting-started-v04.md):
 - [Getting started with
   MockData](https://big-life-lab.github.io/MockData/articles/getting-started.md):
 - [Generating categorical and continuous
@@ -591,6 +675,14 @@ Learning-oriented step-by-step guides
 
 Task-oriented practical examples
 
+- [Use recodeflow metadata with MockData
+  v0.4](https://big-life-lab.github.io/MockData/articles/recodeflow-metadata-v04.md):
+- [Inspect diagnostics and garbage rules in MockData
+  v0.4](https://big-life-lab.github.io/MockData/articles/diagnostics-and-garbage-v04.md):
+- [Migrate from MockData v0.3 to
+  v0.4](https://big-life-lab.github.io/MockData/articles/migrating-from-v03-v04.md):
+- [Choose a MockData v0.4
+  backend](https://big-life-lab.github.io/MockData/articles/choosing-a-backend-v04.md):
 - [MockData for recodeflow
   users](https://big-life-lab.github.io/MockData/articles/for-recodeflow-users.md):
 
@@ -598,6 +690,8 @@ Task-oriented practical examples
 
 Understanding concepts and design decisions
 
+- [MockData v0.4 design
+  philosophy](https://big-life-lab.github.io/MockData/articles/design-philosophy-v04.md):
 - [Advanced
   topics](https://big-life-lab.github.io/MockData/articles/advanced-topics.md):
 
