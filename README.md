@@ -9,10 +9,10 @@
 
 <!-- badges: end -->
 
-**Status: Experimental v0.4.0 release candidate**
+**Status: Experimental v0.4.0 release**
 
 MockData is a work-in-progress R package for generating mock testing data from
-small metadata specifications. The `dev` branch now contains the v0.4
+small metadata specifications. Version 0.4 introduces the
 `mock_spec` architecture: direct specification helpers, a recodeflow metadata
 adapter, native generation, optional `simstudy` generation, and post-processing
 diagnostics. It is useful today for development and documentation workflows,

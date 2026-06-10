@@ -1,4 +1,4 @@
-# MockData 0.4.0
+# MockData 0.4.0 (2026-06-10)
 
 ## Breaking changes
 
@@ -17,7 +17,7 @@
   `Configuration file does not exist:` / `Details file does not exist:` to
   `variables file does not exist:` / `variable_details file does not exist:`.
 
-## Development
+## New features
 
 - Started the v0.4 production refactor around a normalized `mock_spec`
   architecture.
