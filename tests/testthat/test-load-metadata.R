@@ -35,3 +35,26 @@ test_that(".load_metadata_df rejects non-path, non-data-frame input", {
     "must be a data frame or a single CSV file path"
   )
 })
+
+test_that(".load_metadata_df emits the reading message when verbose", {
+  path <- tempfile(fileext = ".csv")
+  on.exit(unlink(path))
+  write.csv(data.frame(variable = "age"), path, row.names = FALSE)
+
+  expect_message(
+    MockData:::.load_metadata_df(path, "variables", verbose = TRUE),
+    "Reading variables file: "
+  )
+  expect_silent(MockData:::.load_metadata_df(path, "variables"))
+})
+
+test_that(".load_metadata_df rejects a directory path", {
+  dir_path <- tempfile()
+  dir.create(dir_path)
+  on.exit(unlink(dir_path, recursive = TRUE))
+
+  expect_error(
+    MockData:::.load_metadata_df(dir_path, "variables"),
+    "variables file does not exist"
+  )
+})

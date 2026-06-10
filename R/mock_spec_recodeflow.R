@@ -6,6 +6,8 @@
 # ==============================================================================
 
 #' @noRd
+# See also .load_metadata_df() (R/load_metadata.R): the legacy loader with
+# read.csv default na.strings. The two differ intentionally.
 .read_recodeflow_table <- function(x, label) {
   if (is.data.frame(x)) {
     return(x)

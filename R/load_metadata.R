@@ -5,6 +5,11 @@
 #' optional variable_details), or a single CSV file path (read with
 #' check.names = FALSE to preserve recodeflow column names).
 #'
+#' Note: the v0.4 pipeline has its own reader, .read_recodeflow_table()
+#' (R/mock_spec_recodeflow.R), which additionally maps "" and "NA" cells to NA
+#' via na.strings. This helper keeps read.csv defaults to preserve the legacy
+#' create_* generators' behaviour. Keep the two in mind if consolidating.
+#'
 #' @param x data.frame, NULL, or length-1 character file path.
 #' @param what Character. Argument name used in messages ("variables",
 #'   "variable_details").
@@ -17,7 +22,7 @@
     return(x)
   }
   if (is.character(x) && length(x) == 1) {
-    if (!file.exists(x)) {
+    if (!file.exists(x) || dir.exists(x)) {
       stop(what, " file does not exist: ", x, call. = FALSE)
     }
     if (verbose) message("Reading ", what, " file: ", x)
