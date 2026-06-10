@@ -920,13 +920,14 @@ apply_rtype_defaults <- function(details) {
     # Apply defaults based on type
     type_lower <- tolower(details[[type_col]])
 
-    details$rType <- dplyr::case_when(
-      type_lower %in% c("cont", "continuous") ~ "double",    # Continuous → double (default)
-      type_lower %in% c("cat", "categorical") ~ "factor",    # Categorical → factor (default)
-      type_lower == "date" ~ "date",                         # Date -> date (default)
-      type_lower == "logical" ~ "logical",                   # Logical → logical
-      TRUE ~ "character"                                     # Fallback
-    )
+    # Fallback first, then overwrite recognized types. %in% is used for every
+    # comparison (including single values) because it maps NA to FALSE, which
+    # `==` does not — NA in a logical subscript assignment is an error.
+    details$rType <- "character"
+    details$rType[type_lower %in% c("cont", "continuous")] <- "double"
+    details$rType[type_lower %in% c("cat", "categorical")] <- "factor"
+    details$rType[type_lower %in% "date"] <- "date"
+    details$rType[type_lower %in% "logical"] <- "logical"
   } else {
     # No type column found - default to character
     details$rType <- "character"

@@ -317,3 +317,15 @@ test_that("apply_rtype_defaults validates rType values", {
     "Invalid rType values found"
   )
 })
+
+test_that("rType defaults handle NA and unknown variableType values", {
+  details <- data.frame(
+    variable = c("a", "b", "c", "d"),
+    variableType = c("Continuous", NA, "weird-type", "Date"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- apply_rtype_defaults(details)
+
+  expect_equal(result$rType, c("double", "character", "character", "date"))
+})
