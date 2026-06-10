@@ -141,12 +141,13 @@ create_date_var <- function(var,
   var_row <- variables[variables$variable == var, ]
 
   if (nrow(var_row) == 0) {
-    warning(paste0("Variable '", var, "' not found in variables metadata"))
-    return(NULL)
+    stop("Variable '", var, "' not found in variables metadata", call. = FALSE)
   }
 
-  # Take first row if multiple matches
   if (nrow(var_row) > 1) {
+    warning("Multiple variables rows found for '", var,
+            "' (", nrow(var_row), " rows); using the first row.",
+            call. = FALSE)
     var_row <- var_row[1, ]
   }
 
@@ -211,7 +212,7 @@ create_date_var <- function(var,
       "No variable_details rows found for variable '", var,
       "' and databaseStart '", databaseStart,
       "'. Using fallback date range [2000-01-01, 2025-12-31]."
-    ))
+    ), call. = FALSE)
     # Default range: 2000-01-01 to 2025-12-31
     date_start <- as.Date("2000-01-01")
     date_end <- as.Date("2025-12-31")
@@ -243,7 +244,7 @@ create_date_var <- function(var,
         "Variable '", var, "' is a survival variable (has followup_min/max/event_prop), ",
         "but df_mock does not contain 'anchor_date' column. ",
         "Cannot generate survival dates without anchor dates."
-      ))
+      ), call. = FALSE)
       return(NULL)
     }
 
@@ -251,7 +252,7 @@ create_date_var <- function(var,
       warning(paste0(
         "Variable '", var, "': df_mock has ", nrow(df_mock), " rows but n=", n, ". ",
         "For survival variables, df_mock row count must match n."
-      ))
+      ), call. = FALSE)
       return(NULL)
     }
 
@@ -264,7 +265,7 @@ create_date_var <- function(var,
       warning(paste0(
         "Variable '", var, "': followup_min, followup_max, or event_prop is NA. ",
         "Cannot generate survival dates."
-      ))
+      ), call. = FALSE)
       return(NULL)
     }
 
@@ -275,7 +276,7 @@ create_date_var <- function(var,
       warning(paste0(
         "Variable '", var, "': Some anchor_date values are NA. ",
         "Cannot compute event dates."
-      ))
+      ), call. = FALSE)
       return(NULL)
     }
 
@@ -356,7 +357,7 @@ create_date_var <- function(var,
     }
 
     if (length(rec_start_values) == 0) {
-      warning(paste0("Variable '", var, "': No valid date range found in variable_details"))
+      warning(paste0("Variable '", var, "': No valid date range found in variable_details"), call. = FALSE)
       return(NULL)
     }
 
@@ -367,7 +368,7 @@ create_date_var <- function(var,
       warning(paste0(
         "Variable '", var, "': Cannot parse date range from recStart. ",
         "Expected format: [01JAN2001,31DEC2020], [2001-01-01,2020-12-31], or [2017-03-31,inf]"
-      ))
+      ), call. = FALSE)
       return(NULL)
     }
 

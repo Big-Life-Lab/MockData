@@ -139,12 +139,13 @@ create_con_var <- function(var,
   var_row <- variables[variables$variable == var, ]
 
   if (nrow(var_row) == 0) {
-    warning(paste0("Variable '", var, "' not found in variables metadata"))
-    return(NULL)
+    stop("Variable '", var, "' not found in variables metadata", call. = FALSE)
   }
 
-  # Take first row if multiple matches
   if (nrow(var_row) > 1) {
+    warning("Multiple variables rows found for '", var,
+            "' (", nrow(var_row), " rows); using the first row.",
+            call. = FALSE)
     var_row <- var_row[1, ]
   }
 
@@ -185,7 +186,7 @@ create_con_var <- function(var,
       "No variable_details rows found for variable '", var,
       "' and databaseStart '", databaseStart,
       "'. Using fallback uniform range [0, 100]."
-    ))
+    ), call. = FALSE)
     values <- runif(n, min = 0, max = 100)
     # Fallback still honors rType so output contracts match configured metadata.
     if ("rType" %in% names(var_row)) {
@@ -286,13 +287,13 @@ create_con_var <- function(var,
         "Variable '", var,
         "' requested normal distribution but mean and/or sd are missing. ",
         "Using uniform distribution instead."
-      ))
+      ), call. = FALSE)
     } else if (distribution_type == "exponential") {
       warning(paste0(
         "Variable '", var,
         "' requested exponential distribution but rate is missing. ",
         "Using uniform distribution instead."
-      ))
+      ), call. = FALSE)
     }
 
     # Uniform distribution (default)

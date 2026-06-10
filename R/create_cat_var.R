@@ -142,12 +142,13 @@ create_cat_var <- function(var,
   var_row <- variables[variables$variable == var, ]
 
   if (nrow(var_row) == 0) {
-    warning(paste0("Variable '", var, "' not found in variables metadata"))
-    return(NULL)
+    stop("Variable '", var, "' not found in variables metadata", call. = FALSE)
   }
 
-  # Take first row if multiple matches
   if (nrow(var_row) > 1) {
+    warning("Multiple variables rows found for '", var,
+            "' (", nrow(var_row), " rows); using the first row.",
+            call. = FALSE)
     var_row <- var_row[1, ]
   }
 
@@ -188,7 +189,7 @@ create_cat_var <- function(var,
       "No variable_details rows found for variable '", var,
       "' and databaseStart '", databaseStart,
       "'. Using fallback categories c('1', '2')."
-    ))
+    ), call. = FALSE)
     # Generate simple 2-category variable with uniform distribution
     values <- sample(c("1", "2"), size = n, replace = TRUE)
     # Fallback still honors rType so output contracts match configured metadata.
@@ -219,7 +220,7 @@ create_cat_var <- function(var,
 
   # Check if we have valid categories
   if (length(props$categories) == 0) {
-    warning(paste0("No valid categories found for ", var))
+    warning(paste0("No valid categories found for ", var), call. = FALSE)
     return(NULL)
   }
 

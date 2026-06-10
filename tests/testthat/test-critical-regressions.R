@@ -486,3 +486,77 @@ test_that("create_mock_data summarizes skipped variables when validate is FALSE"
   expect_equal(nrow(result), 5)
   expect_equal(ncol(result), 0)
 })
+
+test_that("generators stop when the variable is missing from variables metadata", {
+  variables <- data.frame(
+    variable = "age", variableType = "Continuous", rType = "integer",
+    stringsAsFactors = FALSE
+  )
+  details <- data.frame(
+    variable = "age", recStart = "[18,85]", recEnd = "copy",
+    proportion = 1, databaseStart = "study", stringsAsFactors = FALSE
+  )
+
+  expect_error(
+    create_con_var(
+      var = "no_such_var", databaseStart = "study",
+      variables = variables, variable_details = details, n = 10
+    ),
+    "not found in variables metadata"
+  )
+  expect_error(
+    create_cat_var(
+      var = "no_such_var", databaseStart = "study",
+      variables = variables, variable_details = details, n = 10
+    ),
+    "not found in variables metadata"
+  )
+  expect_error(
+    create_date_var(
+      var = "no_such_var", databaseStart = "study",
+      variables = variables, variable_details = details, n = 10
+    ),
+    "not found in variables metadata"
+  )
+})
+
+test_that("generators warn when duplicate variables rows match", {
+  variables <- data.frame(
+    variable = c("age", "age"), variableType = "Continuous",
+    rType = "integer", stringsAsFactors = FALSE
+  )
+  details <- data.frame(
+    variable = "age", recStart = "[18,85]", recEnd = "copy",
+    proportion = 1, databaseStart = "study", stringsAsFactors = FALSE
+  )
+
+  expect_warning(
+    result <- create_con_var(
+      var = "age", databaseStart = "study",
+      variables = variables, variable_details = details, n = 10, seed = 1
+    ),
+    "Multiple variables rows"
+  )
+  expect_s3_class(result, "data.frame")
+})
+
+test_that("create_mock_data validate = FALSE path still returns a data frame", {
+  # Smoke test that the orchestrator's tryCatch + validate = FALSE contract
+  # survives the generator changes. (Missing-from-variables cannot be
+  # triggered through the orchestrator itself, since it derives var names
+  # from the variables data frame — this guards the happy path under the
+  # permissive flag.)
+  variables <- data.frame(
+    variable = "age", variableType = "Continuous", rType = "integer",
+    role = "enabled", stringsAsFactors = FALSE
+  )
+  details <- data.frame(
+    variable = "age", recStart = "[18,85]", recEnd = "copy",
+    proportion = 1, databaseStart = "study", stringsAsFactors = FALSE
+  )
+  result <- create_mock_data(
+    databaseStart = "study", variables = variables,
+    variable_details = details, n = 10, seed = 1, validate = FALSE
+  )
+  expect_s3_class(result, "data.frame")
+})

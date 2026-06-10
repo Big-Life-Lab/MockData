@@ -278,7 +278,7 @@ test_that("create_mock_data dispatches rType = 'numeric' to the continuous gener
     databaseStart = "study", variables = variables,
     variable_details = variable_details, n = 25, seed = 42
   )
-  expect_true(is.numeric(result$bmi))
+  expect_type(result$bmi, "double")
   expect_equal(nrow(result), 25)
 })
 

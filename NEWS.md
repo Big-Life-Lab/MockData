@@ -1,5 +1,14 @@
 # MockData 0.4.0
 
+## Breaking changes
+
+- `create_cat_var()`, `create_con_var()`, and `create_date_var()` now stop
+  with an error when the requested variable is not found in `variables`
+  metadata, instead of warning and returning `NULL`. Within
+  `create_mock_data()`, set `validate = FALSE` to convert these errors to
+  warn-and-skip behaviour. Duplicate `variables` rows for the same variable
+  now produce a warning before the first row is used.
+
 ## Development
 
 - Started the v0.4 production refactor around a normalized `mock_spec`
