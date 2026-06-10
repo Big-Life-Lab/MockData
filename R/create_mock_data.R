@@ -343,6 +343,17 @@ create_mock_data <- function(databaseStart,
   df_mock <- data.frame(row.names = seq_len(n))
   skipped_vars <- character(0)
 
+  # rType → generator dispatch map. Keys double as the supported-rTypes list.
+  generator_map <- list(
+    factor    = create_cat_var,
+    character = create_cat_var,
+    logical   = create_cat_var,
+    integer   = create_con_var,
+    double    = create_con_var,
+    numeric   = create_con_var,
+    date      = create_date_var
+  )
+
   # Generate variables in order
   for (i in seq_len(nrow(enabled_vars))) {
     var_row <- enabled_vars[i, ]
@@ -368,15 +379,11 @@ create_mock_data <- function(databaseStart,
               var_name, " (", var_type, ")")
     }
 
-    supported_rtypes <- c(
-      "factor", "character", "logical", "integer", "double", "numeric", "date"
-    )
-
-    if (!var_type %in% supported_rtypes) {
+    if (!var_type %in% names(generator_map)) {
       msg <- paste0(
         "Unknown variable type '", var_type, "' for variable: ", var_name,
-        "\n  Supported rType values: factor, character, logical, integer, ",
-        "double, numeric, date"
+        "\n  Supported rType values: ",
+        paste(names(generator_map), collapse = ", ")
       )
 
       if (validate) {
@@ -389,9 +396,8 @@ create_mock_data <- function(databaseStart,
     } else {
       # Dispatch to type-specific generator
       var_data <- tryCatch({
-        switch(var_type,
-        # v0.2 schema rType values
-        "factor" = create_cat_var(
+        generator <- generator_map[[var_type]]
+        generator(
           var = var_name,
           databaseStart = databaseStart,
           variables = variables,
@@ -399,61 +405,6 @@ create_mock_data <- function(databaseStart,
           df_mock = df_mock,
           n = n,
           seed = NULL  # Global seed already set
-        ),
-        "character" = create_cat_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        ),
-        "logical" = create_cat_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        ),
-        "integer" = create_con_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        ),
-        "double" = create_con_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        ),
-        "numeric" = create_con_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        ),
-        "date" = create_date_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        )
         )
       }, error = function(e) {
         msg <- paste0("Error generating variable ", var_name, ": ", e$message)
