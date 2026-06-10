@@ -168,7 +168,7 @@
 #'
 #' **Fallback mode**: If variable_details = NULL, uses simple default generators
 #' for enabled variables (two-category categorical values, continuous values from
-#' [0, 100], and dates from 2000-01-01 to 2025-12-31).
+#' `[0, 100]`, and dates from 2000-01-01 to 2025-12-31).
 #'
 #' **Variable types supported**:
 #' \itemize{
@@ -181,42 +181,34 @@
 #' see \code{vignette("reference-config", package = "MockData")}.
 #'
 #' @examples
-#' \dontrun{
-#' # Basic usage with file paths
+#' # The packaged minimal example includes deliberately messy metadata
+#' # (auto-normalized proportions, survival dates without an anchor): the
+#' # warnings it generates are expected and demonstrate MockData's diagnostics.
 #' mock_data <- create_mock_data(
 #'   databaseStart = "minimal-example",
-#'   variables = "inst/extdata/minimal-example/variables.csv",
-#'   variable_details = "inst/extdata/minimal-example/variable_details.csv",
-#'   n = 1000,
+#'   variables = system.file("extdata/minimal-example/variables.csv",
+#'     package = "MockData"
+#'   ),
+#'   variable_details = system.file("extdata/minimal-example/variable_details.csv",
+#'     package = "MockData"
+#'   ),
+#'   n = 100,
 #'   seed = 123
 #' )
+#' str(mock_data)
 #'
-#' # With data frames instead of file paths
-#' variables <- read.csv("inst/extdata/minimal-example/variables.csv",
-#'                       stringsAsFactors = FALSE)
-#' variable_details <- read.csv("inst/extdata/minimal-example/variable_details.csv",
-#'                               stringsAsFactors = FALSE)
+#' # Columns with straightforward metadata generate cleanly:
+#' head(mock_data[, c("age", "smoking", "interview_date")])
 #'
+#' # Fallback mode: no variable_details, simple default generators
 #' mock_data <- create_mock_data(
 #'   databaseStart = "minimal-example",
-#'   variables = variables,
-#'   variable_details = variable_details,
-#'   n = 1000,
-#'   seed = 123
-#' )
-#'
-#' # Fallback mode (uniform distributions, no variable_details)
-#' mock_data <- create_mock_data(
-#'   databaseStart = "minimal-example",
-#'   variables = "inst/extdata/minimal-example/variables.csv",
+#'   variables = system.file("extdata/minimal-example/variables.csv",
+#'     package = "MockData"
+#'   ),
 #'   variable_details = NULL,
 #'   n = 500
 #' )
-#'
-#' # View structure
-#' str(mock_data)
-#' head(mock_data)
-#' }
 #'
 #' @family generators
 #' @family mock generation APIs
@@ -233,26 +225,12 @@ create_mock_data <- function(databaseStart,
 
   # ========== LOAD METADATA ==========
 
-  # Load variables from file path if needed
-  if (is.character(variables) && length(variables) == 1) {
-    if (!file.exists(variables)) {
-      stop("Configuration file does not exist: ", variables)
-    }
-    if (verbose) message("Reading variables file: ", variables)
-    variables <- read.csv(variables, stringsAsFactors = FALSE, check.names = FALSE)
-  }
-
-  # Load variable_details from file path if needed
-  if (!is.null(variable_details)) {
-    if (is.character(variable_details) && length(variable_details) == 1) {
-      if (!file.exists(variable_details)) {
-        stop("Details file does not exist: ", variable_details)
-      }
-      if (verbose) message("Reading variable_details file: ", variable_details)
-      variable_details <- read.csv(variable_details, stringsAsFactors = FALSE, check.names = FALSE)
-    }
-  } else {
-    if (verbose) message("No details file provided - using simple fallback generation")
+  variables <- .load_metadata_df(variables, "variables", verbose = verbose)
+  variable_details <- .load_metadata_df(
+    variable_details, "variable_details", verbose = verbose
+  )
+  if (is.null(variable_details) && verbose) {
+    message("No details file provided - using simple fallback generation")
   }
 
   variables <- .migrate_garbage_aliases(variables)
@@ -357,6 +335,17 @@ create_mock_data <- function(databaseStart,
   df_mock <- data.frame(row.names = seq_len(n))
   skipped_vars <- character(0)
 
+  # rType → generator dispatch map. Keys double as the supported-rTypes list.
+  generator_map <- list(
+    factor    = create_cat_var,
+    character = create_cat_var,
+    logical   = create_cat_var,
+    integer   = create_con_var,
+    double    = create_con_var,
+    numeric   = create_con_var,
+    date      = create_date_var
+  )
+
   # Generate variables in order
   for (i in seq_len(nrow(enabled_vars))) {
     var_row <- enabled_vars[i, ]
@@ -374,6 +363,7 @@ create_mock_data <- function(databaseStart,
         stop(msg, call. = FALSE)
       }
       warning(msg)
+      skipped_vars <- c(skipped_vars, var_name)
       next
     }
 
@@ -382,15 +372,11 @@ create_mock_data <- function(databaseStart,
               var_name, " (", var_type, ")")
     }
 
-    supported_rtypes <- c(
-      "factor", "character", "logical", "integer", "double", "numeric", "date"
-    )
-
-    if (!var_type %in% supported_rtypes) {
+    if (!var_type %in% names(generator_map)) {
       msg <- paste0(
         "Unknown variable type '", var_type, "' for variable: ", var_name,
-        "\n  Supported rType values: factor, character, logical, integer, ",
-        "double, numeric, date"
+        "\n  Supported rType values: ",
+        paste(names(generator_map), collapse = ", ")
       )
 
       if (validate) {
@@ -403,9 +389,8 @@ create_mock_data <- function(databaseStart,
     } else {
       # Dispatch to type-specific generator
       var_data <- tryCatch({
-        switch(var_type,
-        # v0.2 schema rType values
-        "factor" = create_cat_var(
+        generator <- generator_map[[var_type]]
+        generator(
           var = var_name,
           databaseStart = databaseStart,
           variables = variables,
@@ -413,61 +398,6 @@ create_mock_data <- function(databaseStart,
           df_mock = df_mock,
           n = n,
           seed = NULL  # Global seed already set
-        ),
-        "character" = create_cat_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        ),
-        "logical" = create_cat_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        ),
-        "integer" = create_con_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        ),
-        "double" = create_con_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        ),
-        "numeric" = create_con_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        ),
-        "date" = create_date_var(
-          var = var_name,
-          databaseStart = databaseStart,
-          variables = variables,
-          variable_details = variable_details,
-          df_mock = df_mock,
-          n = n,
-          seed = NULL
-        )
         )
       }, error = function(e) {
         msg <- paste0("Error generating variable ", var_name, ": ", e$message)
@@ -486,6 +416,12 @@ create_mock_data <- function(databaseStart,
       for (col_name in names(var_data)) {
         df_mock[[col_name]] <- var_data[[col_name]]
       }
+    } else if (is.null(var_data) && !var_name %in% names(df_mock)) {
+      # Generators can return NULL without erroring (e.g. survival-date
+      # preconditions not met, no valid categories). Track those so the
+      # end-of-run summary reflects every absent column. The names(df_mock)
+      # check keeps legitimate already-exists skips out of the summary.
+      skipped_vars <- c(skipped_vars, var_name)
     }
   }
 
@@ -497,7 +433,9 @@ create_mock_data <- function(databaseStart,
     message("  Variables: ", ncol(df_mock))
   }
 
-  if (!validate && length(skipped_vars) > 0) {
+  # Fires in both modes: strict mode can also drop columns when a generator
+  # returns NULL without erroring.
+  if (length(skipped_vars) > 0) {
     skipped_vars <- unique(skipped_vars)
     message("Skipped variables during mock data generation: ",
             paste(skipped_vars, collapse = ", "))

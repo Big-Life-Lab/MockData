@@ -1,5 +1,22 @@
 # MockData 0.4.0
 
+## Breaking changes
+
+- `create_cat_var()`, `create_con_var()`, and `create_date_var()` now stop
+  with the error `Variable '<name>' not found in variables metadata` when the
+  requested variable is absent, instead of warning and returning `NULL`. This
+  affects direct generator calls and `create_wide_survival_data()` (a
+  misspelled date-variable name now errors instead of being skipped with a
+  warning). `create_mock_data()` itself derives variable names from the
+  `variables` metadata, so it cannot trigger this error; its `validate = FALSE`
+  flag continues to convert any generator error to warn-and-skip on the legacy
+  path. Duplicate `variables` rows for the same variable now produce a warning
+  in the legacy `create_*` path before the first row is used (the v0.4
+  `mock_spec` path already errors on duplicate names).
+- `create_mock_data()` error messages for missing metadata files changed from
+  `Configuration file does not exist:` / `Details file does not exist:` to
+  `variables file does not exist:` / `variable_details file does not exist:`.
+
 ## Development
 
 - Started the v0.4 production refactor around a normalized `mock_spec`

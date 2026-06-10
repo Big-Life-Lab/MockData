@@ -287,7 +287,7 @@ MockData uses a three-file architecture that separates project data dictionaries
    - Transformation rules (recStart, recEnd, copy, catLabel)
    - Example: `uvariable, recStart, catLabel`
 
-3. **MockData-specific parameters** (`mock_config.csv`, optional)
+3. **MockData-specific parameters** (`mock_data_config.csv`, optional)
 
    - Proportions of variable categories
    - Event occurrence probabilities (`event_occurs`)

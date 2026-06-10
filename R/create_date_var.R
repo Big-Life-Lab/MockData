@@ -33,10 +33,15 @@
 #'
 #' @return data.frame with one column (the generated date variable), or NULL if:
 #'   \itemize{
-#'     \item Variable not found in metadata
-#'     \item Variable already exists in df_mock
-#'     \item No valid date range found in variable_details
+#'     \item Variable already exists in df_mock (a message is emitted)
+#'     \item No valid date range found in variable_details, or the date
+#'       range cannot be parsed
+#'     \item Survival-variable preconditions are not met (e.g. df_mock lacks
+#'       an anchor_date column, or followup parameters are NA)
 #'   }
+#'
+#'   Errors if the variable is not found in the variables metadata. Warns and
+#'   uses the first row if multiple variables rows match.
 #'
 #' @details
 #' **v0.3.0 API**: This function now accepts full metadata data frames and filters
@@ -132,25 +137,22 @@ create_date_var <- function(var,
   # ========== PARAMETER VALIDATION ==========
 
   # Load metadata from file paths if needed
-  if (is.character(variables) && length(variables) == 1) {
-    variables <- read.csv(variables, stringsAsFactors = FALSE, check.names = FALSE)
-  }
-  if (is.character(variable_details) && length(variable_details) == 1) {
-    variable_details <- read.csv(variable_details, stringsAsFactors = FALSE, check.names = FALSE)
-  }
+  variables <- .load_metadata_df(variables, "variables")
+  variable_details <- .load_metadata_df(variable_details, "variable_details")
 
   # ========== INTERNAL FILTERING (recodeflow pattern) ==========
 
   # Filter variables for this var
-  var_row <- variables[variables$variable == var, ]
+  var_row <- variables[variables$variable == var, , drop = FALSE]
 
   if (nrow(var_row) == 0) {
-    warning(paste0("Variable '", var, "' not found in variables metadata"))
-    return(NULL)
+    stop("Variable '", var, "' not found in variables metadata", call. = FALSE)
   }
 
-  # Take first row if multiple matches
   if (nrow(var_row) > 1) {
+    warning("Multiple rows found for '", var, "' in variables metadata (",
+            nrow(var_row), " rows); using the first row.",
+            call. = FALSE)
     var_row <- var_row[1, ]
   }
 
@@ -168,15 +170,18 @@ create_date_var <- function(var,
          databaseStart,
          allow_empty = TRUE
        )),
+      ,
+      drop = FALSE
     ]
   } else {
     # Fallback: no databaseStart filtering (for simple configs)
-    details_subset <- variable_details[variable_details$variable == var, ]
+    details_subset <- variable_details[variable_details$variable == var, , drop = FALSE]
   }
 
   # ========== CHECK IF VARIABLE ALREADY EXISTS ==========
 
   if (!is.null(df_mock) && var %in% names(df_mock)) {
+    message("Variable '", var, "' already exists in df_mock; skipping generation.")
     return(NULL)
   }
 
@@ -215,7 +220,7 @@ create_date_var <- function(var,
       "No variable_details rows found for variable '", var,
       "' and databaseStart '", databaseStart,
       "'. Using fallback date range [2000-01-01, 2025-12-31]."
-    ))
+    ), call. = FALSE)
     # Default range: 2000-01-01 to 2025-12-31
     date_start <- as.Date("2000-01-01")
     date_end <- as.Date("2025-12-31")
@@ -247,7 +252,7 @@ create_date_var <- function(var,
         "Variable '", var, "' is a survival variable (has followup_min/max/event_prop), ",
         "but df_mock does not contain 'anchor_date' column. ",
         "Cannot generate survival dates without anchor dates."
-      ))
+      ), call. = FALSE)
       return(NULL)
     }
 
@@ -255,7 +260,7 @@ create_date_var <- function(var,
       warning(paste0(
         "Variable '", var, "': df_mock has ", nrow(df_mock), " rows but n=", n, ". ",
         "For survival variables, df_mock row count must match n."
-      ))
+      ), call. = FALSE)
       return(NULL)
     }
 
@@ -268,7 +273,7 @@ create_date_var <- function(var,
       warning(paste0(
         "Variable '", var, "': followup_min, followup_max, or event_prop is NA. ",
         "Cannot generate survival dates."
-      ))
+      ), call. = FALSE)
       return(NULL)
     }
 
@@ -279,7 +284,7 @@ create_date_var <- function(var,
       warning(paste0(
         "Variable '", var, "': Some anchor_date values are NA. ",
         "Cannot compute event dates."
-      ))
+      ), call. = FALSE)
       return(NULL)
     }
 
@@ -360,7 +365,7 @@ create_date_var <- function(var,
     }
 
     if (length(rec_start_values) == 0) {
-      warning(paste0("Variable '", var, "': No valid date range found in variable_details"))
+      warning(paste0("Variable '", var, "': No valid date range found in variable_details"), call. = FALSE)
       return(NULL)
     }
 
@@ -371,7 +376,7 @@ create_date_var <- function(var,
       warning(paste0(
         "Variable '", var, "': Cannot parse date range from recStart. ",
         "Expected format: [01JAN2001,31DEC2020], [2001-01-01,2020-12-31], or [2017-03-31,inf]"
-      ))
+      ), call. = FALSE)
       return(NULL)
     }
 

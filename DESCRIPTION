@@ -25,10 +25,10 @@ VignetteBuilder: quarto
 Depends:
     R (>= 4.2.0)
 Imports:
-    stats,
-    dplyr
+    stats
 Suggests:
     testthat (>= 3.0.0),
+    dplyr,
     readr,
     stringr,
     lubridate,
