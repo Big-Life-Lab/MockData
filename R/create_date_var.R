@@ -132,12 +132,8 @@ create_date_var <- function(var,
   # ========== PARAMETER VALIDATION ==========
 
   # Load metadata from file paths if needed
-  if (is.character(variables) && length(variables) == 1) {
-    variables <- read.csv(variables, stringsAsFactors = FALSE, check.names = FALSE)
-  }
-  if (is.character(variable_details) && length(variable_details) == 1) {
-    variable_details <- read.csv(variable_details, stringsAsFactors = FALSE, check.names = FALSE)
-  }
+  variables <- .load_metadata_df(variables, "variables")
+  variable_details <- .load_metadata_df(variable_details, "variable_details")
 
   # ========== INTERNAL FILTERING (recodeflow pattern) ==========
 

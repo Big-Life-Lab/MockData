@@ -233,26 +233,12 @@ create_mock_data <- function(databaseStart,
 
   # ========== LOAD METADATA ==========
 
-  # Load variables from file path if needed
-  if (is.character(variables) && length(variables) == 1) {
-    if (!file.exists(variables)) {
-      stop("Configuration file does not exist: ", variables)
-    }
-    if (verbose) message("Reading variables file: ", variables)
-    variables <- read.csv(variables, stringsAsFactors = FALSE, check.names = FALSE)
-  }
-
-  # Load variable_details from file path if needed
-  if (!is.null(variable_details)) {
-    if (is.character(variable_details) && length(variable_details) == 1) {
-      if (!file.exists(variable_details)) {
-        stop("Details file does not exist: ", variable_details)
-      }
-      if (verbose) message("Reading variable_details file: ", variable_details)
-      variable_details <- read.csv(variable_details, stringsAsFactors = FALSE, check.names = FALSE)
-    }
-  } else {
-    if (verbose) message("No details file provided - using simple fallback generation")
+  variables <- .load_metadata_df(variables, "variables", verbose = verbose)
+  variable_details <- .load_metadata_df(
+    variable_details, "variable_details", verbose = verbose
+  )
+  if (is.null(variable_details) && verbose) {
+    message("No details file provided - using simple fallback generation")
   }
 
   variables <- .migrate_garbage_aliases(variables)

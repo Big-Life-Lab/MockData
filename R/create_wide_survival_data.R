@@ -183,6 +183,13 @@ create_wide_survival_data <- function(var_entry_date,
   if (missing(databaseStart) || is.null(databaseStart)) {
     stop("databaseStart parameter is required")
   }
+  # Load metadata from file paths if needed
+  if (!missing(variables)) {
+    variables <- .load_metadata_df(variables, "variables")
+  }
+  if (!missing(variable_details)) {
+    variable_details <- .load_metadata_df(variable_details, "variable_details")
+  }
   if (missing(variables) || !is.data.frame(variables)) {
     stop("variables must be a data frame (full metadata, not pre-filtered)")
   }
