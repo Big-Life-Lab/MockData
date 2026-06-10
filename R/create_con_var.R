@@ -30,12 +30,11 @@
 #' @param n integer. Number of observations to generate.
 #' @param seed integer. Optional. Random seed for reproducibility.
 #'
-#' @return data.frame with one column (the generated continuous variable), or NULL if:
-#'   \itemize{
-#'     \item Variable not found in metadata
-#'     \item Variable already exists in df_mock
-#'     \item No valid range found in variable_details
-#'   }
+#' @return data.frame with one column (the generated continuous variable), or NULL if
+#'   the variable already exists in df_mock.
+#'
+#'   Errors if the variable is not found in the variables metadata. Warns and
+#'   uses the first row if multiple variables rows match.
 #'
 #' @details
 #' **v0.3.0 API**: This function now accepts full metadata data frames and filters
@@ -143,8 +142,8 @@ create_con_var <- function(var,
   }
 
   if (nrow(var_row) > 1) {
-    warning("Multiple variables rows found for '", var,
-            "' (", nrow(var_row), " rows); using the first row.",
+    warning("Multiple rows found for '", var, "' in variables metadata (",
+            nrow(var_row), " rows); using the first row.",
             call. = FALSE)
     var_row <- var_row[1, ]
   }

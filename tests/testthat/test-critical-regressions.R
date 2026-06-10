@@ -535,9 +535,49 @@ test_that("generators warn when duplicate variables rows match", {
       var = "age", databaseStart = "study",
       variables = variables, variable_details = details, n = 10, seed = 1
     ),
-    "Multiple variables rows"
+    "Multiple rows found"
   )
   expect_s3_class(result, "data.frame")
+
+  variables_cat <- data.frame(
+    variable = c("smoke", "smoke"), variableType = "Categorical",
+    rType = "factor", stringsAsFactors = FALSE
+  )
+  details_cat <- data.frame(
+    variable = "smoke", recStart = c("1", "2"), recEnd = c("1", "2"),
+    proportion = c(0.5, 0.5), databaseStart = "study",
+    stringsAsFactors = FALSE
+  )
+
+  expect_warning(
+    result_cat <- create_cat_var(
+      var = "smoke", databaseStart = "study",
+      variables = variables_cat, variable_details = details_cat,
+      n = 10, seed = 1
+    ),
+    "Multiple rows found"
+  )
+  expect_s3_class(result_cat, "data.frame")
+
+  variables_date <- data.frame(
+    variable = c("entry_date", "entry_date"), variableType = "Date",
+    rType = "date", stringsAsFactors = FALSE
+  )
+  details_date <- data.frame(
+    variable = "entry_date", recStart = "[2020-01-01,2024-12-31]",
+    recEnd = "copy", proportion = 1, databaseStart = "study",
+    stringsAsFactors = FALSE
+  )
+
+  expect_warning(
+    result_date <- create_date_var(
+      var = "entry_date", databaseStart = "study",
+      variables = variables_date, variable_details = details_date,
+      n = 10, seed = 1
+    ),
+    "Multiple rows found"
+  )
+  expect_s3_class(result_date, "data.frame")
 })
 
 test_that("create_mock_data validate = FALSE path still returns a data frame", {
@@ -559,4 +599,6 @@ test_that("create_mock_data validate = FALSE path still returns a data frame", {
     variable_details = details, n = 10, seed = 1, validate = FALSE
   )
   expect_s3_class(result, "data.frame")
+  expect_true("age" %in% names(result))
+  expect_equal(nrow(result), 10)
 })
