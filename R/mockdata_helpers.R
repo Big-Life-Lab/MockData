@@ -920,9 +920,10 @@ apply_rtype_defaults <- function(details) {
     # Apply defaults based on type
     type_lower <- tolower(details[[type_col]])
 
-    # Fallback first, then overwrite recognized types. %in% is used for every
-    # comparison (including single values) because it maps NA to FALSE, which
-    # `==` does not — NA in a logical subscript assignment is an error.
+    # Fallback first, then overwrite recognized types. The four %in% sets are
+    # disjoint, so assignment order does not matter. %in% maps NA to FALSE,
+    # sending NA types explicitly to the "character" fallback rather than
+    # relying on R's silent skipping of NA subscripts in scalar assignments.
     details$rType <- "character"
     details$rType[type_lower %in% c("cont", "continuous")] <- "double"
     details$rType[type_lower %in% c("cat", "categorical")] <- "factor"

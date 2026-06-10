@@ -318,14 +318,14 @@ test_that("apply_rtype_defaults validates rType values", {
   )
 })
 
-test_that("rType defaults handle NA and unknown variableType values", {
+test_that("apply_rtype_defaults handles NA, unknown, and logical variableType values", {
   details <- data.frame(
-    variable = c("a", "b", "c", "d"),
-    variableType = c("Continuous", NA, "weird-type", "Date"),
+    variable = c("a", "b", "c", "d", "e"),
+    variableType = c("Continuous", NA, "weird-type", "Date", "logical"),
     stringsAsFactors = FALSE
   )
 
   result <- apply_rtype_defaults(details)
 
-  expect_equal(result$rType, c("double", "character", "character", "date"))
+  expect_equal(result$rType, c("double", "character", "character", "date", "logical"))
 })
