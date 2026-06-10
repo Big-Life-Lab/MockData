@@ -85,9 +85,8 @@
 <p><strong>Status: Experimental v0.4.0 release</strong></p>
 <p>MockData is a work-in-progress R package for generating mock testing data from small metadata specifications. Version 0.4 introduces the <code>mock_spec</code> architecture: direct specification helpers, a recodeflow metadata adapter, native generation, optional <code>simstudy</code> generation, and post-processing diagnostics. It is useful today for development and documentation workflows, especially when paired with recodeflow-style metadata (see below), but it should be treated as experimental infrastructure rather than a stable released package.</p>
 <p>People are using MockData and reporting that it is helpful. We take that as an encouraging signal, not as evidence that the package is mature. Please review the generated data before using it in any workflow that matters.</p>
-<p><strong>v0.4 release candidate on <code>dev</code>:</strong> The next MockData release is currently on the <code>dev</code> branch for testing before it is merged forward to <code>main</code>. v0.4 adds the <code>mock_spec</code> pipeline, direct specification helpers, a recodeflow metadata adapter, native generation, optional <code>simstudy</code> generation, post-processing diagnostics, and a new Divio-style documentation set.</p>
-<p>The v0.4 work keeps the existing v0.3 public functions available. Several larger ideas were deliberately deferred rather than rushed into this release: formula-derived variables, multi-variable correlation, Table 1 bootstrap, LinkML/schema-first integration, and advanced survival simulation. MockData also remains framed as mock data for development and QA, not synthetic data for privacy release or inference.</p>
-<p>Please try the <code>dev</code> branch with representative <code>variables.csv</code> and <code>variable_details.csv</code> files and report bugs, surprising output, confusing diagnostics, or migration issues in <a href="https://github.com/Big-Life-Lab/MockData/issues" class="external-link">GitHub Issues</a>. Broader design feedback is welcome in <a href="https://github.com/Big-Life-Lab/MockData/discussions/31" class="external-link">GitHub Discussion #31</a>.</p>
+<p>v0.4 keeps the existing v0.3 public functions available. Several larger ideas were deliberately deferred rather than rushed into this release: formula-derived variables, multi-variable correlation, Table 1 bootstrap, LinkML/schema-first integration, and advanced survival simulation. MockData also remains framed as mock data for development and QA, not synthetic data for privacy release or inference.</p>
+<p>Please try v0.4 with representative <code>variables.csv</code> and <code>variable_details.csv</code> files and report bugs, surprising output, confusing diagnostics, or migration issues in <a href="https://github.com/Big-Life-Lab/MockData/issues" class="external-link">GitHub Issues</a>. Broader design feedback is welcome in <a href="https://github.com/Big-Life-Lab/MockData/discussions/31" class="external-link">GitHub Discussion #31</a>.</p>
 <p><strong>What MockData can currently help with:</strong></p>
 <ul>
 <li>Generate metadata-driven mock variables for development and testing</li>
@@ -262,7 +261,7 @@
 <strong>Dummy data</strong>: Placeholder or minimal test data, often hardcoded or randomly generated without metadata constraints.</li>
 </ul>
 <p>MockData creates data that <em>looks</em> realistic (appropriate variable types, value ranges, category labels, tagged NAs) but has <strong>no relationship to any actual population</strong>. Joint distributions and correlations will purposely differ from real-world data.</p>
-<p>MockData is used to test data analyses pipelines, including data transformation, cleaning, analyses, and modelling. For example, mockData allow you to create out of range and invalid data (what we call ‘garbage’ data) to test data cleaning processes.</p>
+<p>MockData is used to test data analysis pipelines, including data transformation, cleaning, analysis, and modelling. For example, MockData allows you to create out-of-range and invalid data (what we call “garbage” data) to test data cleaning processes.</p>
 <div class="section level3">
 <h3 id="use-cases">Use cases<a class="anchor" aria-label="anchor" href="#use-cases"></a>
 </h3>
@@ -308,11 +307,11 @@
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Install from local directory</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install-deprecated.html" class="external-link">install_local</a></span><span class="op">(</span><span class="st">"~/github/mock-data"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co"># Install from GitHub</span></span>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install-deprecated.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"Big-Life-Lab/MockData"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Or install from GitHub (once published)</span></span>
-<span><span class="co"># devtools::install_github("Big-Life-Lab/MockData")</span></span></code></pre></div>
+<span><span class="co"># Or install from a local clone</span></span>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install-deprecated.html" class="external-link">install_local</a></span><span class="op">(</span><span class="st">"~/github/mock-data"</span><span class="op">)</span></span></code></pre></div>
 <p><strong>Note</strong>: Package vignettes are in Quarto format (.qmd). To build vignettes locally, you need <a href="https://quarto.org/" class="external-link">Quarto</a> installed.</p>
 </div>
 <div class="section level2">

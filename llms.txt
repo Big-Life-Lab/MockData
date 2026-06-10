@@ -16,21 +16,14 @@ as an encouraging signal, not as evidence that the package is mature.
 Please review the generated data before using it in any workflow that
 matters.
 
-**v0.4 release candidate on `dev`:** The next MockData release is
-currently on the `dev` branch for testing before it is merged forward to
-`main`. v0.4 adds the `mock_spec` pipeline, direct specification
-helpers, a recodeflow metadata adapter, native generation, optional
-`simstudy` generation, post-processing diagnostics, and a new
-Divio-style documentation set.
+v0.4 keeps the existing v0.3 public functions available. Several larger
+ideas were deliberately deferred rather than rushed into this release:
+formula-derived variables, multi-variable correlation, Table 1
+bootstrap, LinkML/schema-first integration, and advanced survival
+simulation. MockData also remains framed as mock data for development
+and QA, not synthetic data for privacy release or inference.
 
-The v0.4 work keeps the existing v0.3 public functions available.
-Several larger ideas were deliberately deferred rather than rushed into
-this release: formula-derived variables, multi-variable correlation,
-Table 1 bootstrap, LinkML/schema-first integration, and advanced
-survival simulation. MockData also remains framed as mock data for
-development and QA, not synthetic data for privacy release or inference.
-
-Please try the `dev` branch with representative `variables.csv` and
+Please try v0.4 with representative `variables.csv` and
 `variable_details.csv` files and report bugs, surprising output,
 confusing diagnostics, or migration issues in [GitHub
 Issues](https://github.com/Big-Life-Lab/MockData/issues). Broader design
@@ -254,10 +247,10 @@ types, value ranges, category labels, tagged NAs) but has **no
 relationship to any actual population**. Joint distributions and
 correlations will purposely differ from real-world data.
 
-MockData is used to test data analyses pipelines, including data
-transformation, cleaning, analyses, and modelling. For example, mockData
-allow you to create out of range and invalid data (what we call
-‘garbage’ data) to test data cleaning processes.
+MockData is used to test data analysis pipelines, including data
+transformation, cleaning, analysis, and modelling. For example, MockData
+allows you to create out-of-range and invalid data (what we call
+“garbage” data) to test data cleaning processes.
 
 ### Use cases
 
@@ -300,11 +293,11 @@ public-health software development.
 
 ``` r
 
-# Install from local directory
-devtools::install_local("~/github/mock-data")
+# Install from GitHub
+devtools::install_github("Big-Life-Lab/MockData")
 
-# Or install from GitHub (once published)
-# devtools::install_github("Big-Life-Lab/MockData")
+# Or install from a local clone
+devtools::install_local("~/github/mock-data")
 ```
 
 **Note**: Package vignettes are in Quarto format (.qmd). To build

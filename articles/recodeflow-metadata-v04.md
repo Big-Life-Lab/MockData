@@ -170,9 +170,9 @@ mock_data <- create_mock_data(
 )
 ```
 
-    Reading variables file: /tmp/Rtmpbx5gTB/mockdata-recodeflow-72a75b5f7b96/variables.csv
+    Reading variables file: /tmp/Rtmplp9zuM/mockdata-recodeflow-72ad434aa0c8/variables.csv
 
-    Reading variable_details file: /tmp/Rtmpbx5gTB/mockdata-recodeflow-72a75b5f7b96/variable_details.csv
+    Reading variable_details file: /tmp/Rtmplp9zuM/mockdata-recodeflow-72ad434aa0c8/variable_details.csv
 
     Generating via v0.4 mock_spec pipeline.
 
