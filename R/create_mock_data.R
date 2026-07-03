@@ -19,7 +19,7 @@
 
     distribution <- tolower(variable$distribution %||% "uniform")
     if (variable$type == "continuous") {
-      return(!distribution %in% c("uniform", "normal"))
+      return(!distribution %in% c("uniform", "normal", "exponential"))
     }
     if (variable$type == "categorical") {
       return(FALSE)
@@ -59,11 +59,24 @@
     return(NULL)
   }
 
-  spec <- mock_spec_from_recodeflow(
-    variables = variables,
-    variable_details = variable_details,
-    databaseStart = .create_mock_data_v04_database_filter(variables, databaseStart),
-    role = "enabled"
+  spec <- tryCatch(
+    mock_spec_from_recodeflow(
+      variables = variables,
+      variable_details = variable_details,
+      databaseStart = .create_mock_data_v04_database_filter(variables, databaseStart),
+      role = "enabled"
+    ),
+    error = function(e) {
+      stop(
+        conditionMessage(e), "\n",
+        "Metadata validation failed while building the v0.4 specification. ",
+        "Fix the metadata (for exponential variables, supply a positive 'rate'), ",
+        "or call create_mock_data() with validate = FALSE to use the legacy ",
+        "generator, which warns and substitutes a uniform draw for invalid ",
+        "distribution parameters.",
+        call. = FALSE
+      )
+    }
   )
 
   unsupported <- .create_mock_data_v04_unsupported_variables(spec)
@@ -120,6 +133,8 @@
 #'   Can also be a file path (character) to variable_details.csv.
 #'   If NULL, uses simple fallback generation.
 #' @param n Integer. Number of observations to generate (default 1000).
+#'   `n = 0` is supported and returns a zero-row data frame with the full
+#'   generated schema.
 #' @param seed Integer. Optional random seed for reproducibility.
 #' @param validate Logical. Whether to use strict generation checks (default
 #'   TRUE). When TRUE, unsupported variable types and generator errors stop
@@ -223,6 +238,14 @@ create_mock_data <- function(databaseStart,
                              validate = TRUE,
                              verbose = FALSE) {
 
+  if (missing(databaseStart)) {
+    stop(
+      "databaseStart is required. Pass the database or cycle name that ",
+      "matches your metadata's databaseStart values (e.g. \"cycle1\").",
+      call. = FALSE
+    )
+  }
+
   # ========== LOAD METADATA ==========
 
   variables <- .load_metadata_df(variables, "variables", verbose = verbose)
@@ -237,8 +260,9 @@ create_mock_data <- function(databaseStart,
 
   # ========== VALIDATE INPUT ==========
 
-  if (n < 1) {
-    stop("n must be at least 1")
+  if (!is.numeric(n) || length(n) != 1 || is.na(n) || !is.finite(n) ||
+      n < 0 || n != trunc(n)) {
+    stop("n must be a non-negative whole number.", call. = FALSE)
   }
 
   if (!"variable" %in% names(variables)) {

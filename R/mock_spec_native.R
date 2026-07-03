@@ -105,6 +105,30 @@
   values
 }
 
+# Exact truncation via inverse-CDF (pexp/qexp): exponential's CDF is
+# closed-form and invertible, so no rejection-sampling fallback is needed
+# (contrast .native_truncated_normal above).
+#' @noRd
+.native_truncated_exponential <- function(n, rate, range, variable_name) {
+  if (n == 0) {
+    return(numeric(0))
+  }
+
+  lower <- range[[1]]
+  upper <- range[[2]]
+  p_lower <- stats::pexp(lower, rate = rate)
+  p_upper <- stats::pexp(upper, rate = rate)
+  if (!is.finite(p_lower) || !is.finite(p_upper) || p_upper <= p_lower) {
+    stop(
+      "Variable '", variable_name,
+      "' exponential distribution has no probability mass inside range [",
+      lower, ", ", upper, "].",
+      call. = FALSE
+    )
+  }
+  stats::qexp(stats::runif(n, p_lower, p_upper), rate = rate)
+}
+
 #' @noRd
 .coerce_native_continuous <- function(values, rtype, variable_name) {
   if (rtype == "integer") {
@@ -199,6 +223,13 @@
       variable$range,
       variable$name
     )
+  } else if (distribution == "exponential") {
+    values <- .native_truncated_exponential(
+      n,
+      variable$rate,
+      variable$range,
+      variable$name
+    )
   } else {
     stop(
       "Native backend does not yet support continuous distribution '",
@@ -278,7 +309,8 @@
 #' @details
 #' The native backend is the default MIT-licensed baseline engine. It currently
 #' supports uniform continuous variables, truncated-normal continuous variables,
-#' categorical variables, and uniform calendar dates. Missing codes, garbage
+#' truncated-exponential continuous variables, categorical variables, and
+#' uniform calendar dates. Missing codes, garbage
 #' values, and diagnostics are intentionally handled by [postprocess_mock_data()]
 #' so that all backends share the same audit trail.
 #'

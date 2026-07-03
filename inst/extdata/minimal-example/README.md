@@ -190,7 +190,7 @@ v_005,,,0.03,[2099-01-01,2099-12-31]     # primary_event: 3% future dates
 ### Basic mock data generation
 
 ```r
-library(mockData)
+library(MockData)
 
 # Load metadata
 variables <- read.csv("inst/extdata/minimal-example/variables.csv",

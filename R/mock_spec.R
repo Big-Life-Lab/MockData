@@ -114,6 +114,10 @@ NULL
     stop("mock_spec variable type must be a non-empty string.", call. = FALSE)
   }
 
+  if (!is.null(distribution)) {
+    distribution <- tolower(distribution)
+  }
+
   .validate_model_hint(model_hint)
 
   structure(
@@ -260,6 +264,7 @@ mock_spec <- function(...,
 #' @param mean,sd Optional distribution parameters. Required when
 #'   `distribution = "normal"`.
 #' @param rtype R output type. Defaults to `"double"`.
+#' @param rate Rate parameter; required when `distribution = "exponential"`.
 #' @param missing_codes Explicit missing-code values.
 #' @param missing_proportions Missing-code probabilities aligned to
 #'   `missing_codes`.
@@ -283,6 +288,14 @@ mock_spec <- function(...,
 #' )
 #' validate_mock_spec(age_spec)
 #'
+#' wait_spec <- mock_continuous(
+#'   "wait",
+#'   range = c(0, 100),
+#'   distribution = "exponential",
+#'   rate = 0.1
+#' )
+#' validate_mock_spec(wait_spec)
+#'
 #' @export
 mock_continuous <- function(name,
                             range,
@@ -290,6 +303,7 @@ mock_continuous <- function(name,
                             mean = NA_real_,
                             sd = NA_real_,
                             rtype = "double",
+                            rate = NA_real_,
                             missing_codes = numeric(0),
                             missing_proportions = numeric(0),
                             garbage_rules = list(),
@@ -305,6 +319,7 @@ mock_continuous <- function(name,
       distribution = distribution,
       mean = mean,
       sd = sd,
+      rate = rate,
       rtype = rtype,
       missing_codes = missing_codes,
       missing_proportions = missing_proportions,
@@ -455,6 +470,7 @@ mock_date <- function(name,
 #' @param distribution Distribution name. Defaults to `"uniform"`.
 #' @param mean,sd Optional distribution parameters.
 #' @param rtype R output type. Defaults to `"double"`.
+#' @param rate Rate parameter; required when `distribution = "exponential"`.
 #' @param missing_codes Explicit missing-code values.
 #' @param missing_proportions Missing-code probabilities aligned to
 #'   `missing_codes`.
@@ -476,6 +492,13 @@ mock_date <- function(name,
 #'   rtype = "integer"
 #' )
 #'
+#' wait_spec <- mock_spec_continuous(
+#'   "wait",
+#'   range = c(0, 100),
+#'   distribution = "exponential",
+#'   rate = 0.1
+#' )
+#'
 #' @export
 mock_spec_continuous <- function(name,
                                  range,
@@ -483,6 +506,7 @@ mock_spec_continuous <- function(name,
                                  mean = NA_real_,
                                  sd = NA_real_,
                                  rtype = "double",
+                                 rate = NA_real_,
                                  missing_codes = numeric(0),
                                  missing_proportions = numeric(0),
                                  garbage_rules = list(),
@@ -496,6 +520,7 @@ mock_spec_continuous <- function(name,
     range = range,
     mean = mean,
     sd = sd,
+    rate = rate,
     missing_codes = missing_codes,
     missing_proportions = missing_proportions,
     garbage_rules = garbage_rules,
@@ -797,6 +822,15 @@ print.mock_spec_validation_result <- function(x, ...) {
         errors <- c(errors, paste0("Variable '", variable$name, "' normal distribution requires sd > 0."))
       }
     }
+    if (identical(variable$distribution, "exponential")) {
+      if (is.null(variable$rate) || length(variable$rate) != 1 ||
+          is.na(variable$rate) || variable$rate <= 0) {
+        errors <- c(errors, paste0(
+          "Variable '", variable$name,
+          "' exponential distribution requires rate > 0."
+        ))
+      }
+    }
   } else if (variable$type == "categorical") {
     if (is.null(variable$levels) || length(variable$levels) == 0) {
       errors <- c(errors, paste0("Variable '", variable$name, "' must have at least one level."))
@@ -878,7 +912,8 @@ validate_mock_spec <- function(spec, n = NULL, strict = TRUE) {
   }
 
   if (!is.null(n)) {
-    if (!is.numeric(n) || length(n) != 1 || is.na(n) || n < 0 || n != floor(n)) {
+    if (!is.numeric(n) || length(n) != 1 || is.na(n) || !is.finite(n) ||
+        n < 0 || n != floor(n)) {
       errors <- c(errors, "n must be a non-negative whole number.")
     }
   }

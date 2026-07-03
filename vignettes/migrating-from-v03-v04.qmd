@@ -197,8 +197,8 @@ is.null(attr(fallback_data, "mockdata_diagnostics"))
 ```
 
 Unsupported v0.4 backend features also route to legacy dispatch. This example
-uses an exponential continuous distribution, which remains available through the
-legacy generator.
+uses a lognormal continuous distribution, which is not yet supported by the
+v0.4 native backend and remains available through the legacy generator.
 
 ```{r}
 exp_variables <- data.frame(
@@ -206,8 +206,7 @@ exp_variables <- data.frame(
   variableType = "Continuous",
   rType = "double",
   role = "enabled",
-  distribution = "exponential",
-  rate = 0.5,
+  distribution = "lognormal",
   stringsAsFactors = FALSE
 )
 

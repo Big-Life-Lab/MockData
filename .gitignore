@@ -23,3 +23,6 @@ docs/
 # Quarto/HTML output
 Generate_mock_data.html
 Generate_mock_data_files/
+vignettes/.quarto/
+vignettes/*_files/
+vignettes/*.html
