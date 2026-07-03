@@ -1,3 +1,10 @@
+# MockData (development version)
+
+- `create_mock_data()` now accepts `n = 0`, returning a zero-row data frame
+  with the full generated schema (useful for schema tests), and rejects
+  fractional, negative, and `NA` values of `n` with a clear message. The
+  validation now matches `generate_mock_data_native()`.
+
 # MockData 0.4.0 (2026-06-10)
 
 ## Breaking changes

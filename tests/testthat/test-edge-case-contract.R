@@ -76,3 +76,24 @@ test_that("create_mock_data generates the minimal example (sanity anchor)", {
   expect_true(all(c("age", "smoking") %in% names(result)))
   expect_true(all(names(result) %in% fx$variables$variable))
 })
+
+test_that("create_mock_data accepts n = 0 and returns a full-schema empty frame", {
+  fx <- minimal_example()
+  result <- suppressMessages(create_mock_data(
+    "minimal-example", fx$variables, fx$variable_details, n = 0
+  ))
+  expect_identical(nrow(result), 0L)
+  expect_true(all(c("age", "smoking") %in% names(result)))
+})
+
+test_that("create_mock_data rejects fractional, negative, and NA n clearly", {
+  fx <- minimal_example()
+  for (bad_n in list(1.5, -1, NA)) {
+    expect_error(
+      suppressMessages(create_mock_data(
+        "minimal-example", fx$variables, fx$variable_details, n = bad_n
+      )),
+      "non-negative whole number"
+    )
+  }
+})

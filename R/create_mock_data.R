@@ -237,8 +237,9 @@ create_mock_data <- function(databaseStart,
 
   # ========== VALIDATE INPUT ==========
 
-  if (n < 1) {
-    stop("n must be at least 1")
+  if (!is.numeric(n) || length(n) != 1 || is.na(n) ||
+      n < 0 || n != trunc(n)) {
+    stop("n must be a non-negative whole number.", call. = FALSE)
   }
 
   if (!"variable" %in% names(variables)) {
