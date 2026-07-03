@@ -78,7 +78,7 @@ Essential columns for getting started:
 | `variable` | variables.csv | Yes | Output column name | `"age"` |
 | `variableType` | variables.csv | Yes | Categorical or Continuous (from recodeflow) | `"Continuous"` |
 | `rType` | variables.csv | No | R output type (integer, double, character, date, factor) | `"integer"` |
-| `distribution` | variables.csv | Continuous/Date | normal, uniform, gompertz | `"normal"` |
+| `distribution` | variables.csv | Continuous/Date | normal, uniform, exponential, gompertz | `"normal"` |
 | `mean`, `sd` | variables.csv | Normal dist | Distribution parameters | `50`, `15` |
 | `garbage_low_prop` | variables.csv | No | QA testing (low values) | `0.01` |
 | `garbage_high_prop` | variables.csv | No | QA testing (high values) | `0.03` |
@@ -211,12 +211,17 @@ v006,death_date,NA,"[,]",NA,"[,]",0.02
 
 - `"normal"` - Normal (Gaussian) distribution (requires `mean`, `sd`)
 - `"uniform"` - Uniform distribution over valid range
+- `"exponential"` - Exponential distribution, truncated to the valid range (requires `rate`)
 
 **For date variables:**
 
 - `"uniform"` - Equal probability for all dates
 - `"gompertz"` - Age-related hazard (requires `rate`, `shape`, `followup_min`, `followup_max`, `event_prop`)
 - `"exponential"` - Constant hazard (requires `rate`, `followup_min`, `followup_max`, `event_prop`)
+
+The `followup_min`, `followup_max`, and `event_prop` fields apply only to the
+date/survival use of `exponential`. For continuous variables, `exponential`
+requires only `rate`.
 
 **For categorical variables:** Set to `NA` (categories defined by proportions in variable_details.csv)
 
@@ -797,6 +802,7 @@ See [Working with date variables](tutorial-dates.html#source-data-format-simulat
 |--------------|---------------------|----------|---------|
 | `normal` | `mean`, `sd` | Age, BMI, normally-distributed measurements | Age: mean=50, sd=15 |
 | `uniform` | None (uses recStart range) | Equal probability across range | Income brackets, uniform codes |
+| `exponential` | `rate` | Exponential distribution, truncated to the valid range | Wait times, time-to-event measurements |
 
 **For date variables:**
 
@@ -805,6 +811,10 @@ See [Working with date variables](tutorial-dates.html#source-data-format-simulat
 | `uniform` | None | Index dates, enrollment dates | Interview date |
 | `gompertz` | `rate`, `shape`, `followup_min`, `followup_max`, `event_prop` | Age-related events (death, dementia) | Mortality with increasing hazard by age |
 | `exponential` | `rate`, `followup_min`, `followup_max`, `event_prop` | Constant hazard events | Loss to follow-up |
+
+Note: the `followup_min`, `followup_max`, and `event_prop` parameters above
+apply only to the date/survival use of `exponential`. The continuous-variable
+`exponential` distribution requires only `rate`.
 
 **Complete examples:**
 

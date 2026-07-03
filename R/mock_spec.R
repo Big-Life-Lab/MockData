@@ -114,6 +114,10 @@ NULL
     stop("mock_spec variable type must be a non-empty string.", call. = FALSE)
   }
 
+  if (!is.null(distribution)) {
+    distribution <- tolower(distribution)
+  }
+
   .validate_model_hint(model_hint)
 
   structure(
@@ -290,6 +294,7 @@ mock_spec <- function(...,
 #'   distribution = "exponential",
 #'   rate = 0.1
 #' )
+#' validate_mock_spec(wait_spec)
 #'
 #' @export
 mock_continuous <- function(name,
@@ -907,7 +912,8 @@ validate_mock_spec <- function(spec, n = NULL, strict = TRUE) {
   }
 
   if (!is.null(n)) {
-    if (!is.numeric(n) || length(n) != 1 || is.na(n) || n < 0 || n != floor(n)) {
+    if (!is.numeric(n) || length(n) != 1 || is.na(n) || !is.finite(n) ||
+        n < 0 || n != floor(n)) {
       errors <- c(errors, "n must be a non-negative whole number.")
     }
   }

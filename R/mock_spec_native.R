@@ -105,8 +105,15 @@
   values
 }
 
+# Exact truncation via inverse-CDF (pexp/qexp): exponential's CDF is
+# closed-form and invertible, so no rejection-sampling fallback is needed
+# (contrast .native_truncated_normal above).
 #' @noRd
 .native_truncated_exponential <- function(n, rate, range, variable_name) {
+  if (n == 0) {
+    return(numeric(0))
+  }
+
   lower <- range[[1]]
   upper <- range[[2]]
   p_lower <- stats::pexp(lower, rate = rate)
@@ -302,7 +309,8 @@
 #' @details
 #' The native backend is the default MIT-licensed baseline engine. It currently
 #' supports uniform continuous variables, truncated-normal continuous variables,
-#' categorical variables, and uniform calendar dates. Missing codes, garbage
+#' truncated-exponential continuous variables, categorical variables, and
+#' uniform calendar dates. Missing codes, garbage
 #' values, and diagnostics are intentionally handled by [postprocess_mock_data()]
 #' so that all backends share the same audit trail.
 #'

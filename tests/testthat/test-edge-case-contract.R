@@ -38,6 +38,8 @@ test_that("native backend rejects invalid n with a clear message", {
                "non-negative whole number")
   expect_error(generate_mock_data_native(spec, n = NA),
                "non-negative whole number")
+  expect_error(generate_mock_data_native(spec, n = Inf),
+               "non-negative whole number")
 })
 
 test_that("postprocess_mock_data preserves zero-row shape and names", {
@@ -88,7 +90,7 @@ test_that("create_mock_data accepts n = 0 and returns a full-schema empty frame"
 
 test_that("create_mock_data rejects fractional, negative, and NA n clearly", {
   fx <- minimal_example()
-  for (bad_n in list(1.5, -1, NA)) {
+  for (bad_n in list(1.5, -1, NA, Inf)) {
     expect_error(
       suppressMessages(create_mock_data(
         "minimal-example", fx$variables, fx$variable_details, n = bad_n

@@ -2,16 +2,23 @@
 
 - `create_mock_data()` now accepts `n = 0`, returning a zero-row data frame
   with the full generated schema (useful for schema tests), and rejects
-  fractional, negative, and `NA` values of `n` with a clear message. The
-  validation now matches `generate_mock_data_native()`.
+  fractional, negative, `NA`, and non-finite values of `n` with a clear
+  message. The validation now matches `generate_mock_data_native()`.
 - Calling `create_mock_data()` without `databaseStart` now fails upfront with
   a message naming the argument, instead of a raw missing-argument error.
 - The native backend now supports `distribution = "exponential"` (parity with
   the legacy generator), removing a forced legacy-fallback for exponential
-  metadata. Unlike the legacy `rexp()`, native exponential values are
-  truncated to the declared `range`, consistent with the native normal
-  distribution. Exponential specs also generate via the simstudy hybrid path,
-  which routes non-uniform continuous variables to the native generator.
+  metadata. When the optional simstudy backend is selected, exponential
+  variables are routed to the native generator (like all non-uniform
+  continuous distributions); the simstudy package itself is not involved in
+  their generation. Native exponential values are truncated to the declared
+  `range` by inverse-CDF sampling, rather than clipped at the range maximum
+  (with a point mass at the boundary) as the legacy `rexp()` path does.
+- With `validate = TRUE` (the default), invalid distribution parameters in
+  metadata — e.g. `distribution = "exponential"` without a positive `rate` —
+  now stop generation with a message naming the variable and how to fix it,
+  instead of warning and substituting a uniform draw. The legacy
+  warn-and-substitute behaviour remains available via `validate = FALSE`.
 
 # MockData 0.4.0 (2026-06-10)
 
