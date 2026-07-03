@@ -97,3 +97,12 @@ test_that("create_mock_data rejects fractional, negative, and NA n clearly", {
     )
   }
 })
+
+test_that("missing databaseStart produces a named, friendly error", {
+  fx <- minimal_example()
+  expect_error(
+    create_mock_data(variables = fx$variables,
+                     variable_details = fx$variable_details, n = 5),
+    "databaseStart is required"
+  )
+})

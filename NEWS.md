@@ -4,6 +4,8 @@
   with the full generated schema (useful for schema tests), and rejects
   fractional, negative, and `NA` values of `n` with a clear message. The
   validation now matches `generate_mock_data_native()`.
+- Calling `create_mock_data()` without `databaseStart` now fails upfront with
+  a message naming the argument, instead of a raw missing-argument error.
 
 # MockData 0.4.0 (2026-06-10)
 

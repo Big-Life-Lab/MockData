@@ -223,6 +223,14 @@ create_mock_data <- function(databaseStart,
                              validate = TRUE,
                              verbose = FALSE) {
 
+  if (missing(databaseStart)) {
+    stop(
+      "databaseStart is required. Pass the database or cycle name that ",
+      "matches your metadata's databaseStart values (e.g. \"cycle1\").",
+      call. = FALSE
+    )
+  }
+
   # ========== LOAD METADATA ==========
 
   variables <- .load_metadata_df(variables, "variables", verbose = verbose)
