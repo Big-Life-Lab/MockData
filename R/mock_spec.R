@@ -259,8 +259,8 @@ mock_spec <- function(...,
 #' @param distribution Distribution name. Defaults to `"uniform"`.
 #' @param mean,sd Optional distribution parameters. Required when
 #'   `distribution = "normal"`.
-#' @param rate Rate parameter; required when `distribution = "exponential"`.
 #' @param rtype R output type. Defaults to `"double"`.
+#' @param rate Rate parameter; required when `distribution = "exponential"`.
 #' @param missing_codes Explicit missing-code values.
 #' @param missing_proportions Missing-code probabilities aligned to
 #'   `missing_codes`.
@@ -284,14 +284,21 @@ mock_spec <- function(...,
 #' )
 #' validate_mock_spec(age_spec)
 #'
+#' wait_spec <- mock_continuous(
+#'   "wait",
+#'   range = c(0, 100),
+#'   distribution = "exponential",
+#'   rate = 0.1
+#' )
+#'
 #' @export
 mock_continuous <- function(name,
                             range,
                             distribution = "uniform",
                             mean = NA_real_,
                             sd = NA_real_,
-                            rate = NA_real_,
                             rtype = "double",
+                            rate = NA_real_,
                             missing_codes = numeric(0),
                             missing_proportions = numeric(0),
                             garbage_rules = list(),
@@ -457,8 +464,8 @@ mock_date <- function(name,
 #' @param range Numeric vector of length two giving the inclusive valid range.
 #' @param distribution Distribution name. Defaults to `"uniform"`.
 #' @param mean,sd Optional distribution parameters.
-#' @param rate Rate parameter; required when `distribution = "exponential"`.
 #' @param rtype R output type. Defaults to `"double"`.
+#' @param rate Rate parameter; required when `distribution = "exponential"`.
 #' @param missing_codes Explicit missing-code values.
 #' @param missing_proportions Missing-code probabilities aligned to
 #'   `missing_codes`.
@@ -480,14 +487,21 @@ mock_date <- function(name,
 #'   rtype = "integer"
 #' )
 #'
+#' wait_spec <- mock_spec_continuous(
+#'   "wait",
+#'   range = c(0, 100),
+#'   distribution = "exponential",
+#'   rate = 0.1
+#' )
+#'
 #' @export
 mock_spec_continuous <- function(name,
                                  range,
                                  distribution = "uniform",
                                  mean = NA_real_,
                                  sd = NA_real_,
-                                 rate = NA_real_,
                                  rtype = "double",
+                                 rate = NA_real_,
                                  missing_codes = numeric(0),
                                  missing_proportions = numeric(0),
                                  garbage_rules = list(),

@@ -435,10 +435,10 @@ Expected: FAIL — `unused argument (rate = 0.1)` from `mock_continuous()`.
 
 - [ ] **Step 3: Add `rate` to both constructors**
 
-In `mock_continuous()` (`R/mock_spec.R:287`), add the parameter after `sd = NA_real_`:
+In `mock_continuous()` (`R/mock_spec.R:287`), add the parameter after `rtype = "double"`:
 
 ```r
-                            sd = NA_real_,
+                            rtype = "double",
                             rate = NA_real_,
 ```
 
@@ -450,7 +450,7 @@ and forward it inside the `mock_spec_continuous(...)` call:
       rate = rate,
 ```
 
-In `mock_spec_continuous()` (`R/mock_spec.R:480`), same pattern — parameter after `sd = NA_real_`, and forward inside `.new_mock_spec_variable(...)`:
+In `mock_spec_continuous()` (`R/mock_spec.R:480`), same pattern — parameter after `rtype = "double"`, and forward inside `.new_mock_spec_variable(...)`:
 
 ```r
     mean = mean,

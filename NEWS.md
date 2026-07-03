@@ -10,7 +10,8 @@
   the legacy generator), removing a forced legacy-fallback for exponential
   metadata. Unlike the legacy `rexp()`, native exponential values are
   truncated to the declared `range`, consistent with the native normal
-  distribution.
+  distribution. Exponential specs also generate via the simstudy hybrid path,
+  which routes non-uniform continuous variables to the native generator.
 
 # MockData 0.4.0 (2026-06-10)
 

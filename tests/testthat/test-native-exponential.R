@@ -17,8 +17,7 @@ test_that("native exponential is seed-reproducible", {
 
 test_that("exponential without a positive rate is rejected", {
   # Constructors document that they return a validated mock_spec; expect the
-  # error at construction. If construction is lazy in this version, assert on
-  # validate_mock_spec(spec, strict = FALSE)$errors instead.
+  # error at construction.
   expect_error(
     mock_continuous("wait", range = c(0, 100), distribution = "exponential"),
     "exponential distribution requires rate > 0"
