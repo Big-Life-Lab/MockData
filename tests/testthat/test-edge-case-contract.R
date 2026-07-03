@@ -79,9 +79,9 @@ test_that("create_mock_data generates the minimal example (sanity anchor)", {
 
 test_that("create_mock_data accepts n = 0 and returns a full-schema empty frame", {
   fx <- minimal_example()
-  result <- suppressMessages(create_mock_data(
+  result <- suppressWarnings(suppressMessages(create_mock_data(
     "minimal-example", fx$variables, fx$variable_details, n = 0
-  ))
+  )))
   expect_identical(nrow(result), 0L)
   expect_true(all(c("age", "smoking") %in% names(result)))
 })
