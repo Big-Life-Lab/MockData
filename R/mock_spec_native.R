@@ -106,6 +106,23 @@
 }
 
 #' @noRd
+.native_truncated_exponential <- function(n, rate, range, variable_name) {
+  lower <- range[[1]]
+  upper <- range[[2]]
+  p_lower <- stats::pexp(lower, rate = rate)
+  p_upper <- stats::pexp(upper, rate = rate)
+  if (!is.finite(p_lower) || !is.finite(p_upper) || p_upper <= p_lower) {
+    stop(
+      "Variable '", variable_name,
+      "' exponential distribution has no probability mass inside range [",
+      lower, ", ", upper, "].",
+      call. = FALSE
+    )
+  }
+  stats::qexp(stats::runif(n, p_lower, p_upper), rate = rate)
+}
+
+#' @noRd
 .coerce_native_continuous <- function(values, rtype, variable_name) {
   if (rtype == "integer") {
     return(as.integer(round(values)))
@@ -196,6 +213,13 @@
       n,
       variable$mean,
       variable$sd,
+      variable$range,
+      variable$name
+    )
+  } else if (distribution == "exponential") {
+    values <- .native_truncated_exponential(
+      n,
+      variable$rate,
       variable$range,
       variable$name
     )

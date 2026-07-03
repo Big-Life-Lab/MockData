@@ -339,6 +339,7 @@
       distribution = distribution,
       mean = .row_numeric(var_row, "mean"),
       sd = .row_numeric(var_row, "sd"),
+      rate = .row_numeric(var_row, "rate"),
       rtype = rtype,
       missing_codes = missing$codes,
       missing_proportions = missing$proportions,

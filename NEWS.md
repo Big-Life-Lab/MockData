@@ -6,6 +6,11 @@
   validation now matches `generate_mock_data_native()`.
 - Calling `create_mock_data()` without `databaseStart` now fails upfront with
   a message naming the argument, instead of a raw missing-argument error.
+- The native backend now supports `distribution = "exponential"` (parity with
+  the legacy generator), removing a forced legacy-fallback for exponential
+  metadata. Unlike the legacy `rexp()`, native exponential values are
+  truncated to the declared `range`, consistent with the native normal
+  distribution.
 
 # MockData 0.4.0 (2026-06-10)
 

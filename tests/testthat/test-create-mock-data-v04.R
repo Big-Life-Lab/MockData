@@ -38,13 +38,17 @@ test_that("create_mock_data uses the v0.4 pipeline for strict supported metadata
 })
 
 test_that("create_mock_data keeps legacy fallback for unsupported v0.4 backend features", {
+  # "lognormal" is not among the native backend's supported continuous
+  # distributions (uniform/normal/exponential), so this pins the v0.4
+  # orchestrator's fallback-to-legacy behaviour for a still-unsupported
+  # distribution. (Exponential moved to the native path in #37; see
+  # test-native-exponential.R for its coverage.)
   variables <- data.frame(
     variable = "time_to_visit",
     variableType = "Continuous",
     rType = "double",
     role = "enabled",
-    distribution = "exponential",
-    rate = 0.5,
+    distribution = "lognormal",
     stringsAsFactors = FALSE
   )
   variable_details <- data.frame(

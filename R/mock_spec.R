@@ -259,6 +259,7 @@ mock_spec <- function(...,
 #' @param distribution Distribution name. Defaults to `"uniform"`.
 #' @param mean,sd Optional distribution parameters. Required when
 #'   `distribution = "normal"`.
+#' @param rate Rate parameter; required when `distribution = "exponential"`.
 #' @param rtype R output type. Defaults to `"double"`.
 #' @param missing_codes Explicit missing-code values.
 #' @param missing_proportions Missing-code probabilities aligned to
@@ -289,6 +290,7 @@ mock_continuous <- function(name,
                             distribution = "uniform",
                             mean = NA_real_,
                             sd = NA_real_,
+                            rate = NA_real_,
                             rtype = "double",
                             missing_codes = numeric(0),
                             missing_proportions = numeric(0),
@@ -305,6 +307,7 @@ mock_continuous <- function(name,
       distribution = distribution,
       mean = mean,
       sd = sd,
+      rate = rate,
       rtype = rtype,
       missing_codes = missing_codes,
       missing_proportions = missing_proportions,
@@ -454,6 +457,7 @@ mock_date <- function(name,
 #' @param range Numeric vector of length two giving the inclusive valid range.
 #' @param distribution Distribution name. Defaults to `"uniform"`.
 #' @param mean,sd Optional distribution parameters.
+#' @param rate Rate parameter; required when `distribution = "exponential"`.
 #' @param rtype R output type. Defaults to `"double"`.
 #' @param missing_codes Explicit missing-code values.
 #' @param missing_proportions Missing-code probabilities aligned to
@@ -482,6 +486,7 @@ mock_spec_continuous <- function(name,
                                  distribution = "uniform",
                                  mean = NA_real_,
                                  sd = NA_real_,
+                                 rate = NA_real_,
                                  rtype = "double",
                                  missing_codes = numeric(0),
                                  missing_proportions = numeric(0),
@@ -496,6 +501,7 @@ mock_spec_continuous <- function(name,
     range = range,
     mean = mean,
     sd = sd,
+    rate = rate,
     missing_codes = missing_codes,
     missing_proportions = missing_proportions,
     garbage_rules = garbage_rules,
@@ -795,6 +801,15 @@ print.mock_spec_validation_result <- function(x, ...) {
       }
       if (is.null(variable$sd) || length(variable$sd) != 1 || is.na(variable$sd) || variable$sd <= 0) {
         errors <- c(errors, paste0("Variable '", variable$name, "' normal distribution requires sd > 0."))
+      }
+    }
+    if (identical(variable$distribution, "exponential")) {
+      if (is.null(variable$rate) || length(variable$rate) != 1 ||
+          is.na(variable$rate) || variable$rate <= 0) {
+        errors <- c(errors, paste0(
+          "Variable '", variable$name,
+          "' exponential distribution requires rate > 0."
+        ))
       }
     }
   } else if (variable$type == "categorical") {

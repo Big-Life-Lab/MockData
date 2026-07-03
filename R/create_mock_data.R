@@ -19,7 +19,7 @@
 
     distribution <- tolower(variable$distribution %||% "uniform")
     if (variable$type == "continuous") {
-      return(!distribution %in% c("uniform", "normal"))
+      return(!distribution %in% c("uniform", "normal", "exponential"))
     }
     if (variable$type == "categorical") {
       return(FALSE)
