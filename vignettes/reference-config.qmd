@@ -95,8 +95,8 @@ For complete column documentation, see sections below.
 
 This vignette uses inline R code to generate documentation directly from the actual example data. Column counts, CSV examples, and dataset summaries are calculated dynamically from:
 
-- [inst/extdata/minimal-example/variables.csv](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example/variables.csv)
-- [inst/extdata/minimal-example/variable_details.csv](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example/variable_details.csv)
+- [inst/extdata/minimal-example/variables.csv](https://github.com/Big-Life-Lab/MockData/blob/main/inst/extdata/minimal-example/variables.csv)
+- [inst/extdata/minimal-example/variable_details.csv](https://github.com/Big-Life-Lab/MockData/blob/main/inst/extdata/minimal-example/variable_details.csv)
 
 This approach ensures the documentation stays synchronized with the package and serves as integration testing during package builds.
 :::
@@ -2013,7 +2013,7 @@ variable_types <- table(variables_csv$variableType)
 rtypes <- table(variables_csv$rType)
 ```
 
-See [inst/extdata/minimal-example/](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example) for a complete working example with `r n_variables` variables (`r paste(names(variable_types), ":", variable_types, collapse = ", ")`) and `r n_detail_rows` detail rows demonstrating:
+See [inst/extdata/minimal-example/](https://github.com/Big-Life-Lab/MockData/tree/main/inst/extdata/minimal-example) for a complete working example with `r n_variables` variables (`r paste(names(variable_types), ":", variable_types, collapse = ", ")`) and `r n_detail_rows` detail rows demonstrating:
 
 - All `r vars_counts$extensions` variable-level extension columns (plus `r vars_counts$core` core recodeflow columns)
 - All `r details_counts$extensions` detail-level extension columns (plus `r details_counts$core` core recodeflow columns)

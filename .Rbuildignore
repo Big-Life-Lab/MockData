@@ -1,6 +1,8 @@
 ^renv$
 ^renv\.lock$
 ^.*\.Rproj$
+^.*\.Rcheck$
+^.*\.tar\.gz$
 ^\.Rproj\.user$
 ^\.DS_Store$
 ^\.git$
@@ -23,7 +25,12 @@
 ^PR_DESCRIPTION_ADDENDUM\.md$
 ^REVIEWER_QUICKSTART\.md$
 ^LOCAL_TESTING_GUIDE\.md$
+^cran-comments\.md$
 ^docs$
 ^_pkgdown\.yml$
+^pkgdown$
 ^development$
 ^\.claude$
+^vignettes/\.quarto$
+^vignettes/.*_files$
+^vignettes/.*\.html$
