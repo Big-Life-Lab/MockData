@@ -179,9 +179,9 @@ test_that("create_mock_data handles single-row variables metadata", {
 
 test_that("create_mock_data generates the minimal example (sanity anchor)", {
   fx <- minimal_example()
-  result <- suppressMessages(create_mock_data(
+  result <- suppressWarnings(suppressMessages(create_mock_data(
     "minimal-example", fx$variables, fx$variable_details, n = 20, seed = 1
-  ))
+  )))
   expect_identical(nrow(result), 20L)
   expect_true(all(c("age", "smoking") %in% names(result)))
   expect_true(all(names(result) %in% fx$variables$variable))
