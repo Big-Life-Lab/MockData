@@ -47,7 +47,7 @@
   # One L'Ecuyer-CMRG stream from the public seed, advanced to this stage's
   # provably-independent sub-stream. Pinning the kind makes output independent
   # of the caller's ambient RNGkind().
-  set.seed(seed, kind = "L'Ecuyer-CMRG")
+  set.seed(seed, kind = "L'Ecuyer-CMRG", normal.kind = "Inversion", sample.kind = "Rejection")
   stream <- .Random.seed
   for (i in seq_len(.MOCK_STAGES[[stage]])) {
     stream <- parallel::nextRNGStream(stream)

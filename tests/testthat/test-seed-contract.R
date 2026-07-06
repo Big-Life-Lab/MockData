@@ -80,6 +80,20 @@ test_that("full orchestrated pipeline is reproducible for a given seed", {
   expect_identical(a, b)
 })
 
+test_that("native output is independent of ambient normal.kind and sample.kind", {
+  spec <- mock_spec(
+    mock_spec_continuous("y", range = c(0, 100), distribution = "normal", mean = 50, sd = 10),
+    mock_spec_categorical("g", levels = c("a", "b", "c"))
+  )
+  old <- RNGkind()
+  on.exit(RNGkind(kind = old[1], normal.kind = old[2], sample.kind = old[3]), add = TRUE)
+  RNGkind(normal.kind = "Inversion", sample.kind = "Rejection")
+  a <- generate_mock_data_native(spec, n = 200, seed = 7)
+  suppressWarnings(RNGkind(normal.kind = "Box-Muller", sample.kind = "Rounding"))
+  b <- generate_mock_data_native(spec, n = 200, seed = 7)
+  expect_identical(a, b)
+})
+
 test_that("pinned reference values catch the next accidental RNG change", {
   spec <- mock_continuous("x", range = c(0, 1))
   got <- generate_mock_data_native(spec, n = 3, seed = 20260706)$x
