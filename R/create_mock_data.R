@@ -295,6 +295,11 @@ create_mock_data <- function(databaseStart,
     if (!is.null(v04_result)) {
       return(v04_result)
     }
+
+    message(
+      "Falling back to the legacy generator for an unsupported v0.4 feature; ",
+      "for a given seed this produces different values than the v0.4 pipeline."
+    )
   }
 
   # ========== FILTER FOR ENABLED VARIABLES ==========
@@ -343,13 +348,6 @@ create_mock_data <- function(databaseStart,
             paste(enabled_vars$variable, collapse = ", "))
   }
 
-  # ========== SET GLOBAL SEED ==========
-
-  if (!is.null(seed)) {
-    if (verbose) message("Setting random seed: ", seed)
-    set.seed(seed)
-  }
-
   # ========== GENERATE VARIABLES ==========
 
   if (verbose) message("Generating ", n, " observations...")
@@ -370,6 +368,8 @@ create_mock_data <- function(databaseStart,
   )
 
   # Generate variables in order
+  .with_mock_seed(seed, stage = "baseline", {
+  if (!is.null(seed) && verbose) message("Setting random seed: ", seed)
   for (i in seq_len(nrow(enabled_vars))) {
     var_row <- enabled_vars[i, ]
     var_name <- var_row$variable
@@ -447,6 +447,7 @@ create_mock_data <- function(databaseStart,
       skipped_vars <- c(skipped_vars, var_name)
     }
   }
+  })
 
   # ========== RETURN RESULT ==========
 

@@ -37,3 +37,32 @@ test_that("native output is independent of the caller's ambient RNGkind", {
   })
   expect_identical(a, b)
 })
+
+test_that("legacy path (validate = FALSE) leaves the caller's RNG untouched", {
+  vars <- system.file("extdata", "minimal-example", "variables.csv", package = "MockData")
+  dets <- system.file("extdata", "minimal-example", "variable_details.csv", package = "MockData")
+  if (!nzchar(vars) || !nzchar(dets)) skip("minimal-example fixtures not installed")
+  variables <- read.csv(vars, stringsAsFactors = FALSE, check.names = FALSE)
+  variable_details <- read.csv(dets, stringsAsFactors = FALSE, check.names = FALSE)
+
+  set.seed(123)
+  before <- .Random.seed
+  suppressWarnings(suppressMessages(
+    create_mock_data("minimal-example", variables, variable_details,
+                     n = 20, seed = 42, validate = FALSE)
+  ))
+  expect_identical(.Random.seed, before)
+})
+
+test_that("legacy path is reproducible for a given seed", {
+  vars <- system.file("extdata", "minimal-example", "variables.csv", package = "MockData")
+  dets <- system.file("extdata", "minimal-example", "variable_details.csv", package = "MockData")
+  if (!nzchar(vars) || !nzchar(dets)) skip("minimal-example fixtures not installed")
+  variables <- read.csv(vars, stringsAsFactors = FALSE, check.names = FALSE)
+  variable_details <- read.csv(dets, stringsAsFactors = FALSE, check.names = FALSE)
+  a <- suppressWarnings(suppressMessages(
+    create_mock_data("minimal-example", variables, variable_details, n = 20, seed = 42, validate = FALSE)))
+  b <- suppressWarnings(suppressMessages(
+    create_mock_data("minimal-example", variables, variable_details, n = 20, seed = 42, validate = FALSE)))
+  expect_identical(a, b)
+})
