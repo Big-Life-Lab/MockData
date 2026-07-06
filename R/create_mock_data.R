@@ -96,11 +96,10 @@
   }
 
   baseline <- generate_mock_data_native(spec, n = n, seed = seed)
-  # The wrapper uses a second deterministic stream for post-processing so
-  # baseline generation and missing/garbage assignment can be reproduced
-  # independently from the single public seed.
-  postprocess_seed <- if (is.null(seed)) NULL else seed + 1L
-  postprocess_mock_data(baseline, spec, seed = postprocess_seed)
+  # Baseline and post-processing use distinct L'Ecuyer-CMRG sub-streams derived
+  # from the single public seed (see .with_mock_seed / ADR v05-seed-contract),
+  # so both stages pass the same seed and select their own stage internally.
+  postprocess_mock_data(baseline, spec, seed = seed)
 }
 
 #' Create mock data from configuration files
@@ -161,9 +160,9 @@
 #' variable uses a feature not yet supported by the v0.4 native backend. Set
 #' `verbose = TRUE` to see which path was chosen.
 #'
-#' In the v0.4 path, `seed` is used for baseline generation and `seed + 1` is
-#' used for post-processing. This makes both stages deterministic, but generated
-#' values may differ from v0.3.x output for the same seed.
+#' In the v0.4 path, baseline generation and post-processing draw from distinct,
+#' independent sub-streams derived from a single `seed`; output is reproducible
+#' for a given seed and package version but changed in v0.5 (see NEWS).
 #'
 #' **v0.3.0 API**: This function follows the "recodeflow pattern" where it passes
 #' full metadata data frames to create_* functions, which handle internal

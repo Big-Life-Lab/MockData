@@ -244,5 +244,5 @@ generate_mock_data_simstudy <- function(spec, n, seed = NULL) {
       stringsAsFactors = FALSE,
       check.names = FALSE
     )
-  })
+  }, stage = "baseline")
 }

@@ -5,8 +5,19 @@
 # garbage, diagnostics, and richer rType handling lands in later milestones.
 # ==============================================================================
 
+# Named generation stages -> fixed L'Ecuyer-CMRG sub-stream indices. Indices
+# are FROZEN: adding a future stage must not renumber baseline/postprocess, or
+# seeded output for existing features would shift. formula (#39) and correlate
+# (#42) are reserved now though unused in this release.
+.MOCK_STAGES <- c(
+  baseline    = 0L,
+  postprocess = 1L,
+  formula     = 2L,
+  correlate   = 3L
+)
+
 #' @noRd
-.with_mock_seed <- function(seed, expr) {
+.with_mock_seed <- function(seed, expr, stage = "baseline") {
   if (is.null(seed)) {
     return(force(expr))
   }
@@ -14,14 +25,18 @@
   if (!is.numeric(seed) || length(seed) != 1 || is.na(seed) || seed != floor(seed)) {
     stop("seed must be a single whole number.", call. = FALSE)
   }
+  if (!stage %in% names(.MOCK_STAGES)) {
+    stop("Unknown generation stage: '", stage, "'.", call. = FALSE)
+  }
 
+  # Save the caller's RNG state AND kind so generation never perturbs them.
+  old_kind <- RNGkind()
   had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   if (had_seed) {
     old_seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   }
-
-  # Generation should be reproducible without changing the caller's RNG stream.
   on.exit({
+    RNGkind(kind = old_kind[1], normal.kind = old_kind[2], sample.kind = old_kind[3])
     if (had_seed) {
       assign(".Random.seed", old_seed, envir = .GlobalEnv)
     } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
@@ -29,7 +44,16 @@
     }
   }, add = TRUE)
 
-  set.seed(seed)
+  # One L'Ecuyer-CMRG stream from the public seed, advanced to this stage's
+  # provably-independent sub-stream. Pinning the kind makes output independent
+  # of the caller's ambient RNGkind().
+  set.seed(seed, kind = "L'Ecuyer-CMRG")
+  stream <- .Random.seed
+  for (i in seq_len(.MOCK_STAGES[[stage]])) {
+    stream <- parallel::nextRNGStream(stream)
+  }
+  assign(".Random.seed", stream, envir = .GlobalEnv)
+
   force(expr)
 }
 
@@ -354,5 +378,5 @@ generate_mock_data_native <- function(spec, n, seed = NULL) {
       names(columns) <- names(spec$variables)
       as.data.frame(columns, stringsAsFactors = FALSE, check.names = FALSE)
     }
-  })
+  }, stage = "baseline")
 }

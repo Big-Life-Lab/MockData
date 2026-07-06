@@ -390,5 +390,5 @@ postprocess_mock_data <- function(data, spec, seed = NULL, diagnostics = TRUE) {
     }
 
     output
-  })
+  }, stage = "postprocess")
 }
