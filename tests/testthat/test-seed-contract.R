@@ -89,8 +89,10 @@ test_that("native output is independent of ambient normal.kind and sample.kind",
   on.exit(RNGkind(kind = old[1], normal.kind = old[2], sample.kind = old[3]), add = TRUE)
   RNGkind(normal.kind = "Inversion", sample.kind = "Rejection")
   a <- generate_mock_data_native(spec, n = 200, seed = 7)
-  suppressWarnings(RNGkind(normal.kind = "Box-Muller", sample.kind = "Rounding"))
-  b <- generate_mock_data_native(spec, n = 200, seed = 7)
+  suppressWarnings({
+    RNGkind(normal.kind = "Box-Muller", sample.kind = "Rounding")
+    b <- generate_mock_data_native(spec, n = 200, seed = 7)
+  })
   expect_identical(a, b)
 })
 
