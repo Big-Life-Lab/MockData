@@ -66,3 +66,29 @@ test_that("legacy path is reproducible for a given seed", {
     create_mock_data("minimal-example", variables, variable_details, n = 20, seed = 42, validate = FALSE)))
   expect_identical(a, b)
 })
+
+test_that("full orchestrated pipeline is reproducible for a given seed", {
+  vars <- system.file("extdata", "minimal-example", "variables.csv", package = "MockData")
+  dets <- system.file("extdata", "minimal-example", "variable_details.csv", package = "MockData")
+  if (!nzchar(vars) || !nzchar(dets)) skip("minimal-example fixtures not installed")
+  variables <- read.csv(vars, stringsAsFactors = FALSE, check.names = FALSE)
+  variable_details <- read.csv(dets, stringsAsFactors = FALSE, check.names = FALSE)
+  a <- suppressWarnings(suppressMessages(
+    create_mock_data("minimal-example", variables, variable_details, n = 50, seed = 1)))
+  b <- suppressWarnings(suppressMessages(
+    create_mock_data("minimal-example", variables, variable_details, n = 50, seed = 1)))
+  expect_identical(a, b)
+})
+
+test_that("pinned reference values catch the next accidental RNG change", {
+  spec <- mock_continuous("x", range = c(0, 1))
+  got <- generate_mock_data_native(spec, n = 3, seed = 20260706)$x
+  # Reference values captured under the v0.5 L'Ecuyer-CMRG contract. If this
+  # breaks, seeded output changed — treat as a deliberate, NEWS-documented break,
+  # not a silent one.
+  expect_equal(
+    got,
+    c(0.626896562612263, 0.068286009645902, 0.426707671898230),
+    tolerance = 1e-8
+  )
+})

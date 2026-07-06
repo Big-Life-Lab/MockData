@@ -204,8 +204,10 @@
 #'
 #' @param spec A `mock_spec` object.
 #' @param n Non-negative whole number of rows to generate.
-#' @param seed Optional whole-number random seed. The previous R random state is
-#'   restored after generation.
+#' @param seed Optional whole-number seed. Generation uses an isolated
+#'   L'Ecuyer-CMRG sub-stream and restores the caller's RNG state and kind on
+#'   exit, so output is reproducible for a given seed and package version
+#'   without perturbing the caller's RNG.
 #'
 #' @return A data frame with one column per `mock_spec` variable and `n` rows.
 #' @family mock generation APIs

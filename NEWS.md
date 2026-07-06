@@ -1,5 +1,17 @@
 # MockData (development version)
 
+## Reproducibility (breaking change)
+
+- Seeded output changed once in this release. MockData now derives all
+  randomness from independent L'Ecuyer-CMRG sub-streams (one per generation
+  stage) seeded from the single public `seed`, replacing the previous
+  Mersenne-Twister `seed` / `seed + 1` scheme. For a given seed **and package
+  version** output is reproducible and independent of the session's ambient
+  `RNGkind()`; it is not comparable across the v0.4 → v0.5 boundary. Pin your
+  own expected values against the version you use. Generation no longer alters
+  the caller's RNG state on any path (previously the legacy `validate = FALSE`
+  path reset it).
+
 - `create_mock_data()` now accepts `n = 0`, returning a zero-row data frame
   with the full generated schema (useful for schema tests), and rejects
   fractional, negative, `NA`, and non-finite values of `n` with a clear
