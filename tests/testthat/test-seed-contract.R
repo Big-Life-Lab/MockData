@@ -31,7 +31,9 @@ test_that("native output is independent of the caller's ambient RNGkind", {
   on.exit(RNGkind(kind = old[1], normal.kind = old[2], sample.kind = old[3]), add = TRUE)
   RNGkind("Mersenne-Twister")
   a <- generate_mock_data_native(spec, n = 100, seed = 7)
-  RNGkind("Marsaglia-Multicarry")
-  b <- generate_mock_data_native(spec, n = 100, seed = 7)
+  suppressWarnings({
+    RNGkind("Marsaglia-Multicarry")
+    b <- generate_mock_data_native(spec, n = 100, seed = 7)
+  })
   expect_identical(a, b)
 })
