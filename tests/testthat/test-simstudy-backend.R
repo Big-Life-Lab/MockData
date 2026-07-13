@@ -202,6 +202,26 @@ test_that("generate_mock_data_simstudy is reproducible", {
   expect_identical(first, second)
 })
 
+test_that("generate_mock_data_simstudy leaves the caller's RNG state and kind untouched", {
+  skip_if_not_installed("simstudy")
+
+  set.seed(999)
+  before_state <- .Random.seed
+  before_kind <- RNGkind()
+  spec <- mock_spec(
+    mock_spec_continuous("age", range = c(18, 85), rtype = "integer"),
+    mock_spec_categorical(
+      "smoking",
+      levels = c("never", "former", "current"),
+      proportions = c(0.5, 0.3, 0.2),
+      rtype = "character"
+    )
+  )
+  generate_mock_data_simstudy(spec, n = 50, seed = 42)
+  expect_identical(.Random.seed, before_state)
+  expect_identical(RNGkind(), before_kind)
+})
+
 test_that("generate_mock_data_simstudy handles empty specs and n = 0", {
   skip_if_not_installed("simstudy")
 

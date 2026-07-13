@@ -213,12 +213,15 @@ head(baseline)
 ```
 
 ```{r}
-postprocessed <- postprocess_mock_data(baseline, spec, seed = 124)
+postprocessed <- postprocess_mock_data(baseline, spec, seed = 123)
 head(postprocessed)
 ```
 
-The wrapper uses the same idea: the public seed controls baseline generation,
-and `seed + 1L` controls post-processing.
+The wrapper uses the same idea: baseline generation and post-processing are
+both passed the same public `seed`, and each stage internally draws from its
+own independent L'Ecuyer-CMRG sub-stream derived from that seed (not
+`seed + 1L`, as in earlier v0.4 releases - see `NEWS.md` for the v0.5
+reproducibility change).
 
 ## Database filtering
 

@@ -346,7 +346,7 @@
 #'   missing_proportions = 0.05
 #' )
 #' baseline <- generate_mock_data_native(spec, n = 20, seed = 1)
-#' result <- postprocess_mock_data(baseline, spec, seed = 2)
+#' result <- postprocess_mock_data(baseline, spec, seed = 1)
 #' attr(result, "mockdata_diagnostics")$variables$smoking
 #'
 #' @export

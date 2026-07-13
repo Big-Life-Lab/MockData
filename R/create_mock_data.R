@@ -172,7 +172,7 @@
 #' \enumerate{
 #'   \item Load metadata from file paths or accept data frames
 #'   \item Filter for enabled variables (role has an exact "enabled" token)
-#'   \item Set global seed (if provided)
+#'   \item Generate within an isolated RNG sub-stream (if seeded), leaving the caller's RNG state untouched
 #'   \item Loop through variables in position order:
 #'     - Dispatch to create_cat_var, create_con_var, or create_date_var
 #'     - Pass full metadata data frames (functions filter internally)
@@ -448,6 +448,23 @@ create_mock_data <- function(databaseStart,
     }
   }
   })
+
+  # An empty result is legitimate when every enabled variable was explicitly
+  # tracked as skipped (e.g. validate = FALSE + an unsupported rType, warned
+  # and recorded above). It is NOT legitimate when variables were enabled and
+  # none were recorded as skipped - that combination can only happen if the
+  # seed-scoping block above failed to propagate its assignments back to this
+  # frame. Guard against the latter, not the former.
+  if (ncol(df_mock) == 0L && nrow(enabled_vars) > 0L &&
+      length(unique(skipped_vars)) < nrow(enabled_vars)) {
+    stop(
+      "Internal error: no variables were generated despite ", nrow(enabled_vars),
+      " enabled variable(s), and not all were recorded as skipped. The ",
+      "seed-scoping wrapper may have failed to propagate results to the ",
+      "caller frame - please file a bug report.",
+      call. = FALSE
+    )
+  }
 
   # ========== RETURN RESULT ==========
 

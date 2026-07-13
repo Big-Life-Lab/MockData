@@ -18,15 +18,15 @@
 
 #' @noRd
 .with_mock_seed <- function(seed, expr, stage = "baseline") {
+  if (!stage %in% names(.MOCK_STAGES)) {
+    stop("Unknown generation stage: '", stage, "'.", call. = FALSE)
+  }
   if (is.null(seed)) {
     return(force(expr))
   }
 
   if (!is.numeric(seed) || length(seed) != 1 || is.na(seed) || seed != floor(seed)) {
     stop("seed must be a single whole number.", call. = FALSE)
-  }
-  if (!stage %in% names(.MOCK_STAGES)) {
-    stop("Unknown generation stage: '", stage, "'.", call. = FALSE)
   }
 
   # Save the caller's RNG state AND kind so generation never perturbs them.
@@ -36,7 +36,13 @@
     old_seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   }
   on.exit({
-    RNGkind(kind = old_kind[1], normal.kind = old_kind[2], sample.kind = old_kind[3])
+    # Suppress: restoring the caller's own ambient RNGkind (e.g. sample.kind
+    # = "Rounding" from RNGversion("3.5.0")) would otherwise re-fire the
+    # "non-uniform 'Rounding' sampler used" warning on every seeded call -
+    # the caller already chose that kind and was already warned about it once.
+    suppressWarnings(
+      RNGkind(kind = old_kind[1], normal.kind = old_kind[2], sample.kind = old_kind[3])
+    )
     if (had_seed) {
       assign(".Random.seed", old_seed, envir = .GlobalEnv)
     } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
@@ -338,9 +344,7 @@
 #' values, and diagnostics are intentionally handled by [postprocess_mock_data()]
 #' so that all backends share the same audit trail.
 #'
-#' If `seed` is supplied, the previous R random state is restored after
-#' generation. This gives reproducible output without advancing the caller's RNG
-#' stream. Formula variables are rejected loudly until the formula/dependency
+#' Formula variables are rejected loudly until the formula/dependency
 #' milestone promotes the spike evaluator into production.
 #'
 #' @param spec A `mock_spec` object.

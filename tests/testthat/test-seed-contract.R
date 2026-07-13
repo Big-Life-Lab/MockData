@@ -96,6 +96,31 @@ test_that("native output is independent of ambient normal.kind and sample.kind",
   expect_identical(a, b)
 })
 
+test_that("stage indices are frozen (renumbering would shift seeded output)", {
+  expect_identical(
+    MockData:::.MOCK_STAGES,
+    c(baseline = 0L, postprocess = 1L, formula = 2L, correlate = 3L)
+  )
+})
+
+test_that("postprocess stage output is pinned (catches a stage-index shift)", {
+  spec <- mock_continuous(
+    "age", range = c(18, 80),
+    missing_codes = -99, missing_proportions = 0.3
+  )
+  baseline <- generate_mock_data_native(spec, n = 5, seed = 20260706)
+  pp <- postprocess_mock_data(baseline, spec, seed = 20260706)
+  # Reference captured under the v0.5 L'Ecuyer-CMRG contract, postprocess
+  # sub-stream (index 1). If this breaks, the postprocess stream shifted
+  # (e.g. a stage was inserted before it) or generation changed - treat as a
+  # deliberate, NEWS-documented break, not a silent one.
+  expect_equal(
+    pp$age,
+    c(-99, 22.2337325980459, -99, 50.837302129287, 46.4571529769078),
+    tolerance = 1e-8
+  )
+})
+
 test_that("pinned reference values catch the next accidental RNG change", {
   spec <- mock_continuous("x", range = c(0, 1))
   got <- generate_mock_data_native(spec, n = 3, seed = 20260706)$x
