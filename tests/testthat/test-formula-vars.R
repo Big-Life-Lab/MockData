@@ -338,6 +338,50 @@ test_that("DerivedVar rows without mockFormula stay excluded (D6, backward compa
   expect_false("bmi" %in% names(result))
 })
 
+test_that("D6 carve-out is scoped per databaseStart, not cross-cycle (#39 review finding)", {
+  # bmi has a mockFormula in cycle1 but not in cycle2. Requesting cycle2 must
+  # exclude bmi exactly as it would have before the mockFormula feature
+  # existed -- construction is databaseStart-scoped, so the exclude_derived
+  # carve-out must be too, or a cycle1-only formula leaks into cycle2's
+  # decision and construction crashes trying to build bmi as a continuous
+  # variable from a DerivedVar:: recStart.
+  variables <- data.frame(
+    variable = c("height", "weight", "bmi"),
+    variableType = c("Continuous", "Continuous", "Continuous"),
+    rType = c("double", "double", "double"),
+    role = c("enabled", "enabled", "enabled"),
+    databaseStart = c("", "", ""),
+    stringsAsFactors = FALSE
+  )
+  variable_details <- data.frame(
+    variable = c("height", "weight", "bmi", "bmi"),
+    recStart = c(
+      "[1.4, 2.1]", "[45, 150]",
+      "DerivedVar::[height, weight]", "DerivedVar::[height, weight]"
+    ),
+    recEnd = c("copy", "copy", "Func::bmi_fun", "Func::bmi_fun"),
+    proportion = c(1, 1, 1, 1),
+    mockFormula = c("", "", "weight / (height^2)", ""),
+    databaseStart = c("", "", "cycle1", "cycle2"),
+    stringsAsFactors = FALSE
+  )
+
+  expect_no_error(
+    cycle2_spec <- mock_spec_from_recodeflow(
+      variables, variable_details,
+      databaseStart = "cycle2", role = "enabled"
+    )
+  )
+  expect_false("bmi" %in% names(cycle2_spec$variables))
+
+  cycle1_spec <- mock_spec_from_recodeflow(
+    variables, variable_details,
+    databaseStart = "cycle1", role = "enabled"
+  )
+  expect_true("bmi" %in% names(cycle1_spec$variables))
+  expect_identical(cycle1_spec$variables$bmi$type, "formula")
+})
+
 test_that("formula variables receive their own missing codes in postprocess", {
   spec <- mock_spec(
     mock_spec_continuous("x", range = c(1, 9)),

@@ -519,7 +519,7 @@ mock_spec_from_recodeflow <- function(variables,
     # behaviour unchanged.
     has_mock_formula <- vapply(derived, function(v) {
       !.is_blank(.details_mock_formula(
-        variable_details[variable_details$variable == v, , drop = FALSE]
+        .filter_recodeflow_details(variable_details, v, databaseStart)
       ))
     }, logical(1))
     derived <- derived[!has_mock_formula]
