@@ -96,11 +96,10 @@
   }
 
   baseline <- generate_mock_data_native(spec, n = n, seed = seed)
-  # The wrapper uses a second deterministic stream for post-processing so
-  # baseline generation and missing/garbage assignment can be reproduced
-  # independently from the single public seed.
-  postprocess_seed <- if (is.null(seed)) NULL else seed + 1L
-  postprocess_mock_data(baseline, spec, seed = postprocess_seed)
+  # Baseline and post-processing use distinct L'Ecuyer-CMRG sub-streams derived
+  # from the single public seed (see .with_mock_seed / ADR v05-seed-contract),
+  # so both stages pass the same seed and select their own stage internally.
+  postprocess_mock_data(baseline, spec, seed = seed)
 }
 
 #' Create mock data from configuration files
@@ -161,9 +160,9 @@
 #' variable uses a feature not yet supported by the v0.4 native backend. Set
 #' `verbose = TRUE` to see which path was chosen.
 #'
-#' In the v0.4 path, `seed` is used for baseline generation and `seed + 1` is
-#' used for post-processing. This makes both stages deterministic, but generated
-#' values may differ from v0.3.x output for the same seed.
+#' In the v0.4 path, baseline generation and post-processing draw from distinct,
+#' independent sub-streams derived from a single `seed`; output is reproducible
+#' for a given seed and package version but changed in v0.5 (see NEWS).
 #'
 #' **v0.3.0 API**: This function follows the "recodeflow pattern" where it passes
 #' full metadata data frames to create_* functions, which handle internal
@@ -173,7 +172,7 @@
 #' \enumerate{
 #'   \item Load metadata from file paths or accept data frames
 #'   \item Filter for enabled variables (role has an exact "enabled" token)
-#'   \item Set global seed (if provided)
+#'   \item Generate within an isolated RNG sub-stream (if seeded), leaving the caller's RNG state untouched
 #'   \item Loop through variables in position order:
 #'     - Dispatch to create_cat_var, create_con_var, or create_date_var
 #'     - Pass full metadata data frames (functions filter internally)
@@ -296,6 +295,11 @@ create_mock_data <- function(databaseStart,
     if (!is.null(v04_result)) {
       return(v04_result)
     }
+
+    message(
+      "Falling back to the legacy generator for an unsupported v0.4 feature; ",
+      "for a given seed this produces different values than the v0.4 pipeline."
+    )
   }
 
   # ========== FILTER FOR ENABLED VARIABLES ==========
@@ -344,13 +348,6 @@ create_mock_data <- function(databaseStart,
             paste(enabled_vars$variable, collapse = ", "))
   }
 
-  # ========== SET GLOBAL SEED ==========
-
-  if (!is.null(seed)) {
-    if (verbose) message("Setting random seed: ", seed)
-    set.seed(seed)
-  }
-
   # ========== GENERATE VARIABLES ==========
 
   if (verbose) message("Generating ", n, " observations...")
@@ -371,6 +368,8 @@ create_mock_data <- function(databaseStart,
   )
 
   # Generate variables in order
+  .with_mock_seed(seed, stage = "baseline", {
+  if (!is.null(seed) && verbose) message("Setting random seed: ", seed)
   for (i in seq_len(nrow(enabled_vars))) {
     var_row <- enabled_vars[i, ]
     var_name <- var_row$variable
@@ -447,6 +446,24 @@ create_mock_data <- function(databaseStart,
       # check keeps legitimate already-exists skips out of the summary.
       skipped_vars <- c(skipped_vars, var_name)
     }
+  }
+  })
+
+  # An empty result is legitimate when every enabled variable was explicitly
+  # tracked as skipped (e.g. validate = FALSE + an unsupported rType, warned
+  # and recorded above). It is NOT legitimate when variables were enabled and
+  # none were recorded as skipped - that combination can only happen if the
+  # seed-scoping block above failed to propagate its assignments back to this
+  # frame. Guard against the latter, not the former.
+  if (ncol(df_mock) == 0L && nrow(enabled_vars) > 0L &&
+      length(unique(skipped_vars)) < nrow(enabled_vars)) {
+    stop(
+      "Internal error: no variables were generated despite ", nrow(enabled_vars),
+      " enabled variable(s), and not all were recorded as skipped. The ",
+      "seed-scoping wrapper may have failed to propagate results to the ",
+      "caller frame - please file a bug report.",
+      call. = FALSE
+    )
   }
 
   # ========== RETURN RESULT ==========

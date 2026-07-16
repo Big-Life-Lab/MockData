@@ -306,8 +306,10 @@
 #'
 #' @param data Data frame with one column for each variable in `spec`.
 #' @param spec A validated `mock_spec` object.
-#' @param seed Optional whole-number random seed. The previous R random state is
-#'   restored after post-processing.
+#' @param seed Optional whole-number seed. Generation uses an isolated
+#'   L'Ecuyer-CMRG sub-stream and restores the caller's RNG state and kind on
+#'   exit, so output is reproducible for a given seed and package version
+#'   without perturbing the caller's RNG.
 #' @param diagnostics Logical. If `TRUE`, attach a `mockdata_diagnostics`
 #'   attribute to the returned data frame.
 #'
@@ -344,7 +346,7 @@
 #'   missing_proportions = 0.05
 #' )
 #' baseline <- generate_mock_data_native(spec, n = 20, seed = 1)
-#' result <- postprocess_mock_data(baseline, spec, seed = 2)
+#' result <- postprocess_mock_data(baseline, spec, seed = 1)
 #' attr(result, "mockdata_diagnostics")$variables$smoking
 #'
 #' @export
@@ -390,5 +392,5 @@ postprocess_mock_data <- function(data, spec, seed = NULL, diagnostics = TRUE) {
     }
 
     output
-  })
+  }, stage = "postprocess")
 }

@@ -5,8 +5,22 @@
 # garbage, diagnostics, and richer rType handling lands in later milestones.
 # ==============================================================================
 
+# Named generation stages -> fixed L'Ecuyer-CMRG sub-stream indices. Indices
+# are FROZEN: adding a future stage must not renumber baseline/postprocess, or
+# seeded output for existing features would shift. formula (#39) and correlate
+# (#42) are reserved now though unused in this release.
+.MOCK_STAGES <- c(
+  baseline    = 0L,
+  postprocess = 1L,
+  formula     = 2L,
+  correlate   = 3L
+)
+
 #' @noRd
-.with_mock_seed <- function(seed, expr) {
+.with_mock_seed <- function(seed, expr, stage = "baseline") {
+  if (!stage %in% names(.MOCK_STAGES)) {
+    stop("Unknown generation stage: '", stage, "'.", call. = FALSE)
+  }
   if (is.null(seed)) {
     return(force(expr))
   }
@@ -15,13 +29,20 @@
     stop("seed must be a single whole number.", call. = FALSE)
   }
 
+  # Save the caller's RNG state AND kind so generation never perturbs them.
+  old_kind <- RNGkind()
   had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   if (had_seed) {
     old_seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   }
-
-  # Generation should be reproducible without changing the caller's RNG stream.
   on.exit({
+    # Suppress: restoring the caller's own ambient RNGkind (e.g. sample.kind
+    # = "Rounding" from RNGversion("3.5.0")) would otherwise re-fire the
+    # "non-uniform 'Rounding' sampler used" warning on every seeded call -
+    # the caller already chose that kind and was already warned about it once.
+    suppressWarnings(
+      RNGkind(kind = old_kind[1], normal.kind = old_kind[2], sample.kind = old_kind[3])
+    )
     if (had_seed) {
       assign(".Random.seed", old_seed, envir = .GlobalEnv)
     } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
@@ -29,7 +50,16 @@
     }
   }, add = TRUE)
 
-  set.seed(seed)
+  # One L'Ecuyer-CMRG stream from the public seed, advanced to this stage's
+  # provably-independent sub-stream. Pinning the kind makes output independent
+  # of the caller's ambient RNGkind().
+  set.seed(seed, kind = "L'Ecuyer-CMRG", normal.kind = "Inversion", sample.kind = "Rejection")
+  stream <- .Random.seed
+  for (i in seq_len(.MOCK_STAGES[[stage]])) {
+    stream <- parallel::nextRNGStream(stream)
+  }
+  assign(".Random.seed", stream, envir = .GlobalEnv)
+
   force(expr)
 }
 
@@ -314,15 +344,15 @@
 #' values, and diagnostics are intentionally handled by [postprocess_mock_data()]
 #' so that all backends share the same audit trail.
 #'
-#' If `seed` is supplied, the previous R random state is restored after
-#' generation. This gives reproducible output without advancing the caller's RNG
-#' stream. Formula variables are rejected loudly until the formula/dependency
+#' Formula variables are rejected loudly until the formula/dependency
 #' milestone promotes the spike evaluator into production.
 #'
 #' @param spec A `mock_spec` object.
 #' @param n Non-negative whole number of rows to generate.
-#' @param seed Optional whole-number random seed. The previous R random state is
-#'   restored after generation.
+#' @param seed Optional whole-number seed. Generation uses an isolated
+#'   L'Ecuyer-CMRG sub-stream and restores the caller's RNG state and kind on
+#'   exit, so output is reproducible for a given seed and package version
+#'   without perturbing the caller's RNG.
 #'
 #' @return A data frame with one column per `mock_spec` variable and `n` rows.
 #' @family mock generation APIs
@@ -354,5 +384,5 @@ generate_mock_data_native <- function(spec, n, seed = NULL) {
       names(columns) <- names(spec$variables)
       as.data.frame(columns, stringsAsFactors = FALSE, check.names = FALSE)
     }
-  })
+  }, stage = "baseline")
 }

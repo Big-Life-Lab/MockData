@@ -139,12 +139,15 @@ table(legacy_data$smoking)
 
 ## Understand seed differences
 
-In v0.3, the public seed controlled the legacy generators. In v0.4, the wrapper
-uses the public seed for baseline generation and `seed + 1L` for missing-code
-and garbage-value post-processing.
+In v0.3, the public seed controlled the legacy generators directly. In v0.4/v0.5,
+the wrapper passes the same public `seed` to both baseline generation and
+missing-code/garbage-value post-processing; internally, each stage draws from
+its own independent L'Ecuyer-CMRG sub-stream derived from that single seed
+(stage selection happens inside the package, not via `seed + 1L` as in earlier
+v0.4 releases - see `NEWS.md` for the v0.5 reproducibility change).
 
-That makes both stages reproducible, but it means exact values may differ from
-v0.3 even when you pass the same seed.
+That makes both stages reproducible from one seed, but it means exact values
+may differ from v0.3 even when you pass the same seed.
 
 ```{r}
 strict_again <- create_mock_data(
@@ -241,7 +244,7 @@ validate_mock_spec(spec, strict = TRUE)
 
 ```{r}
 baseline <- generate_mock_data_native(spec, n = 50, seed = 456)
-postprocessed <- postprocess_mock_data(baseline, spec, seed = 457)
+postprocessed <- postprocess_mock_data(baseline, spec, seed = 456)
 
 identical(strict_data, postprocessed)
 ```

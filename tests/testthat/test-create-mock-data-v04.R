@@ -77,6 +77,71 @@ test_that("create_mock_data keeps legacy fallback for unsupported v0.4 backend f
   expect_null(attr(result, "mockdata_diagnostics"))
 })
 
+test_that("create_mock_data announces the always-on legacy fallback message", {
+  # Same unsupported-distribution scenario as the "lognormal" fallback test
+  # above, but asserting the always-on (non-verbose-gated) fallback message
+  # that previously had zero test coverage.
+  variables <- data.frame(
+    variable = "time_to_visit",
+    variableType = "Continuous",
+    rType = "double",
+    role = "enabled",
+    distribution = "lognormal",
+    stringsAsFactors = FALSE
+  )
+  variable_details <- data.frame(
+    variable = "time_to_visit",
+    recStart = "[0, 10]",
+    recEnd = "copy",
+    proportion = 1,
+    stringsAsFactors = FALSE
+  )
+
+  expect_message(
+    create_mock_data(
+      databaseStart = "study",
+      variables = variables,
+      variable_details = variable_details,
+      n = 50,
+      seed = 202
+    ),
+    "Falling back to the legacy generator"
+  )
+})
+
+test_that("the always-on legacy fallback message does not fire for validate = FALSE", {
+  # validate = FALSE never reaches the v0.4 pipeline / fallback branch at
+  # all, so it must not emit the "Falling back to the legacy generator"
+  # message (it has its own explicit, verbose-gated announcement instead).
+  variables <- data.frame(
+    variable = "smoking",
+    variableType = "Categorical",
+    rType = "character",
+    role = "enabled",
+    stringsAsFactors = FALSE
+  )
+  variable_details <- data.frame(
+    variable = "smoking",
+    recStart = c("1", "2"),
+    recEnd = c("copy", "copy"),
+    proportion = c(0.6, 0.4),
+    stringsAsFactors = FALSE
+  )
+
+  expect_no_message(
+    create_mock_data(
+      databaseStart = "study",
+      variables = variables,
+      variable_details = variable_details,
+      n = 20,
+      seed = 404,
+      validate = FALSE,
+      verbose = FALSE
+    ),
+    message = "Falling back to the legacy generator"
+  )
+})
+
 test_that("create_mock_data keeps legacy detail-level databaseStart filtering", {
   variables <- data.frame(
     variable = "smoking",
