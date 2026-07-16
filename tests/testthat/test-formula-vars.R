@@ -52,3 +52,37 @@ test_that("an unparseable formula errors at validation", {
     "could not be parsed"
   )
 })
+
+test_that("mock_spec_formula() defers parse errors instead of throwing eagerly", {
+  # The constructor itself must not throw on bad syntax; depends_on falls
+  # back to character(0) and the parse error is reported by validation.
+  variable <- mock_spec_formula("bad", formula = "x +* 2")
+  expect_identical(variable$depends_on, character(0))
+})
+
+test_that("validate = FALSE constructs a spec with a bad-syntax formula", {
+  expect_no_error(
+    spec <- mock_spec(
+      mock_spec_continuous("x", range = c(0, 1)),
+      mock_spec_formula("bad", formula = "x +* 2"),
+      validate = FALSE
+    )
+  )
+
+  result <- validate_mock_spec(spec, strict = FALSE)
+  expect_false(result$valid)
+  expect_true(any(grepl("could not be parsed", result$errors)))
+})
+
+test_that("validate_mock_spec accumulates errors for multiple bad-syntax formulas", {
+  spec <- mock_spec(
+    mock_spec_formula("bad1", formula = "x +* 2"),
+    mock_spec_formula("bad2", formula = "y +* 3"),
+    validate = FALSE
+  )
+
+  result <- validate_mock_spec(spec, strict = FALSE)
+  expect_false(result$valid)
+  expect_true(any(grepl("bad1", result$errors) & grepl("could not be parsed", result$errors)))
+  expect_true(any(grepl("bad2", result$errors) & grepl("could not be parsed", result$errors)))
+})

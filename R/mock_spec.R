@@ -732,7 +732,14 @@ mock_spec_formula <- function(name,
     provenance = provenance,
     model_hint = model_hint
   )
-  variable$depends_on <- .formula_dependencies(variable)
+  # Parse failures are reported by validate_mock_spec(), not the constructor,
+  # matching the sibling constructors' defer-all-validation contract.
+  # depends_on is computed once here at construction time; it is not
+  # re-synced if `formula` is mutated afterwards.
+  variable$depends_on <- tryCatch(
+    .formula_dependencies(variable),
+    error = function(e) character(0)
+  )
   variable
 }
 
