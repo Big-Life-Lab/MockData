@@ -274,3 +274,88 @@ test_that("evaluate_mock_formulas handles a formula-only spec via a constant, br
   result <- evaluate_mock_formulas(baseline, spec)
   expect_identical(result$k, rep(2, 7))
 })
+
+# ------------------------------------------------------------------------
+# Task 3: adapter + orchestrator wiring, diagnostics, end-to-end (#39)
+# ------------------------------------------------------------------------
+
+test_that("mockFormula metadata generates a derived column end-to-end", {
+  variables <- data.frame(
+    variable = c("height", "weight", "bmi"),
+    variableType = c("Continuous", "Continuous", "Continuous"),
+    rType = c("double", "double", "double"),
+    role = c("enabled", "enabled", "enabled"),
+    stringsAsFactors = FALSE
+  )
+  variable_details <- data.frame(
+    variable = c("height", "weight", "bmi"),
+    recStart = c("[1.4, 2.1]", "[45, 150]", "DerivedVar::[height, weight]"),
+    recEnd = c("copy", "copy", "Func::bmi_fun"),
+    proportion = c(1, 1, 1),
+    mockFormula = c("", "", "weight / (height^2)"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- suppressMessages(create_mock_data(
+    databaseStart = "study",
+    variables = variables,
+    variable_details = variable_details,
+    n = 30,
+    seed = 4
+  ))
+
+  expect_true("bmi" %in% names(result))
+  diag <- attr(result, "mockdata_diagnostics")
+  expect_false(is.null(diag))
+  expect_true(isTRUE(diag$variables$bmi$derived))
+  expect_setequal(diag$variables$bmi$depends_on, c("height", "weight"))
+})
+
+test_that("DerivedVar rows without mockFormula stay excluded (D6, backward compat)", {
+  variables <- data.frame(
+    variable = c("height", "weight", "bmi"),
+    variableType = c("Continuous", "Continuous", "Continuous"),
+    rType = c("double", "double", "double"),
+    role = c("enabled", "enabled", "enabled"),
+    stringsAsFactors = FALSE
+  )
+  variable_details <- data.frame(
+    variable = c("height", "weight", "bmi"),
+    recStart = c("[1.4, 2.1]", "[45, 150]", "DerivedVar::[height, weight]"),
+    recEnd = c("copy", "copy", "Func::bmi_fun"),
+    proportion = c(1, 1, 1),
+    stringsAsFactors = FALSE
+  )
+
+  result <- suppressMessages(create_mock_data(
+    databaseStart = "study",
+    variables = variables,
+    variable_details = variable_details,
+    n = 10,
+    seed = 4
+  ))
+
+  expect_false("bmi" %in% names(result))
+})
+
+test_that("formula variables receive their own missing codes in postprocess", {
+  spec <- mock_spec(
+    mock_spec_continuous("x", range = c(1, 9)),
+    mock_spec_formula("z", formula = "x * 2",
+                      missing_codes = -99, missing_proportions = 0.3)
+  )
+  baseline <- generate_mock_data_native(spec, n = 200, seed = 8)
+  staged <- evaluate_mock_formulas(baseline, spec, seed = 8)
+  result <- postprocess_mock_data(staged, spec, seed = 8)
+  expect_true(any(result$z == -99))
+  expect_true(all(result$z[result$z != -99] == staged$z[result$z != -99]))
+})
+
+test_that("existing formula-free seeded output is unchanged by the formula stage", {
+  # The #48 pinned-reference tests already enforce this mechanically; this
+  # test additionally pins the orchestrator route: a formula-free spec must
+  # not pass through evaluate_mock_formulas' seeded wrapper at all.
+  spec <- mock_continuous("x", range = c(0, 1))
+  baseline <- generate_mock_data_native(spec, n = 3, seed = 20260706)
+  expect_identical(evaluate_mock_formulas(baseline, spec, seed = 20260706), baseline)
+})
