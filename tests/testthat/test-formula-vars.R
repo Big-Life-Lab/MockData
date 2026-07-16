@@ -199,3 +199,78 @@ test_that("rtype coercion applies to formula outputs", {
   result <- evaluate_mock_formulas(baseline, spec)
   expect_s3_class(result$band, "factor")
 })
+
+test_that("evaluate_mock_formulas errors rather than silently dropping an unparseable formula", {
+  # Task 2 review finding 1: .order_formula_variables() filters unparseable
+  # formulas out of `ordered` (correct for validate_mock_spec's accumulation),
+  # but the evaluator conflated "no formula variables" with "no *parseable*
+  # formula variables" and returned `data` unchanged with no error. Baseline
+  # is built directly (not via generate_mock_data_native()), because that
+  # generator's own entry-point strict validation would already reject this
+  # spec before we can reach evaluate_mock_formulas().
+  spec <- mock_spec(
+    mock_spec_continuous("x", range = c(0, 1)),
+    mock_spec_formula("bad", formula = "x +* 2"),
+    validate = FALSE
+  )
+  baseline <- data.frame(x = c(0.1, 0.2, 0.3))
+
+  expect_error(
+    evaluate_mock_formulas(baseline, spec),
+    "could not be parsed"
+  )
+})
+
+test_that("evaluate_mock_formulas errors (not partial output) with a mixed bad + good formula spec", {
+  spec <- mock_spec(
+    mock_spec_continuous("x", range = c(0, 1)),
+    mock_spec_formula("bad", formula = "x +* 2"),
+    mock_spec_formula("good", formula = "x * 2"),
+    validate = FALSE
+  )
+  baseline <- data.frame(x = c(0.1, 0.2, 0.3))
+
+  expect_error(
+    evaluate_mock_formulas(baseline, spec),
+    "could not be parsed"
+  )
+})
+
+test_that("evaluate_mock_formulas errors clearly on a length-mismatched formula result", {
+  spec <- mock_spec(
+    mock_spec_continuous("x", range = c(0, 1)),
+    mock_spec_formula("bad_len", formula = "c(1, 2, 3)")
+  )
+  baseline <- generate_mock_data_native(spec, n = 10, seed = 1)
+
+  expect_error(
+    evaluate_mock_formulas(baseline, spec),
+    "returned length 3, expected 10"
+  )
+})
+
+test_that("evaluate_mock_formulas works for nrow == 1 with a scalar formula result (no rep needed)", {
+  spec <- mock_spec(
+    mock_spec_continuous("x", range = c(0, 1)),
+    mock_spec_formula("z", formula = "x * 2")
+  )
+  baseline <- generate_mock_data_native(spec, n = 1, seed = 1)
+
+  result <- evaluate_mock_formulas(baseline, spec)
+  expect_identical(nrow(result), 1L)
+  expect_identical(result$z, baseline$x * 2)
+})
+
+test_that("evaluate_mock_formulas handles a formula-only spec via a constant, broadcasting formula", {
+  # A formula-only spec has no non-formula columns to reference, so its
+  # baseline is an n-row, zero-column data frame (see
+  # generate_mock_data_native()'s formula skip). A constant formula still
+  # broadcasts correctly over that 0-column frame (verified manually before
+  # pinning: length(values) == 1 && nrow(data) != 1 triggers the rep() path).
+  spec <- mock_spec(mock_spec_formula("k", formula = "1 + 1"))
+  baseline <- generate_mock_data_native(spec, n = 7, seed = 1)
+  expect_identical(dim(baseline), c(7L, 0L))
+
+  result <- evaluate_mock_formulas(baseline, spec)
+  expect_identical(result$k, rep(2, 7))
+})

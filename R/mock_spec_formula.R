@@ -153,7 +153,10 @@
 #' @param data Data frame of generated baseline values (from
 #'   [generate_mock_data_native()] or [generate_mock_data_simstudy()]).
 #' @param spec A `mock_spec`. Non-formula variables must already be columns of
-#'   `data`.
+#'   `data`. Strict-validated at entry (like [postprocess_mock_data()]), so an
+#'   unparseable formula, an unknown referent, a disallowed symbol, or a
+#'   dependency cycle raises here rather than silently skipping the affected
+#'   variable.
 #' @param seed Optional whole-number seed; reserved for future formulas with
 #'   random components. The caller's RNG state and kind are restored on exit.
 #'
@@ -165,11 +168,22 @@ evaluate_mock_formulas <- function(data, spec, seed = NULL) {
   if (!is.data.frame(data)) {
     stop("data must be a data frame.", call. = FALSE)
   }
+  # Strict-validate first, exactly as postprocess_mock_data() does: the
+  # accumulate-and-skip behaviour inside .order_formula_variables() and
+  # .validate_formula_referents() is correct for validate_mock_spec()'s
+  # multi-error reporting, but it means an unparseable/cyclic/invalid-referent
+  # formula would otherwise be silently excluded from `ordered` below rather
+  # than reported — generation must never reach a bad formula. Strict
+  # validation already runs .validate_formula_referents()/
+  # .order_formula_variables() (see validate_mock_spec()), so the direct call
+  # to .validate_formula_referents() that used to live below is redundant and
+  # has been removed.
+  validate_mock_spec(spec, n = nrow(data), strict = TRUE)
+
   ordered <- .order_formula_variables(spec)
   if (length(ordered) == 0) {
     return(data)
   }
-  .validate_formula_referents(spec)
 
   non_formula <- setdiff(names(spec$variables), names(spec$variables)[
     vapply(spec$variables, .is_formula_variable, logical(1))

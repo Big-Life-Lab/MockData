@@ -498,11 +498,21 @@ evaluate_mock_formulas <- function(data, spec, seed = NULL) {
   if (!is.data.frame(data)) {
     stop("data must be a data frame.", call. = FALSE)
   }
+  # Strict-validate first, exactly as postprocess_mock_data() does (Task 2
+  # review fix): the accumulate-and-skip behaviour inside
+  # .order_formula_variables()/.validate_formula_referents() is correct for
+  # validate_mock_spec()'s multi-error reporting, but it means an unparseable,
+  # cyclic, or invalid-referent formula would otherwise be silently excluded
+  # from `ordered` below rather than reported. Strict validation already runs
+  # .validate_formula_referents()/.order_formula_variables(), so the direct
+  # .validate_formula_referents() call that used to live below is redundant
+  # and has been removed.
+  validate_mock_spec(spec, n = nrow(data), strict = TRUE)
+
   ordered <- .order_formula_variables(spec)
   if (length(ordered) == 0) {
     return(data)
   }
-  .validate_formula_referents(spec)
 
   non_formula <- setdiff(names(spec$variables), names(spec$variables)[
     vapply(spec$variables, .is_formula_variable, logical(1))
