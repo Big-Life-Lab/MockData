@@ -53,6 +53,15 @@
   spec_names <- names(spec$variables)
   for (variable in spec$variables) {
     if (!.is_formula_variable(variable)) next
+    # Unparseable formulas are reported once, by the per-variable validator
+    # branch (R/mock_spec.R) — re-parsing here (via .formula_dependencies())
+    # would both duplicate that error and abort this loop before checking the
+    # OTHER, parseable formulas, masking their referent/symbol findings.
+    parseable <- tryCatch({
+      .parse_mock_formula(variable)
+      TRUE
+    }, error = function(e) FALSE)
+    if (!parseable) next
     missing <- setdiff(.formula_dependencies(variable), spec_names)
     if (length(missing) > 0) {
       stop(
@@ -80,12 +89,25 @@
   formula_names <- names(spec$variables)[
     vapply(spec$variables, .is_formula_variable, logical(1))
   ]
-  remaining <- formula_names
+  # Skip unparseable formulas here too (see .validate_formula_referents()):
+  # the per-variable validator already reports the parse error once, and a
+  # variable that can't be parsed has no computable dependency set — leaving
+  # it in `formula_names` would either duplicate the parse error (via
+  # .formula_dependencies()) or permanently block any variable that
+  # references it from ever being ordered.
+  parseable_names <- Filter(function(name) {
+    tryCatch({
+      .parse_mock_formula(spec$variables[[name]])
+      TRUE
+    }, error = function(e) FALSE)
+  }, formula_names)
+
+  remaining <- parseable_names
   ordered <- character(0)
   while (length(remaining) > 0) {
     progressed <- FALSE
     for (name in remaining) {
-      deps <- intersect(.formula_dependencies(spec$variables[[name]]), formula_names)
+      deps <- intersect(.formula_dependencies(spec$variables[[name]]), parseable_names)
       if (all(deps %in% ordered)) {
         ordered <- c(ordered, name)
         remaining <- setdiff(remaining, name)
@@ -101,4 +123,104 @@
     }
   }
   ordered
+}
+
+#' @noRd
+.formula_parent_env <- function() {
+  # baseNamespace() (the brief's original spelling) is not itself an
+  # exported/callable base function - .BaseNamespaceEnv is the base-R builtin
+  # binding for the same environment (verified: every .formula_allowlist
+  # symbol, including "(" and the operators, resolves via
+  # get(fn, envir = .BaseNamespaceEnv)). Its parent is emptyenv(), so nothing
+  # beyond this fixed set of base primitives is reachable from here.
+  env <- new.env(parent = emptyenv())
+  for (fn in .formula_allowlist) {
+    env[[fn]] <- get(fn, envir = .BaseNamespaceEnv)
+  }
+  env
+}
+
+#' Evaluate formula-derived variables over generated data
+#'
+#' Computes each `type = "formula"` variable in `spec` by evaluating its
+#' expression over the columns of `data`, in dependency order. Evaluation runs
+#' in a restricted environment exposing only the data columns and a fixed
+#' allow-list of base functions — formulas cannot reach the caller's
+#' environment. Any randomness would draw from the isolated `formula`
+#' sub-stream (see the v0.5 seed contract), though the Phase A allow-list is
+#' RNG-free, so evaluation is deterministic given `data`.
+#'
+#' @param data Data frame of generated baseline values (from
+#'   [generate_mock_data_native()] or [generate_mock_data_simstudy()]).
+#' @param spec A `mock_spec`. Non-formula variables must already be columns of
+#'   `data`.
+#' @param seed Optional whole-number seed; reserved for future formulas with
+#'   random components. The caller's RNG state and kind are restored on exit.
+#'
+#' @return `data` with one appended column per formula variable. Returns
+#'   `data` unchanged if the spec has no formula variables.
+#' @seealso [mock_formula()], [postprocess_mock_data()]
+#' @export
+evaluate_mock_formulas <- function(data, spec, seed = NULL) {
+  if (!is.data.frame(data)) {
+    stop("data must be a data frame.", call. = FALSE)
+  }
+  ordered <- .order_formula_variables(spec)
+  if (length(ordered) == 0) {
+    return(data)
+  }
+  .validate_formula_referents(spec)
+
+  non_formula <- setdiff(names(spec$variables), names(spec$variables)[
+    vapply(spec$variables, .is_formula_variable, logical(1))
+  ])
+  missing_inputs <- setdiff(non_formula, names(data))
+  if (length(missing_inputs) > 0) {
+    stop(
+      "data is missing generated column(s) required by formulas: ",
+      paste(missing_inputs, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  .with_mock_seed(seed, stage = "formula", {
+    fn_env <- .formula_parent_env()
+    for (name in ordered) {
+      variable <- spec$variables[[name]]
+      values <- eval(
+        .parse_mock_formula(variable),
+        envir = as.list(data),
+        enclos = fn_env
+      )
+      if (length(values) == 1 && nrow(data) != 1) {
+        values <- rep(values, nrow(data))   # scalar formulas broadcast
+      }
+      if (length(values) != nrow(data)) {
+        stop(
+          "Formula for variable '", name, "' returned length ", length(values),
+          ", expected ", nrow(data), ".",
+          call. = FALSE
+        )
+      }
+      data[[name]] <- .coerce_formula_rtype(values, variable$rtype, name)
+    }
+    data
+  })
+}
+
+#' @noRd
+.coerce_formula_rtype <- function(values, rtype, variable_name) {
+  switch(rtype,
+    double = ,
+    numeric = as.numeric(values),
+    integer = as.integer(values),
+    factor = as.factor(values),
+    character = as.character(values),
+    logical = as.logical(values),
+    stop(
+      "Variable '", variable_name, "' has unsupported formula rType '",
+      rtype, "'.",
+      call. = FALSE
+    )
+  )
 }
