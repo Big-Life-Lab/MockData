@@ -250,9 +250,12 @@ especially for `validate = FALSE`, `variable_details = NULL`, detail-level
 
 Several features are intentionally not solved in v0.4.
 
-Formula-derived variables are detected and kept loud rather than silently
-ignored. They need a dependency-aware evaluator, sandboxing rules, and clear
-syntax.
+Algebraic formula-derived variables landed in v0.5 (Phase A): a variable
+carrying a `mockFormula` expression (e.g. `weight / (height^2)`) is generated
+by evaluating that expression, in dependency order, over a restricted
+sandbox exposing only the generated columns and a fixed allow-list of base
+functions. `Func::` dispatch to a consuming package's own derivation
+function (Phase B), and a more general evaluator, remain deferred.
 
 Multi-variable correlation and richer joint distributions are future work.
 `simstudy` is one possible engine for those features, but v0.4 does not claim to

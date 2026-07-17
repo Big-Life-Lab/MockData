@@ -1,6 +1,6 @@
 # ADR: v0.5 Formula-Derived Variables
 
-**Status**: ACCEPTED 2026-07-07 — Phase A (algebraic formulas), via a `mockFormula` extension column on `variable_details`, evaluated as a post-baseline stage in a restricted sandbox. Any individual decision remains open to maintainer revision before implementation begins.
+**Status**: ACCEPTED 2026-07-07 — Phase A (algebraic formulas), via a `mockFormula` extension column on `variable_details`, evaluated as a post-baseline stage in a restricted sandbox. Any individual decision remains open to maintainer revision before implementation begins. Implemented on branch v05-formula-evaluator (Phase A).
 **Date**: 2026-07-07
 **Decision owner**: MockData maintainers
 **Issue**: #39
