@@ -403,3 +403,47 @@ test_that("existing formula-free seeded output is unchanged by the formula stage
   baseline <- generate_mock_data_native(spec, n = 3, seed = 20260706)
   expect_identical(evaluate_mock_formulas(baseline, spec, seed = 20260706), baseline)
 })
+
+test_that("warn when a formula produces a factor but rtype is numeric", {
+  # Whole-branch review Minor #1: factor coercion to numeric silently returns
+  # level codes. Warn to make this foreseeable footgun obvious.
+  spec <- mock_spec(
+    mock_spec_continuous("x", range = c(1, 10)),
+    mock_spec_formula("band", formula = "cut(x, c(0,3,7,10))", rtype = "double")
+  )
+  baseline <- generate_mock_data_native(spec, n = 5, seed = 42)
+
+  expect_warning(
+    result <- evaluate_mock_formulas(baseline, spec),
+    "formula produced a factor but rType is 'double'"
+  )
+  # Verify coercion still happens (to level codes)
+  expect_true(is.numeric(result$band))
+})
+
+test_that("warn when variable details have conflicting mockFormula values", {
+  # Whole-branch review Minor #2: conflicting mockFormula values silently use
+  # the first. Warn when distinct values are detected.
+  variables <- data.frame(
+    variable = c("x", "z"),
+    variableType = c("Continuous", "Continuous"),
+    rType = c("double", "double"),
+    role = c("enabled", "enabled"),
+    stringsAsFactors = FALSE
+  )
+  variable_details <- data.frame(
+    variable = c("x", "z", "z"),
+    recStart = c("[1, 10]", "DerivedVar::[x]", "DerivedVar::[x]"),
+    recEnd = c("copy", "Func::foo", "Func::foo"),
+    proportion = c(1, 1, 1),
+    mockFormula = c("", "x * 2", "x * 3"),  # conflicting: "x * 2" vs "x * 3"
+    stringsAsFactors = FALSE
+  )
+
+  expect_warning(
+    spec <- mock_spec_from_recodeflow(variables, variable_details),
+    "conflicting mockFormula values.*using the first: 'x \\* 2'"
+  )
+  # Verify the first value was used
+  expect_identical(spec$variables$z$formula, "x * 2")
+})

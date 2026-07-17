@@ -205,6 +205,14 @@ metadata with no `mockFormula` behaves identically to today.
   exclude).
 - `Func::` generation remains unsupported (documented), pending Phase B.
 
+**Phase B caveat:** allow-listed base functions can reach R internal-generic S3
+dispatch (e.g. `as.factor` → `as.character` generic), which resolves methods in
+the caller's globalenv. This is not exploitable in Phase A (formulas cannot
+assign a class to a value — no `structure`/`class<-`/`oldClass` in the
+allow-list — and MockData only feeds numeric/factor/character/Date columns to
+eval). If Phase B introduces `Func::` dispatch or class-producing operations,
+this dispatch path must be re-audited.
+
 **Costs / risks:**
 
 - The sandbox allow-list is a maintained surface; too narrow frustrates users,

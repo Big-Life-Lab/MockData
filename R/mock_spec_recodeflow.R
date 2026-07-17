@@ -263,6 +263,15 @@
     return("")
   }
 
+  # Warn if there are conflicting (distinct) mockFormula values
+  if (length(unique(values)) > 1) {
+    warning(
+      "Variable has conflicting mockFormula values across detail rows; using the first: '",
+      trimws(values[1]), "'.",
+      call. = FALSE
+    )
+  }
+
   trimws(values[1])
 }
 

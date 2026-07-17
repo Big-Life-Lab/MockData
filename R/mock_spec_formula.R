@@ -225,9 +225,39 @@ evaluate_mock_formulas <- function(data, spec, seed = NULL) {
 #' @noRd
 .coerce_formula_rtype <- function(values, rtype, variable_name) {
   switch(rtype,
-    double = ,
-    numeric = as.numeric(values),
-    integer = as.integer(values),
+    double = {
+      if (is.factor(values)) {
+        warning(
+          "Variable '", variable_name,
+          "' formula produced a factor but rType is '", rtype,
+          "'; coercing to its integer level codes. Set rtype = \"factor\" (or \"character\") if that is not intended.",
+          call. = FALSE
+        )
+      }
+      as.numeric(values)
+    },
+    numeric = {
+      if (is.factor(values)) {
+        warning(
+          "Variable '", variable_name,
+          "' formula produced a factor but rType is '", rtype,
+          "'; coercing to its integer level codes. Set rtype = \"factor\" (or \"character\") if that is not intended.",
+          call. = FALSE
+        )
+      }
+      as.numeric(values)
+    },
+    integer = {
+      if (is.factor(values)) {
+        warning(
+          "Variable '", variable_name,
+          "' formula produced a factor but rType is '", rtype,
+          "'; coercing to its integer level codes. Set rtype = \"factor\" (or \"character\") if that is not intended.",
+          call. = FALSE
+        )
+      }
+      as.integer(values)
+    },
     factor = as.factor(values),
     character = as.character(values),
     logical = as.logical(values),
