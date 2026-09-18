@@ -58,6 +58,13 @@
   instead of warning and substituting a uniform draw. The legacy
   warn-and-substitute behaviour remains available via `validate = FALSE`.
 
+## Bug fixes
+
+- The simstudy backend now returns a typed zero-row data frame for `n = 0`,
+  identical to the native backend's output, instead of failing inside
+  `simstudy::genData()` (whose `1:n` id table has two rows when `n = 0`).
+  (#50)
+
 # MockData 0.4.0 (2026-06-10)
 
 ## Breaking changes
