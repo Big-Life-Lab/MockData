@@ -1,0 +1,53 @@
+# R CMD check on every push to main/dev and every PR into them.
+# Complements pkgdown.yaml, which only builds the site. Dependencies come
+# from DESCRIPTION via setup-r-dependencies (Suggests included, so the
+# optional simstudy backend is exercised here even when it is absent from
+# a developer's local library). See .claude/AI.md for the CI lessons that
+# shaped this file.
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+name: R-CMD-check
+
+permissions:
+  contents: read
+
+jobs:
+  R-CMD-check:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - name: Install Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck, any::roxygen2
+          needs: check
+
+      - name: Generate documentation
+        run: Rscript -e "roxygen2::roxygenize()"
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          upload-snapshots: true
+          error-on: '"warning"'
+          build_args: 'c("--no-manual")'
+          args: 'c("--no-manual", "--as-cran")'
