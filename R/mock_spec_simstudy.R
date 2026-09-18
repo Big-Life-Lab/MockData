@@ -144,6 +144,15 @@
     return(.empty_native_data(n))
   }
 
+  if (n == 0) {
+    # simstudy::genData(0, def) builds its id table as data.table(x = 1:n),
+    # and 1:0 is c(1, 0) -- two rows -- so formula evaluation stops with
+    # "Both 'dtSim' and 'n' are set but are of different length". No draws
+    # happen at zero rows, so the native generators yield the identical typed
+    # zero-row schema (see the edge-case contract tests). Issue #50.
+    return(.generate_native_only_baseline(variables, n))
+  }
+
   def <- NULL
   for (variable in variables) {
     def <- .simstudy_definition(def, variable)

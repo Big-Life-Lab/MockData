@@ -44,6 +44,10 @@
   their generation. Native exponential values are truncated to the declared
   `range` by inverse-CDF sampling, rather than clipped at the range maximum
   (with a point mass at the boundary) as the legacy `rexp()` path does.
+- The simstudy backend now returns a typed zero-row data frame for `n = 0`,
+  identical to the native backend's output, instead of failing inside
+  `simstudy::genData()` (whose `1:n` id table has two rows when `n = 0`).
+  (#50)
 - With `validate = TRUE` (the default), invalid distribution parameters in
   metadata — e.g. `distribution = "exponential"` without a positive `rate` —
   now stop generation with a message naming the variable and how to fix it,
