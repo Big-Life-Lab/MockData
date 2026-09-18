@@ -26,3 +26,6 @@ Generate_mock_data_files/
 vignettes/.quarto/
 vignettes/*_files/
 vignettes/*.html
+
+# Superpowers plugin scratch (per-developer)
+.superpowers/

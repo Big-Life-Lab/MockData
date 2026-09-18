@@ -128,13 +128,29 @@
 
 #' @noRd
 .native_only_variables <- function(spec) {
-  Filter(function(variable) !.simstudy_can_generate(variable), spec$variables)
+  # Mirror generate_mock_data_native()'s skip: type = "formula" variables have
+  # no distribution to sample from in either backend. They are computed
+  # post-baseline by evaluate_mock_formulas(), not by .generate_native_variable()
+  # (which has no "formula" branch and would stop with an unhelpful "Native
+  # backend does not support variable type 'formula'").
+  Filter(function(variable) {
+    !.is_formula_variable(variable) && !.simstudy_can_generate(variable)
+  }, spec$variables)
 }
 
 #' @noRd
 .generate_simstudy_baseline <- function(variables, n) {
   if (length(variables) == 0) {
     return(.empty_native_data(n))
+  }
+
+  if (n == 0) {
+    # simstudy::genData(0, def) builds its id table as data.table(x = 1:n),
+    # and 1:0 is c(1, 0) -- two rows -- so formula evaluation stops with
+    # "Both 'dtSim' and 'n' are set but are of different length". No draws
+    # happen at zero rows, so the native generators yield the identical typed
+    # zero-row schema (see the edge-case contract tests). Issue #50.
+    return(.generate_native_only_baseline(variables, n))
   }
 
   def <- NULL
@@ -202,6 +218,11 @@
 #' `simstudy`. They remain MockData-owned post-processing so both backends share
 #' the same auditability contract.
 #'
+#' Like [generate_mock_data_native()], this backend skips `type = "formula"`
+#' variables — they carry no distribution to sample from. They are computed
+#' post-baseline by [evaluate_mock_formulas()], which works over either
+#' backend's output.
+#'
 #' @param spec A `mock_spec` object.
 #' @param n Non-negative whole number of rows to generate.
 #' @param seed Optional whole-number seed. Generation uses an isolated
@@ -209,10 +230,12 @@
 #'   exit, so output is reproducible for a given seed and package version
 #'   without perturbing the caller's RNG.
 #'
-#' @return A data frame with one column per `mock_spec` variable and `n` rows.
+#' @return A data frame with `n` rows and one column per non-formula
+#'   `mock_spec` variable (`type = "formula"` variables are appended
+#'   afterwards by [evaluate_mock_formulas()]).
 #' @family mock generation APIs
 #' @seealso [generate_mock_data_native()], [postprocess_mock_data()],
-#'   [mock_spec()]
+#'   [mock_spec()], [evaluate_mock_formulas()]
 #'
 #' @examples
 #' spec <- mock_continuous("age", range = c(18, 85), rtype = "integer")
@@ -229,6 +252,13 @@ generate_mock_data_simstudy <- function(spec, n, seed = NULL) {
 
   simstudy_variables <- .simstudy_variables(spec)
   native_only_variables <- .native_only_variables(spec)
+  # type = "formula" variables are excluded from both `simstudy_variables` and
+  # `native_only_variables` above; exclude them here too so the final
+  # assembly doesn't index `columns` by names that were never generated (see
+  # generate_mock_data_native()'s identical formula skip).
+  generated_variable_names <- names(spec$variables)[
+    !vapply(spec$variables, .is_formula_variable, logical(1))
+  ]
 
   .with_mock_seed(seed, {
     simstudy_data <- .generate_simstudy_baseline(simstudy_variables, n)
@@ -237,12 +267,12 @@ generate_mock_data_simstudy <- function(spec, n, seed = NULL) {
     native_data <- .generate_native_only_baseline(native_only_variables, n)
 
     columns <- c(simstudy_data, native_data)
-    if (length(spec$variables) == 0) {
+    if (length(generated_variable_names) == 0) {
       return(.empty_native_data(n))
     }
 
     as.data.frame(
-      columns[names(spec$variables)],
+      columns[generated_variable_names],
       stringsAsFactors = FALSE,
       check.names = FALSE
     )

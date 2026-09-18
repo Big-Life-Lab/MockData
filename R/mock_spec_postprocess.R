@@ -23,7 +23,7 @@
       garbage_rule_names
     )
 
-    list(
+    entry <- list(
       n = n,
       preexisting_missing_code_indices = integer(0),
       assigned_missing_indices = integer(0),
@@ -31,6 +31,17 @@
       assigned_garbage_indices = garbage_indices,
       assigned_garbage_values = garbage_values
     )
+
+    # D5 (#39, Phase A): formula variables get diagnostics fields marking
+    # them as derived, so downstream consumers can tell a computed column
+    # from a sampled one without re-deriving it from the spec.
+    if (.is_formula_variable(variable)) {
+      entry$derived <- TRUE
+      entry$formula <- variable$formula
+      entry$depends_on <- variable$depends_on
+    }
+
+    entry
   })
 
   list(

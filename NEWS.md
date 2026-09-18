@@ -1,6 +1,6 @@
-# MockData (development version)
+# MockData 0.5.0
 
-## Reproducibility (breaking change)
+## Breaking changes
 
 - Seeded output changed once for the RNG-stream mechanism in this release.
   Within the `create_mock_data()` pipeline (`generate_mock_data_native()`,
@@ -15,16 +15,30 @@
   still seed a single Mersenne-Twister stream per call. For a given seed
   **and package version** pipeline output is reproducible and independent of
   the session's ambient `RNGkind()`; it is not comparable across the v0.4 →
-  v0.5 boundary. Pin your own expected values against the version you use.
-  For seeded calls, generation no longer alters the caller's RNG state
-  (previously the legacy `validate = FALSE` path reset it).
+  v0.5 boundary. For seeded calls, generation no longer alters the caller's
+  RNG state (previously the legacy `validate = FALSE` path reset it). (#38)
 
+  **Migrating:** if your tests pin values from seeded v0.4 runs of
+  `create_mock_data()` or the `mock_spec` pipeline, regenerate those expected
+  values once under v0.5 and pin them again. The same seed keeps giving
+  identical output within this version. Standalone `create_*` calls need no
+  change.
+
+## New features
+
+- Formula-derived variables (#39, Phase A). Variables can now be generated
+  from algebraic expressions over other generated variables via a new
+  `mockFormula` column in `variable_details` (e.g. `weight / (height^2)`),
+  or the new `mock_formula()` direct API. Formulas are evaluated in
+  dependency order by `evaluate_mock_formulas()`, in a restricted environment
+  exposing only the generated columns and a fixed allow-list of base
+  functions. `DerivedVar::`/`Func::` semantics are unchanged: derived
+  variables without a `mockFormula` remain excluded from generation, and
+  `Func::` dispatch is not yet supported.
 - `create_mock_data()` now accepts `n = 0`, returning a zero-row data frame
   with the full generated schema (useful for schema tests), and rejects
   fractional, negative, `NA`, and non-finite values of `n` with a clear
   message. The validation now matches `generate_mock_data_native()`.
-- Calling `create_mock_data()` without `databaseStart` now fails upfront with
-  a message naming the argument, instead of a raw missing-argument error.
 - The native backend now supports `distribution = "exponential"` (parity with
   the legacy generator), removing a forced legacy-fallback for exponential
   metadata. When the optional simstudy backend is selected, exponential
@@ -33,11 +47,23 @@
   their generation. Native exponential values are truncated to the declared
   `range` by inverse-CDF sampling, rather than clipped at the range maximum
   (with a point mass at the boundary) as the legacy `rexp()` path does.
+
+## Validation and error messages
+
+- Calling `create_mock_data()` without `databaseStart` now fails upfront with
+  a message naming the argument, instead of a raw missing-argument error.
 - With `validate = TRUE` (the default), invalid distribution parameters in
   metadata — e.g. `distribution = "exponential"` without a positive `rate` —
   now stop generation with a message naming the variable and how to fix it,
   instead of warning and substituting a uniform draw. The legacy
   warn-and-substitute behaviour remains available via `validate = FALSE`.
+
+## Bug fixes
+
+- The simstudy backend now returns a typed zero-row data frame for `n = 0`,
+  identical to the native backend's output, instead of failing inside
+  `simstudy::genData()` (whose `1:n` id table has two rows when `n = 0`).
+  (#50)
 
 # MockData 0.4.0 (2026-06-10)
 

@@ -79,6 +79,14 @@
 #' @noRd
 .native_formula_variables <- function(spec) {
   names(Filter(function(variable) {
+    # type == "formula" variables are supported (#39): the native backend
+    # skips them (see generate_mock_data_native()) and evaluate_mock_formulas()
+    # computes them post-baseline. This check only guards a *stray* formula
+    # field left on a variable of some OTHER type (e.g. an adapter mistake) -
+    # that combination remains an unsupported/fallback trigger.
+    if (.is_formula_variable(variable)) {
+      return(FALSE)
+    }
     formula <- variable$formula
     !is.null(formula) &&
       !(is.character(formula) && length(formula) == 1 && (is.na(formula) || trimws(formula) == ""))
@@ -333,8 +341,8 @@
 #'
 #' `generate_mock_data_native()` consumes a validated `mock_spec` and generates
 #' baseline valid values using MockData's native R backend. This milestone does
-#' not yet apply missing-code injection, garbage values, diagnostics, formula
-#' evaluation, or optional `simstudy` features.
+#' not yet apply missing-code injection, garbage values, diagnostics, or
+#' optional `simstudy` features.
 #'
 #' @details
 #' The native backend is the default MIT-licensed baseline engine. It currently
@@ -344,8 +352,14 @@
 #' values, and diagnostics are intentionally handled by [postprocess_mock_data()]
 #' so that all backends share the same audit trail.
 #'
-#' Formula variables are rejected loudly until the formula/dependency
-#' milestone promotes the spike evaluator into production.
+#' `type = "formula"` variables are skipped by this backend — they carry no
+#' distribution to sample from. They are computed post-baseline by
+#' [evaluate_mock_formulas()], which evaluates each formula over this
+#' function's output columns in dependency order. A spec containing only
+#' formula variables still returns an `n`-row, zero-column data frame here (see
+#' [evaluate_mock_formulas()] for how columns are appended afterwards). A
+#' stray `formula` field on a variable of some other type remains an
+#' unsupported/fallback trigger.
 #'
 #' @param spec A `mock_spec` object.
 #' @param n Non-negative whole number of rows to generate.
@@ -354,10 +368,13 @@
 #'   exit, so output is reproducible for a given seed and package version
 #'   without perturbing the caller's RNG.
 #'
-#' @return A data frame with one column per `mock_spec` variable and `n` rows.
+#' @return A data frame with `n` rows and one column per non-formula
+#'   `mock_spec` variable (`type = "formula"` variables are appended
+#'   afterwards by [evaluate_mock_formulas()]).
 #' @family mock generation APIs
 #' @seealso [mock_spec()], [mock_continuous()], [mock_spec_from_recodeflow()],
-#'   [postprocess_mock_data()], [generate_mock_data_simstudy()]
+#'   [postprocess_mock_data()], [generate_mock_data_simstudy()],
+#'   [evaluate_mock_formulas()]
 #'
 #' @examples
 #' spec <- mock_spec(
@@ -377,11 +394,21 @@ generate_mock_data_native <- function(spec, n, seed = NULL) {
   .check_native_backend_scope(spec)
 
   .with_mock_seed(seed, {
-    if (length(spec$variables) == 0) {
+    # type = "formula" variables have no distribution to sample from; they
+    # are computed post-baseline by evaluate_mock_formulas(). Filtering them
+    # out here (rather than in .generate_native_variable()) leaves this
+    # branch's assembly of `columns` byte-identical to before #39 for any
+    # spec with no formula variables (the common, zero-seeded-output-change
+    # case) - and a formula-only spec still falls through to the same
+    # .empty_native_data(n) path a variable-less spec would use.
+    generated_variables <- spec$variables[
+      !vapply(spec$variables, .is_formula_variable, logical(1))
+    ]
+    if (length(generated_variables) == 0) {
       .empty_native_data(n)
     } else {
-      columns <- lapply(spec$variables, .generate_native_variable, n = n)
-      names(columns) <- names(spec$variables)
+      columns <- lapply(generated_variables, .generate_native_variable, n = n)
+      names(columns) <- names(generated_variables)
       as.data.frame(columns, stringsAsFactors = FALSE, check.names = FALSE)
     }
   }, stage = "baseline")
