@@ -64,7 +64,7 @@ Task 4: docs        — NEWS, roxygen family, stale-vignette fixes, ADR status n
   - `mock_formula(name, formula, rtype = "double", missing_codes = numeric(0), missing_proportions = numeric(0), garbage_rules = list(), provenance = NULL, model_hint = "auto")` → validated one-variable `mock_spec`; `mock_spec_formula(...)` → `mock_spec_variable` with `type = "formula"`.
   - `.formula_allowlist` (character vector), `.formula_dependencies(variable)`, `.formula_function_symbols(variable)`, `.order_formula_variables(spec)` (returns ordered names of formula variables only; cycle error), `.validate_formula_referents(spec)` (unknown-referent + disallowed-symbol errors).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```r
 # tests/testthat/test-formula-vars.R
@@ -123,9 +123,9 @@ test_that("an unparseable formula errors at validation", {
 })
 ```
 
-- [ ] **Step 2: Run to verify failure** — `Rscript -e 'devtools::load_all(quiet = TRUE); testthat::test_file("tests/testthat/test-formula-vars.R")'`. Expected: FAIL, `could not find function "mock_spec_formula"`.
+- [x] **Step 2: Run to verify failure** — `Rscript -e 'devtools::load_all(quiet = TRUE); testthat::test_file("tests/testthat/test-formula-vars.R")'`. Expected: FAIL, `could not find function "mock_spec_formula"`.
 
-- [ ] **Step 3: Create `R/mock_spec_formula.R` helpers**
+- [x] **Step 3: Create `R/mock_spec_formula.R` helpers**
 
 ```r
 # ==============================================================================
@@ -234,7 +234,7 @@ test_that("an unparseable formula errors at validation", {
 }
 ```
 
-- [ ] **Step 4: Constructors in `R/mock_spec.R`**
+- [x] **Step 4: Constructors in `R/mock_spec.R`**
 
 `mock_spec_formula()` (place after `mock_spec_date()`), populating the existing `formula`/`depends_on` fields via `.new_mock_spec_variable()`:
 
@@ -291,7 +291,7 @@ mock_spec_formula <- function(name,
 
 `mock_formula()` (simple direct API, mirroring `mock_continuous()`'s shape: wraps `mock_spec_formula()` in `mock_spec(...)` with `.direct_api_provenance("mock_formula", provenance)`). Follow the `mock_continuous()` pattern at `R/mock_spec.R:287` exactly, forwarding the same parameters.
 
-- [ ] **Step 5: Validator branches**
+- [x] **Step 5: Validator branches**
 
 Per-variable (`R/mock_spec.R`, extend the type chain before the `:855` unsupported-type error):
 
@@ -322,9 +322,9 @@ Per-variable (`R/mock_spec.R`, extend the type chain before the `:855` unsupport
 
 Spec-level (`validate_mock_spec()`, after per-variable validation succeeds): call `.validate_formula_referents(spec)` and `.order_formula_variables(spec)` inside a tryCatch that converts their `stop()`s into validation errors in the same style as existing spec-level checks — read how `validate_mock_spec()` accumulates errors and match it. Constructor-time validation (`mock_spec(validate = TRUE)`) then rejects unknown referents, disallowed symbols, and cycles at construction, which is what the Step 1 tests assert.
 
-- [ ] **Step 6: Run the test file** — expected all PASS. **Bounded contingency:** if construction is *lazy* for spec-level checks (errors only via explicit `validate_mock_spec()`), check how `mock_spec()` invokes validation (`R/mock_spec.R:239` area, `validate = TRUE` default → strict) — the seed/exponential work confirmed construction validates eagerly, so eager is expected; if a test still fails, STOP and report rather than weakening the test.
+- [x] **Step 6: Run the test file** — expected all PASS. **Bounded contingency:** if construction is *lazy* for spec-level checks (errors only via explicit `validate_mock_spec()`), check how `mock_spec()` invokes validation (`R/mock_spec.R:239` area, `validate = TRUE` default → strict) — the seed/exponential work confirmed construction validates eagerly, so eager is expected; if a test still fails, STOP and report rather than weakening the test.
 
-- [ ] **Step 7: `devtools::document()`; full suite; commit**
+- [x] **Step 7: `devtools::document()`; full suite; commit**
 
 Run full suite — expected: baseline counts + new passes, no new WARN/SKIP.
 
@@ -350,7 +350,7 @@ recovered from the v0.4 spike."
 - Consumes: Task 1 helpers; `.with_mock_seed(seed, expr, stage)` and `.MOCK_STAGES["formula"]` from #38.
 - Produces: exported `evaluate_mock_formulas(data, spec, seed = NULL)` → data frame with formula columns appended (order of existing columns unchanged; no-op returning `data` when the spec has no formula variables). Consumed by Task 3's orchestrator.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```r
 test_that("evaluate_mock_formulas computes algebraic derivations correctly", {
@@ -446,9 +446,9 @@ test_that("rtype coercion applies to formula outputs", {
 
 (Clean up the sandbox-test scaffolding per the NOTE — the plan expects eager construction validation, so the "leaky" test becomes `expect_error(mock_spec(...), "references unknown variable")`.)
 
-- [ ] **Step 2: Run — verify failures** (`could not find function "evaluate_mock_formulas"`; the native-skip expectation fails because `.generate_native_variable()` stops on type "formula").
+- [x] **Step 2: Run — verify failures** (`could not find function "evaluate_mock_formulas"`; the native-skip expectation fails because `.generate_native_variable()` stops on type "formula").
 
-- [ ] **Step 3: Native skip**
+- [x] **Step 3: Native skip**
 
 In `generate_mock_data_native()` (`R/mock_spec_native.R`, around `:383`), before the lapply, filter:
 
@@ -461,7 +461,7 @@ In `generate_mock_data_native()` (`R/mock_spec_native.R`, around `:383`), before
 
 (Adapt names to the actual local code; the empty-formula-only-spec case must still return an `n`-row 0-column frame via the existing `.empty_native_data(n)` path — check how the current code assembles `columns` into a data frame and preserve it.) Document the skip in the function's roxygen `@details`: formula variables are produced by `evaluate_mock_formulas()`, not the backend.
 
-- [ ] **Step 4: The evaluator** (append to `R/mock_spec_formula.R`)
+- [x] **Step 4: The evaluator** (append to `R/mock_spec_formula.R`)
 
 ```r
 #' @noRd
@@ -571,7 +571,7 @@ evaluate_mock_formulas <- function(data, spec, seed = NULL) {
 
 Note on `envir = as.list(data)`: eval with a list envir + `enclos` gives column lookup first, then the allow-list env, whose parent is `emptyenv()` — nothing else is reachable. Verify with the sandbox tests; if `as.list()` + enclos misbehaves for `nrow(data) == 0` columns, use `list2env(as.list(data), parent = fn_env)` and drop `enclos` — either satisfies the tests; pick the one that passes and note which in the report.
 
-- [ ] **Step 5: Run tests → PASS; full suite; commit** (message: "Add evaluate_mock_formulas() with sandboxed post-baseline evaluation (#39)" + body noting native backend skips formula variables and the sandbox contract).
+- [x] **Step 5: Run tests → PASS; full suite; commit** (message: "Add evaluate_mock_formulas() with sandboxed post-baseline evaluation (#39)" + body noting native backend skips formula variables and the sandbox contract).
 
 ### Task 3: Adapter + orchestrator wiring, diagnostics, end-to-end
 
@@ -584,7 +584,7 @@ Note on `envir = as.list(data)`: eval with a list envir + `enclos` gives column 
 **Interfaces:**
 - Consumes: Tasks 1–2. Produces: `create_mock_data()` end-to-end support; `mockFormula` metadata column.
 
-- [ ] **Step 1: Write the failing tests** (model in-memory metadata on the recodeflow-exponential integration test in `tests/testthat/test-native-exponential.R` — reuse its exact column structure, adding a `mockFormula` column on the details rows):
+- [x] **Step 1: Write the failing tests** (model in-memory metadata on the recodeflow-exponential integration test in `tests/testthat/test-native-exponential.R` — reuse its exact column structure, adding a `mockFormula` column on the details rows):
 
 ```r
 test_that("mockFormula metadata generates a derived column end-to-end", {
@@ -632,12 +632,12 @@ test_that("existing formula-free seeded output is unchanged by the formula stage
 })
 ```
 
-- [ ] **Step 2: Adapter changes** (`R/mock_spec_recodeflow.R`):
+- [x] **Step 2: Adapter changes** (`R/mock_spec_recodeflow.R`):
   1. A helper `.details_mock_formula(details)` returning the first non-blank `mockFormula` among the variable's detail rows ("" default; column may be absent).
   2. In `.recodeflow_to_spec_variable()`: if `.details_mock_formula(details)` is non-blank, construct via `mock_spec_formula(name, formula = <value>, rtype = <resolved rtype>, missing_codes/garbage from the existing extraction)` instead of the kind-dispatched constructor. The variable's `variableType` may say Continuous — the formula type takes precedence; reuse the row's already-extracted missing-code/garbage settings so postprocess behaviour matches other variables.
   3. The `exclude_derived` block (`:471-472`): filter the `identify_derived_vars()` hits to exclude only those **without** a non-blank `mockFormula` in their detail rows (D6 carve-out). Keep `exclude_derived = TRUE` default semantics otherwise. The `has_mock_formula` check must use the same databaseStart-filtered details view as construction (`.filter_recodeflow_details()`), never the raw `variable == v` subset — otherwise a variable with a mockFormula in one cycle but not another gets kept for a cycle where construction can't find a formula, crashing generation instead of staying excluded (#39 review finding).
 
-- [ ] **Step 3: Orchestrator changes** (`R/create_mock_data.R`):
+- [x] **Step 3: Orchestrator changes** (`R/create_mock_data.R`):
   1. Unsupported-check (`:12-18`): replace the blanket `has_formula → TRUE` with: `if (variable$type == "formula") return(FALSE)` (supported), and keep `has_formula && type != "formula"` → TRUE (a stray formula on a non-formula variable remains a fallback trigger — defensive).
   2. Pipeline (`:98-102`): insert the stage —
 
@@ -649,16 +649,16 @@ test_that("existing formula-free seeded output is unchanged by the formula stage
 
   (Update the comment above it to name all three sub-streams.)
 
-- [ ] **Step 4: Diagnostics (D5)** — in `.postprocess_empty_diagnostics()` (`R/mock_spec_postprocess.R`), when building each variable's entry, add for formula variables: `derived = TRUE`, `formula = variable$formula`, `depends_on = variable$depends_on`. Read the function first and match its list-building style exactly.
+- [x] **Step 4: Diagnostics (D5)** — in `.postprocess_empty_diagnostics()` (`R/mock_spec_postprocess.R`), when building each variable's entry, add for formula variables: `derived = TRUE`, `formula = variable$formula`, `depends_on = variable$depends_on`. Read the function first and match its list-building style exactly.
 
-- [ ] **Step 5: Run tests → PASS. Full suite — the #48 stage-index and pinned-value tests MUST still pass untouched (they prove no output shift). `devtools::check()` clean. Commit** ("Wire mockFormula through the recodeflow adapter and orchestrator (#39)" + body covering the D6 carve-out, the unsupported-check inversion, diagnostics fields).
+- [x] **Step 5: Run tests → PASS. Full suite — the #48 stage-index and pinned-value tests MUST still pass untouched (they prove no output shift). `devtools::check()` clean. Commit** ("Wire mockFormula through the recodeflow adapter and orchestrator (#39)" + body covering the D6 carve-out, the unsupported-check inversion, diagnostics fields).
 
 ### Task 4: Docs, NEWS, stale-claims sweep
 
 **Files:**
 - Modify: `NEWS.md`; `R/` roxygen touch-ups from review; `vignettes/design-philosophy-v04.qmd`; `vignettes/migrating-from-v03-v04.qmd`; `development/adr/v05-formula-evaluator.md` (status line)
 
-- [ ] **Step 1: NEWS** (feature bullet under the development-version heading, NOT in the breaking-change section — this is additive):
+- [x] **Step 1: NEWS** (feature bullet under the development-version heading, NOT in the breaking-change section — this is additive):
 
 ```markdown
 ## Formula-derived variables (#39, Phase A)
@@ -673,13 +673,13 @@ test_that("existing formula-free seeded output is unchanged by the formula stage
   generation, and `Func::` dispatch is not yet supported.
 ```
 
-- [ ] **Step 2: Stale-claims sweep** (the #45/#48 reviews both caught rendered-false docs — do not repeat that):
+- [x] **Step 2: Stale-claims sweep** (the #45/#48 reviews both caught rendered-false docs — do not repeat that):
   - `vignettes/design-philosophy-v04.qmd` "What is deliberately deferred": formula variables are no longer fully deferred — rewrite that sentence to say algebraic `mockFormula` generation landed in v0.5 (Phase A) while `Func::` dispatch and a general evaluator remain deferred.
   - `vignettes/migrating-from-v03-v04.qmd`: the fallback-conditions section names formula variables as a legacy-fallback trigger — verify and update: variables with `mockFormula` now route natively; a stray `formula` field on a non-formula variable still falls back. Run `quarto render vignettes/migrating-from-v03-v04.qmd --to html` and confirm no chunk renders a claim the code contradicts (delete generated output after).
   - Grep vignettes + README for `mockFormula`, "formula", "derived" claims: `grep -rn "formula" vignettes/*.qmd README.md | grep -iv "mockFormula"` — inspect hits that assert formulas are unsupported/deferred; fix only genuinely contradicted statements.
   - `development/adr/v05-formula-evaluator.md`: append to the Status line: "Implemented in PR #<this one> (Phase A)."
 
-- [ ] **Step 3: `devtools::document()`; full suite; `devtools::check()`; commit** ("Document formula-derived variables and refresh deferred-work claims (#39)").
+- [x] **Step 3: `devtools::document()`; full suite; `devtools::check()`; commit** ("Document formula-derived variables and refresh deferred-work claims (#39)").
 
 ---
 
