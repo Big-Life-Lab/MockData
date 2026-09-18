@@ -25,6 +25,22 @@ test_that("native backend returns typed zero-row output for n = 0", {
   expect_type(result$age, "double")
 })
 
+test_that("simstudy backend matches the native zero-row contract for n = 0", {
+  # Issue #50: simstudy::genData(0, def) builds its id table as
+  # data.table(x = 1:n), and 1:0 is c(1, 0) -- two rows -- so evaluation
+  # stops with a length mismatch. Both simstudy-eligible types are covered.
+  skip_if_not_installed("simstudy")
+  spec <- mock_spec(
+    mock_spec_categorical("smoking", levels = c("never", "former", "current")),
+    mock_spec_continuous("age", range = c(18, 80))
+  )
+  result <- generate_mock_data_simstudy(spec, n = 0, seed = 1)
+  expect_identical(result, generate_mock_data_native(spec, n = 0, seed = 1))
+  expect_identical(nrow(result), 0L)
+  expect_named(result, c("smoking", "age"))
+  expect_type(result$age, "double")
+})
+
 test_that("native backend returns n rows and zero columns for an empty spec", {
   expect_identical(dim(generate_mock_data_native(mock_spec(), n = 10)), c(10L, 0L))
   expect_identical(dim(generate_mock_data_native(mock_spec(), n = 0)), c(0L, 0L))

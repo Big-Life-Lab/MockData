@@ -22,9 +22,11 @@ reference:
   - mock_continuous
   - mock_categorical
   - mock_date
+  - mock_formula
   - mock_spec_continuous
   - mock_spec_categorical
   - mock_spec_date
+  - mock_spec_formula
   - is_mock_spec
   - validate_mock_spec
   - mock_spec_model_hints
@@ -37,6 +39,7 @@ reference:
   - mock_spec_from_recodeflow
   - generate_mock_data_native
   - generate_mock_data_simstudy
+  - evaluate_mock_formulas
   - postprocess_mock_data
 
 - title: Main generation functions

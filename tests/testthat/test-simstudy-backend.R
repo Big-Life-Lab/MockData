@@ -251,3 +251,35 @@ test_that("generate_mock_data_simstudy keeps deferred formula variables loud", {
     "Formula evaluation is not yet implemented"
   )
 })
+
+test_that("generate_mock_data_simstudy skips genuine formula variables like the native backend, restoring the two-step workflow", {
+  # Task 2 review finding 2: the simstudy baseline path had no formula filter,
+  # so a genuine type = "formula" variable died with "Native backend does not
+  # support variable type 'formula'" inside .generate_native_only_baseline().
+  skip_if_not_installed("simstudy")
+
+  spec <- mock_spec(
+    mock_spec_continuous("height", range = c(1.4, 2.1)),
+    mock_spec_continuous("weight", range = c(45, 150)),
+    mock_spec_formula("bmi", formula = "weight / (height^2)")
+  )
+
+  baseline <- generate_mock_data_simstudy(spec, n = 20, seed = 11)
+  expect_false("bmi" %in% names(baseline))
+
+  result <- evaluate_mock_formulas(baseline, spec, seed = 11)
+  expect_identical(result$bmi, baseline$weight / (baseline$height^2))
+})
+
+test_that(".native_only_variables() excludes formula variables regardless of simstudy availability", {
+  # Pins the fix's core logic in a helper that needs no simstudy install, per
+  # the review's request to pin it even where simstudy is absent.
+  spec <- mock_spec(
+    mock_spec_categorical("smoking", levels = c("never", "current")),
+    mock_spec_continuous("age_normal", range = c(18, 85), distribution = "normal", mean = 40, sd = 10),
+    mock_spec_formula("bmi", formula = "age_normal * 2")
+  )
+
+  result <- .native_only_variables(spec)
+  expect_setequal(names(result), "age_normal")
+})

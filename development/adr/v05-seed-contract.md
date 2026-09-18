@@ -1,6 +1,6 @@
 # ADR: v0.5 Seed and RNG-Stream Contract
 
-**Status**: ACCEPTED 2026-07-06 — full-bundle contract, co-released with #39 in v0.5. Implementation is a separate ADR-gated plan (not yet written). Any individual decision below remains open to maintainer revision before implementation begins.
+**Status**: ACCEPTED 2026-07-06 — full-bundle contract, co-released with #39 in v0.5. Implemented per `development/plans/2026-07-06-seed-contract.md` and merged to `dev` via PR #48 (2026-07-16). Follow-up: #47 (standalone generators).
 **Date**: drafted 2026-07-03; accepted 2026-07-06
 **Decision owner**: MockData maintainers
 **Issue**: #38 (fulfils #22; resolves #33 item 11)

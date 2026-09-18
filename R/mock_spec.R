@@ -463,6 +463,73 @@ mock_date <- function(name,
   )
 }
 
+#' Create a direct formula-derived mock-data specification
+#'
+#' `mock_formula()` is the simple direct API for formula-derived variables. It
+#' returns a validated `mock_spec`; it does not generate data. Formula
+#' variables have no `range`/`levels`/`distribution` of their own — their
+#' values come from evaluating `formula` over other variables in the same
+#' specification once those have been generated; see
+#' [evaluate_mock_formulas()].
+#'
+#' @details
+#' Use `mock_formula()` when specifying one formula variable directly in R
+#' code. Use [mock_spec_formula()] with [mock_spec()] when composing several
+#' variables or when writing an adapter from another metadata source.
+#'
+#' @param name Variable name.
+#' @param formula Character scalar. An algebraic expression over other
+#'   variable names, e.g. `"weight / (height^2)"`.
+#' @param rtype R output type for the computed column. Defaults to `"double"`.
+#' @param missing_codes Explicit missing-code values.
+#' @param missing_proportions Missing-code probabilities aligned to
+#'   `missing_codes`.
+#' @param garbage_rules List of intentional invalid-value rules.
+#' @param provenance Optional provenance metadata. Defaults to the direct API.
+#' @param model_hint Backend hint.
+#' @param spec_version Character version of the specification shape.
+#'
+#' @return A validated `mock_spec` object containing one formula variable.
+#' @family direct specification APIs
+#' @seealso [mock_spec()], [mock_spec_formula()], [evaluate_mock_formulas()]
+#'
+#' @examples
+#' bmi_spec <- mock_spec(
+#'   mock_spec_continuous("height", range = c(1.4, 2.1)),
+#'   mock_spec_continuous("weight", range = c(45, 150)),
+#'   mock_spec_formula("bmi", formula = "weight / (height^2)")
+#' )
+#' validate_mock_spec(bmi_spec)
+#'
+#' @export
+mock_formula <- function(name,
+                         formula,
+                         rtype = "double",
+                         missing_codes = numeric(0),
+                         missing_proportions = numeric(0),
+                         garbage_rules = list(),
+                         provenance = NULL,
+                         model_hint = "auto",
+                         spec_version = .mock_spec_version) {
+  provenance <- .direct_api_provenance("mock_formula", provenance)
+
+  mock_spec(
+    mock_spec_formula(
+      name = name,
+      formula = formula,
+      rtype = rtype,
+      missing_codes = missing_codes,
+      missing_proportions = missing_proportions,
+      garbage_rules = garbage_rules,
+      provenance = provenance,
+      model_hint = model_hint
+    ),
+    spec_version = spec_version,
+    provenance = provenance,
+    model_hint = model_hint
+  )
+}
+
 #' Create a continuous variable specification
 #'
 #' @param name Variable name.
@@ -625,6 +692,55 @@ mock_spec_date <- function(name,
     provenance = provenance,
     model_hint = model_hint
   )
+}
+
+#' Create a formula-derived variable specification
+#'
+#' `mock_spec_formula()` describes a variable computed from other generated
+#' variables by evaluating an algebraic expression (a `mockFormula`), rather
+#' than sampled from a distribution. Evaluation happens in a restricted
+#' environment exposing only the generated columns and a fixed allow-list of
+#' base functions; see [evaluate_mock_formulas()].
+#'
+#' @param name Variable name.
+#' @param formula Character scalar. An algebraic expression over other
+#'   variable names, e.g. `"weight / (height^2)"`.
+#' @param rtype R output type for the computed column. Defaults to `"double"`.
+#' @param missing_codes,missing_proportions,garbage_rules,provenance,model_hint
+#'   As for other variable specifications; applied by post-processing.
+#'
+#' @return A `mock_spec_variable` object of type `"formula"`.
+#' @family mock specification APIs
+#' @seealso [mock_formula()], [evaluate_mock_formulas()]
+#' @export
+mock_spec_formula <- function(name,
+                              formula,
+                              rtype = "double",
+                              missing_codes = numeric(0),
+                              missing_proportions = numeric(0),
+                              garbage_rules = list(),
+                              provenance = "direct",
+                              model_hint = "auto") {
+  variable <- .new_mock_spec_variable(
+    name = name,
+    type = "formula",
+    rtype = rtype,
+    formula = formula,
+    missing_codes = missing_codes,
+    missing_proportions = missing_proportions,
+    garbage_rules = garbage_rules,
+    provenance = provenance,
+    model_hint = model_hint
+  )
+  # Parse failures are reported by validate_mock_spec(), not the constructor,
+  # matching the sibling constructors' defer-all-validation contract.
+  # depends_on is computed once here at construction time; it is not
+  # re-synced if `formula` is mutated afterwards.
+  variable$depends_on <- tryCatch(
+    .formula_dependencies(variable),
+    error = function(e) character(0)
+  )
+  variable
 }
 
 #' Check whether an object is a MockData specification
@@ -851,6 +967,27 @@ print.mock_spec_validation_result <- function(x, ...) {
     }
   } else if (variable$type == "date") {
     errors <- c(errors, .validate_range(variable$range, variable$name, "Date"))
+  } else if (variable$type == "formula") {
+    f <- variable$formula
+    if (is.null(f) || !is.character(f) || length(f) != 1 || is.na(f) ||
+        trimws(f) == "") {
+      errors <- c(errors, paste0(
+        "Variable '", variable$name,
+        "' formula type requires a non-empty character formula."
+      ))
+    } else {
+      parse_error <- tryCatch({ str2lang(f); NULL }, error = function(e) conditionMessage(e))
+      if (!is.null(parse_error)) {
+        errors <- c(errors, paste0(
+          "Variable '", variable$name, "' formula could not be parsed: ", parse_error
+        ))
+      }
+    }
+    if (!variable$rtype %in% c("double", "numeric", "integer", "factor", "character", "logical")) {
+      errors <- c(errors, paste0(
+        "Variable '", variable$name, "' has unsupported formula rType '", variable$rtype, "'."
+      ))
+    }
   } else {
     errors <- c(errors, paste0("Variable '", variable$name, "' has unsupported type '", variable$type, "'."))
   }
@@ -907,6 +1044,15 @@ validate_mock_spec <- function(spec, n = NULL, strict = TRUE) {
       }
       for (variable in spec$variables) {
         errors <- c(errors, .validate_mock_spec_variable(variable))
+      }
+
+      formula_error <- tryCatch({
+        .validate_formula_referents(spec)
+        .order_formula_variables(spec)
+        NULL
+      }, error = function(e) conditionMessage(e))
+      if (!is.null(formula_error)) {
+        errors <- c(errors, formula_error)
       }
     }
   }
