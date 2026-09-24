@@ -611,3 +611,28 @@ test_that("create_wide_survival_data() warns once per session that it is depreca
   expect_true(any(grepl("deprecated as of MockData 0.5.0", call_legacy())))
   expect_false(any(grepl("deprecated as of MockData 0.5.0", call_legacy())))
 })
+
+test_that("survival metadata errors do not recommend the legacy route (final review)", {
+  # validate = FALSE would hit the D10 stop for anchored metadata, or silently
+  # drop survival dates for metadata that still lacks anchor, so the v0.4
+  # wrapper must not suggest it when the metadata describes survival dates.
+  error_message <- function(md) {
+    tryCatch(
+      suppressMessages(create_mock_data("study", md$variables, md$variable_details,
+                                        n = 10, seed = 1)),
+      error = function(e) conditionMessage(e)
+    )
+  }
+  no_anchor <- survival_metadata()
+  no_anchor$variables$anchor[no_anchor$variables$variable == "death"] <- ""
+  message <- error_message(no_anchor)
+  expect_match(message, "but no anchor")
+  expect_no_match(message, "call create_mock_data() with validate = FALSE", fixed = TRUE)
+  expect_match(message, "validate = FALSE is not a workaround for survival dates", fixed = TRUE)
+
+  disabled_anchor <- survival_metadata()
+  disabled_anchor$variables$role[disabled_anchor$variables$variable == "entry"] <- "disabled"
+  message <- error_message(disabled_anchor)
+  expect_match(message, "not a variable in the spec")
+  expect_match(message, "validate = FALSE is not a workaround for survival dates", fixed = TRUE)
+})

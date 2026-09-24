@@ -49,6 +49,23 @@
 }
 
 #' @noRd
+.has_survival_metadata <- function(variables) {
+  # A row sets anchor, or carries survival parameters (followup_min,
+  # followup_max, event_prop): the metadata describes survival dates.
+  if ("anchor" %in% names(variables)) {
+    anchors <- as.character(variables$anchor)
+    if (any(!is.na(anchors) & trimws(anchors) != "")) {
+      return(TRUE)
+    }
+  }
+  survival_fields <- intersect(c("followup_min", "followup_max", "event_prop"), names(variables))
+  any(vapply(survival_fields, function(field) {
+    values <- as.character(variables[[field]])
+    any(!is.na(values) & trimws(values) != "")
+  }, logical(1)))
+}
+
+#' @noRd
 .create_mock_data_v04_native_supported <- function(spec) {
   length(.create_mock_data_v04_unsupported_variables(spec)) == 0
 }
@@ -81,13 +98,27 @@
       role = "enabled"
     ),
     error = function(e) {
+      # Survival dates are generated only by the v0.4 pipeline (ADR
+      # v05-survival-dates D10): validate = FALSE would stop on anchored
+      # metadata or silently drop survival dates, so it is not offered then.
+      advice <- if (.has_survival_metadata(variables)) {
+        paste0(
+          "Fix the metadata as the message above describes. Survival dates ",
+          "are generated only by the v0.4 pipeline, so validate = FALSE is ",
+          "not a workaround for survival dates."
+        )
+      } else {
+        paste0(
+          "Fix the metadata (for exponential variables, supply a positive ",
+          "'rate'), or call create_mock_data() with validate = FALSE to use ",
+          "the legacy generator, which warns and substitutes a uniform draw ",
+          "for invalid distribution parameters."
+        )
+      }
       stop(
         conditionMessage(e), "\n",
         "Metadata validation failed while building the v0.4 specification. ",
-        "Fix the metadata (for exponential variables, supply a positive 'rate'), ",
-        "or call create_mock_data() with validate = FALSE to use the legacy ",
-        "generator, which warns and substitutes a uniform draw for invalid ",
-        "distribution parameters.",
+        advice,
         call. = FALSE
       )
     }
