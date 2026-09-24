@@ -48,7 +48,7 @@ Pins what the port must reproduce, before any code changes. These tests describe
 - Consumes: `create_wide_survival_data()` (unchanged)
 - Produces: nothing used by later tasks; the scenarios are mirrored against the new stage in Task 3.
 
-- [ ] **Step 1: Record the baseline**
+- [x] **Step 1: Record the baseline**
 
 ```bash
 cd /Users/dmanuel/github/mock-data && Rscript -e '
@@ -60,7 +60,7 @@ bad <- df[df$failed > 0 | df$error, c("file", "test")]; if (nrow(bad)) print(bad
 
 Expected at `2548b51` with simstudy installed: `FAIL 0 | ERROR 0 | WARN 35 | SKIP 3 | PASS 811`. Record the actual line; every later task compares against it.
 
-- [ ] **Step 2: Write the characterization tests**
+- [x] **Step 2: Write the characterization tests**
 
 ```r
 # tests/testthat/test-survival-characterization.R
@@ -172,12 +172,12 @@ test_that("legacy: on the minimal example no date precedes the entry date", {
 })
 ```
 
-- [ ] **Step 3: Run them — expected PASS (characterization)**
+- [x] **Step 3: Run them — expected PASS (characterization)**
 
 Run: `Rscript -e 'devtools::load_all(quiet = TRUE); testthat::test_file("tests/testthat/test-survival-characterization.R")'`
 Expected: 5 tests, 13 expectations, all PASS. If any fails, stop: the legacy engine differs from what the plan assumes; report rather than editing the test.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tests/testthat/test-survival-characterization.R
@@ -208,7 +208,7 @@ no date before entry on the minimal example, and the #54 Gompertz clamp."
   - `.order_dependent_variables(names_in_scope, dependencies, label)` → character (stops with `"<label> dependency cycle or unresolved ordering among: ..."`)
   - `.order_survival_variables(spec)` → character; `.order_formula_variables(spec)` keeps its behaviour and message
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```r
 # tests/testthat/test-survival-vars.R
@@ -385,12 +385,12 @@ test_that("formula ordering is unchanged by the shared ordering helper", {
 })
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `Rscript -e 'devtools::load_all(quiet = TRUE); testthat::test_file("tests/testthat/test-survival-vars.R")'`
 Expected: FAIL/ERROR with `could not find function "mock_spec_survival"` (the formula-ordering test passes already).
 
-- [ ] **Step 3: Generalize the ordering helper in `R/mock_spec_formula.R`**
+- [x] **Step 3: Generalize the ordering helper in `R/mock_spec_formula.R`**
 
 Replace the whole of `.order_formula_variables()` (lines 87-126, from `#' @noRd` through its closing `}`) with:
 
@@ -447,7 +447,7 @@ Replace the whole of `.order_formula_variables()` (lines 87-126, from `#' @noRd`
 }
 ```
 
-- [ ] **Step 4: Create `R/mock_spec_survival.R`**
+- [x] **Step 4: Create `R/mock_spec_survival.R`**
 
 ```r
 # ==============================================================================
@@ -610,7 +610,7 @@ Replace the whole of `.order_formula_variables()` (lines 87-126, from `#' @noRd`
 }
 ```
 
-- [ ] **Step 5: Add the constructor to `R/mock_spec.R`**
+- [x] **Step 5: Add the constructor to `R/mock_spec.R`**
 
 Insert immediately after the closing `}` of `mock_spec_formula()` (the line after `  variable\n}` that ends it, before `#' Check whether an object is a MockData specification`):
 
@@ -699,7 +699,7 @@ mock_spec_survival <- function(name,
 
 ```
 
-- [ ] **Step 6: Validator branches in `R/mock_spec.R`**
+- [x] **Step 6: Validator branches in `R/mock_spec.R`**
 
 In `.validate_mock_spec_variable()`, replace:
 
@@ -744,12 +744,12 @@ with:
       }
 ```
 
-- [ ] **Step 7: Run the new tests — expected PASS**
+- [x] **Step 7: Run the new tests — expected PASS**
 
 Run: `Rscript -e 'devtools::load_all(quiet = TRUE); testthat::test_file("tests/testthat/test-survival-vars.R")'`
 Expected: 10 tests PASS.
 
-- [ ] **Step 8: Document, run the full suite, commit**
+- [x] **Step 8: Document, run the full suite, commit**
 
 Run `Rscript -e 'devtools::document()'`, then the Task 1 Step 1 snippet. Expected: FAIL 0 | ERROR 0, WARN and SKIP unchanged from the baseline, PASS up by this task's expectations. The existing formula tests (`test-formula-vars.R`, including `"dependency cycle"`) must pass unchanged.
 
@@ -788,7 +788,7 @@ its messages are unchanged."
   - `.MOCK_STAGES["survival"] == 4L`
   - diagnostics fields for survival variables: `derived`, `anchor`, `censored_by`, `depends_on`, `n_events`
 
-- [ ] **Step 1: Write the failing tests (append to `tests/testthat/test-survival-vars.R`)**
+- [x] **Step 1: Write the failing tests (append to `tests/testthat/test-survival-vars.R`)**
 
 ```r
 run_stage <- function(spec, n = 200, seed = 1) {
@@ -1028,12 +1028,12 @@ test_that("the rules use true dates: a censoring death later replaced by garbage
 })
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `Rscript -e 'devtools::load_all(quiet = TRUE); testthat::test_file("tests/testthat/test-survival-vars.R")'`
 Expected: the new tests ERROR with `could not find function "generate_survival_dates"` or `Native backend does not support variable type 'survival'`; Task 2's tests still PASS.
 
-- [ ] **Step 3: Append the generation code to `R/mock_spec_survival.R`**
+- [x] **Step 3: Append the generation code to `R/mock_spec_survival.R`**
 
 ```r
 #' @noRd
@@ -1174,7 +1174,7 @@ generate_survival_dates <- function(data, spec, seed = NULL) {
 }
 ```
 
-- [ ] **Step 4: Append the survival stage in `R/mock_spec_native.R`**
+- [x] **Step 4: Append the survival stage in `R/mock_spec_native.R`**
 
 Replace:
 
@@ -1240,7 +1240,7 @@ with:
 #'   [evaluate_mock_formulas()]).
 ```
 
-- [ ] **Step 5: Mirror the skip in `R/mock_spec_simstudy.R`**
+- [x] **Step 5: Mirror the skip in `R/mock_spec_simstudy.R`**
 
 In `.native_only_variables()`, replace `!.is_formula_variable(variable) && !.simstudy_can_generate(variable)` with `!.is_derived_variable(variable) && !.simstudy_can_generate(variable)`. In `generate_mock_data_simstudy()`, replace:
 
@@ -1260,7 +1260,7 @@ with:
 
 Update both adjacent comments to say "derived variables (formula and survival)" where they say "type = \"formula\" variables".
 
-- [ ] **Step 6: Diagnostics in `R/mock_spec_postprocess.R`**
+- [x] **Step 6: Diagnostics in `R/mock_spec_postprocess.R`**
 
 Change the signature `.postprocess_empty_diagnostics <- function(spec, n) {` to `.postprocess_empty_diagnostics <- function(spec, n, data = NULL) {`. Inside it, directly after the formula block that ends:
 
@@ -1293,7 +1293,7 @@ insert:
 
 In `postprocess_mock_data()`, replace `diag <- .postprocess_empty_diagnostics(spec, nrow(data))` with `diag <- .postprocess_empty_diagnostics(spec, nrow(data), data)`.
 
-- [ ] **Step 7: Seed contract (`tests/testthat/test-seed-contract.R`)**
+- [x] **Step 7: Seed contract (`tests/testthat/test-seed-contract.R`)**
 
 In the test `"stage indices are frozen (renumbering would shift seeded output)"`, replace `c(baseline = 0L, postprocess = 1L, formula = 2L, correlate = 3L)` with `c(baseline = 0L, postprocess = 1L, formula = 2L, correlate = 3L, survival = 4L)`. Append at the end of the file:
 
@@ -1321,12 +1321,12 @@ test_that("survival stage output is pinned (catches a stage-index shift)", {
 })
 ```
 
-- [ ] **Step 8: Run the survival and seed tests — expected PASS**
+- [x] **Step 8: Run the survival and seed tests — expected PASS**
 
 Run: `Rscript -e 'devtools::load_all(quiet = TRUE); for (f in c("test-survival-vars.R", "test-seed-contract.R")) testthat::test_file(file.path("tests/testthat", f))'`
 Expected: all PASS. If the pinned survival test fails but everything else passes, compare the implementation line by line with Step 3 before suspecting the pin: the pin was computed from the same algorithm under the same stream.
 
-- [ ] **Step 9: Document, full suite, commit**
+- [x] **Step 9: Document, full suite, commit**
 
 `Rscript -e 'devtools::document()'`, then the Task 1 Step 1 snippet. Expected: FAIL 0 | ERROR 0; WARN and SKIP unchanged; every pre-existing pinned value passes untouched.
 
@@ -1362,7 +1362,7 @@ survives the rules; the rules use true dates) and the survival stream."
 - Consumes: `mock_spec_survival()`, `generate_survival_dates()`, `.is_blank()`, `.row_character()`, `.row_numeric()`, `.recodeflow_distribution()`
 - Produces: `create_mock_data()` runs baseline → survival → formulas → postprocess; adapter kind `"survival"`; the minimal example carries `anchor` and `censored_by`
 
-- [ ] **Step 1: Write the failing tests (append to `tests/testthat/test-survival-vars.R`)**
+- [x] **Step 1: Write the failing tests (append to `tests/testthat/test-survival-vars.R`)**
 
 ```r
 survival_metadata <- function() {
@@ -1482,12 +1482,12 @@ test_that("the minimal example generates all five survival dates via the v0.4 pi
 })
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `Rscript -e 'devtools::load_all(quiet = TRUE); testthat::test_file("tests/testthat/test-survival-vars.R")'`
 Expected: the seven new tests FAIL or ERROR (the adapter builds `event` as a plain date; the minimal example still falls back); Tasks 2 and 3 tests PASS.
 
-- [ ] **Step 3: Adapter (`R/mock_spec_recodeflow.R`)**
+- [x] **Step 3: Adapter (`R/mock_spec_recodeflow.R`)**
 
 In `.recodeflow_variable_kind()`, replace:
 
@@ -1604,7 +1604,7 @@ with:
 #' an error.
 ```
 
-- [ ] **Step 4: Orchestrator and legacy guard (`R/create_mock_data.R`)**
+- [x] **Step 4: Orchestrator and legacy guard (`R/create_mock_data.R`)**
 
 In `.create_mock_data_v04_unsupported_variables()`, directly after:
 
@@ -1698,7 +1698,7 @@ with:
 #' # proportions, so warnings about that are expected.
 ```
 
-- [ ] **Step 5: Add `anchor` and `censored_by` to the minimal example (R only)**
+- [x] **Step 5: Add `anchor` and `censored_by` to the minimal example (R only)**
 
 ```bash
 cd /Users/dmanuel/github/mock-data && Rscript -e '
@@ -1721,7 +1721,7 @@ print(new[new$anchor != "" | new$variable == "interview_date",
 
 Expected: the `stopifnot` passes (every existing column is unchanged) and the printout shows four survival rows anchored on `interview_date`, with `primary_event_date` censored by `death_date`.
 
-- [ ] **Step 6: Re-point the two tests whose vehicles no longer exist**
+- [x] **Step 6: Re-point the two tests whose vehicles no longer exist**
 
 In `tests/testthat/test-seed-contract.R`, in both `"legacy path (validate = FALSE) leaves the caller's RNG untouched"` and `"legacy path is reproducible for a given seed"`, directly after the line `  variable_details <- read.csv(dets, stringsAsFactors = FALSE, check.names = FALSE)` insert:
 
@@ -1782,12 +1782,12 @@ test_that("create_mock_data reports skipped variables when a generator returns N
 })
 ```
 
-- [ ] **Step 7: Run the affected files — expected PASS**
+- [x] **Step 7: Run the affected files — expected PASS**
 
 Run: `Rscript -e 'devtools::load_all(quiet = TRUE); for (f in c("test-survival-vars.R", "test-seed-contract.R", "test-critical-regressions.R", "test-recodeflow-mock-spec.R", "test-edge-case-contract.R")) testthat::test_file(file.path("tests/testthat", f))'`
 Expected: all PASS. `test-recodeflow-mock-spec.R`'s `"preserves garbage and survival fields"` passes unchanged: `primary_event_date` is now type `survival` but keeps the fields `distribution`, `event_prop` and `followup_max`. If the re-pointed critical-regressions test fails because the legacy path no longer warns `anchor_date`, stop and report: it means the detail-level route changed, not that the expectation should be loosened.
 
-- [ ] **Step 8: Document, full suite, commit**
+- [x] **Step 8: Document, full suite, commit**
 
 `Rscript -e 'devtools::document()'`, then the Task 1 Step 1 snippet. Expected: FAIL 0 | ERROR 0; SKIP unchanged. WARN may fall, because the minimal example no longer runs the legacy generator in tests that use it; it must not rise. If any other test fails because the minimal example now routes to v0.4, read the test: if it asserts a *behaviour* the v0.4 path breaks, fix the code; if it pins a legacy-path *value*, re-point it to the legacy path the way Step 6 does, and say so in the commit body.
 
@@ -1821,7 +1821,7 @@ survival date, which the adapter now rejects."
 - Consumes: `generate_survival_dates()`, `evaluate_mock_formulas()`, `postprocess_mock_data()`
 - Produces: `"is.na"` in `.formula_allowlist`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/testthat/test-formula-vars.R`:
 
@@ -1892,12 +1892,12 @@ test_that("formula columns describe clean truth; a later missing code does not c
 })
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `Rscript -e 'devtools::load_all(quiet = TRUE); testthat::test_file("tests/testthat/test-formula-vars.R"); testthat::test_file("tests/testthat/test-survival-vars.R")'`
 Expected: the four new tests ERROR with `uses function(s) not permitted in mockFormula expressions: is.na`.
 
-- [ ] **Step 3: Widen the allow-list**
+- [x] **Step 3: Widen the allow-list**
 
 In `R/mock_spec_formula.R`, replace:
 
@@ -1932,11 +1932,11 @@ with:
 
 In `development/adr/v05-formula-evaluator.md`, on line 3 replace `Implemented on branch v05-formula-evaluator (Phase A).` with `Implemented on branch v05-formula-evaluator (Phase A). Allow-list amended 2026-09-24 by \`v05-survival-dates.md\` D8 (adds \`is.na\`).`
 
-- [ ] **Step 4: Run the tests — expected PASS**
+- [x] **Step 4: Run the tests — expected PASS**
 
 Same command as Step 2. Expected: all PASS.
 
-- [ ] **Step 5: Full suite, commit**
+- [x] **Step 5: Full suite, commit**
 
 Task 1 Step 1 snippet. Expected: FAIL 0 | ERROR 0; WARN and SKIP no higher than after Task 4.
 
@@ -1961,7 +1961,7 @@ a missing code applied to the date afterwards leaves them unchanged."
 **Interfaces:**
 - Produces: internal `.mockdata_state` environment with `wide_survival_warned`
 
-- [ ] **Step 1: Write the failing test (append to `tests/testthat/test-survival-vars.R`)**
+- [x] **Step 1: Write the failing test (append to `tests/testthat/test-survival-vars.R`)**
 
 ```r
 test_that("create_wide_survival_data() warns once per session that it is deprecated", {
@@ -2003,11 +2003,11 @@ test_that("create_wide_survival_data() warns once per session that it is depreca
 })
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Expected: ERROR `object '.mockdata_state' not found`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `R/create_wide_survival_data.R`, insert at the very top of the file, before `#' Create wide survival data for cohort studies`:
 
@@ -2065,7 +2065,7 @@ Create `tests/testthat/helper-deprecation.R`:
 assign("wide_survival_warned", TRUE, envir = MockData:::.mockdata_state)
 ```
 
-- [ ] **Step 4: Run — expected PASS; full suite; commit**
+- [x] **Step 4: Run — expected PASS; full suite; commit**
 
 Run the survival file, then the Task 1 Step 1 snippet. Expected: FAIL 0 | ERROR 0; WARN no higher than after Task 5, which shows the helper keeps the legacy tests quiet.
 
@@ -2087,11 +2087,11 @@ as shown so the legacy survival tests gain no unrelated warnings."
 - Modify: `vignettes/tutorial-garbage-data.qmd`, `vignettes/reference-config.qmd`, `vignettes/advanced-topics.qmd`, `vignettes/design-philosophy-v04.qmd`
 - Modify: `development/post-v040-development-plan.md` (Task 7 checkboxes), `development/adr/v05-survival-dates.md` (status line)
 
-- [ ] **Step 1: `_pkgdown.yml`**
+- [x] **Step 1: `_pkgdown.yml`**
 
 Add `  - mock_spec_survival` on the line after `  - mock_spec_formula`, and `  - generate_survival_dates` on the line before `  - evaluate_mock_formulas`.
 
-- [ ] **Step 2: NEWS**
+- [x] **Step 2: NEWS**
 
 In `NEWS.md`, insert immediately before the line `## Reproducibility (breaking change)`:
 
@@ -2156,7 +2156,7 @@ with:
 
 (The acceptance criterion in #40 says "remove"; annotating keeps the historical entry accurate for readers of 0.2.0.)
 
-- [ ] **Step 3: Rewrite `vignettes/tutorial-survival-data.qmd`**
+- [x] **Step 3: Rewrite `vignettes/tutorial-survival-data.qmd`**
 
 Replace the whole file with:
 
@@ -2443,7 +2443,7 @@ Before MockData 0.5, survival data had to be generated separately with `create_w
 - [Advanced topics](advanced-topics.html) - Derived variables and technical details
 ````
 
-- [ ] **Step 4: Garbage tutorial survival section (`vignettes/tutorial-garbage-data.qmd`)**
+- [x] **Step 4: Garbage tutorial survival section (`vignettes/tutorial-garbage-data.qmd`)**
 
 Replace the sentence `The \`prop_garbage\` parameter in \`create_wide_survival_data()\` is deprecated. Instead, add garbage to individual date variables using these functions:` with `Add garbage to individual survival date variables with \`add_garbage()\`, then generate them with \`create_mock_data()\`:`.
 
@@ -2505,7 +2505,7 @@ Replace the five "Key points about survival garbage" bullets with:
 
 Replace the summary bullet `- **Add temporal violations in survival data** by adding garbage to individual date variables (not via \`create_wide_survival_data()\` function parameter)` with `- **Add temporal violations in survival data** by adding garbage to individual survival date variables`.
 
-- [ ] **Step 5: Reference, advanced topics, design philosophy**
+- [x] **Step 5: Reference, advanced topics, design philosophy**
 
 `vignettes/reference-config.qmd`: directly after the heading `### Extension columns (MockData-specific)` insert:
 
@@ -2588,7 +2588,7 @@ Generation produces three layers. **Clean truth** is the generated data before c
 Metadata-driven survival dates also landed in v0.5: a date with an `anchor` is computed from its entry date in a post-baseline stage, with the rules of the legacy `create_wide_survival_data()`. Exposure-dependent hazards and other causal structure remain future work; `development/adr/v05-survival-dates.md` records how the design leaves room for them.
 ```
 
-- [ ] **Step 6: Stale-claims sweep**
+- [x] **Step 6: Stale-claims sweep**
 
 Seven vignettes run `create_mock_data()` on the minimal example and now see v0.4 output with survival dates present. Run:
 
@@ -2609,7 +2609,7 @@ done
 
 If a render fails with `there is no package called 'MockData'`, run `Rscript -e 'devtools::install(upgrade = "never")'` first (#26). In the rendered `tutorial-survival-data.html`, check that `Events recorded after a death` is `0`, that `n_censored` is well above zero, and that the future-event and future-death counts are above zero.
 
-- [ ] **Step 7: Bookkeeping**
+- [x] **Step 7: Bookkeeping**
 
 In `development/post-v040-development-plan.md`, tick the three `- [ ]` steps under `### Task 7: Survival pairs in batch generation (#40)`:
 
@@ -2621,7 +2621,7 @@ awk '/^### Task 7/,/^### Task 8/' $P | grep -c '^- \[x\]'   # expect 3
 
  In `development/adr/v05-survival-dates.md`, append to the status line: ` Implemented on branch v05-survival-dates per development/plans/2026-09-24-survival-dates.md.` Tick this plan's checkboxes as tasks complete.
 
-- [ ] **Step 8: Full verification**
+- [x] **Step 8: Full verification**
 
 ```bash
 cd /Users/dmanuel/github/mock-data && Rscript -e 'devtools::document()' && Rscript -e '
@@ -2636,7 +2636,7 @@ cd /Users/dmanuel/github/mock-data && Rscript -e 'devtools::install(upgrade = "n
 
 Expected: suite FAIL 0 | ERROR 0; R CMD check 0 errors, 0 warnings, NOTEs only (new submission, time verification); pkgdown builds, including reference pages for `mock_spec_survival` and `generate_survival_dates`. Do not leave `MockData.Rcheck/` or tarballs in the repo (the check runs in a temp directory).
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add NEWS.md _pkgdown.yml vignettes/ development/

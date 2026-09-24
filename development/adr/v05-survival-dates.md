@@ -1,6 +1,6 @@
 # ADR: v0.5 Metadata-Driven Survival Dates
 
-**Status**: ACCEPTED 2026-09-24. Design agreed with the maintainer in conversation on 2026-09-22 (scope, fidelity policy, architecture, metadata convention, semantics); D5 and D8 ratified on 2026-09-24. Amended the same day after an external design review (Astra): D8's example corrected to derive status and time from one observation window, chained censoring rejected (D7), the three data layers named (D5), and the fixed stage order and event allocation stated as v0.5 restrictions (D4, D6, Future directions).
+**Status**: ACCEPTED 2026-09-24. Design agreed with the maintainer in conversation on 2026-09-22 (scope, fidelity policy, architecture, metadata convention, semantics); D5 and D8 ratified on 2026-09-24. Amended the same day after an external design review (Astra): D8's example corrected to derive status and time from one observation window, chained censoring rejected (D7), the three data layers named (D5), and the fixed stage order and event allocation stated as v0.5 restrictions (D4, D6, Future directions). Implemented on branch v05-survival-dates per development/plans/2026-09-24-survival-dates.md.
 **Date**: 2026-09-22
 **Decision owner**: MockData maintainers
 **Issue**: #40 (also advances #23, #17)

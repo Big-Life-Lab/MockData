@@ -177,7 +177,10 @@
 #' when `variable_details = NULL`, when detail-level `databaseStart` filtering is
 #' needed but the variables metadata has no `databaseStart` column, or when a
 #' variable uses a feature not yet supported by the v0.4 native backend. Set
-#' `verbose = TRUE` to see which path was chosen.
+#' `verbose = TRUE` to see which path was chosen. Survival dates (rows that
+#' set `anchor`) are generated only by the v0.4 pipeline: if the legacy path
+#' is selected for metadata that sets `anchor`, `create_mock_data()` stops and
+#' names the survival variables.
 #'
 #' In the v0.4 path, baseline generation and post-processing draw from distinct,
 #' independent sub-streams derived from a single `seed`; output is reproducible
@@ -233,12 +236,16 @@
 #' # Columns with straightforward metadata generate cleanly:
 #' head(mock_data[, c("age", "smoking", "interview_date")])
 #'
-#' # Fallback mode: no variable_details, simple default generators
+#' # Fallback mode: no variable_details, simple default generators. Survival
+#' # dates need the v0.4 pipeline, so drop the rows that set an anchor first.
+#' fallback_variables <- read.csv(
+#'   system.file("extdata/minimal-example/variables.csv", package = "MockData"),
+#'   stringsAsFactors = FALSE,
+#'   check.names = FALSE
+#' )
 #' mock_data <- create_mock_data(
 #'   databaseStart = "minimal-example",
-#'   variables = system.file("extdata/minimal-example/variables.csv",
-#'     package = "MockData"
-#'   ),
+#'   variables = fallback_variables[fallback_variables$anchor == "", ],
 #'   variable_details = NULL,
 #'   n = 500
 #' )
