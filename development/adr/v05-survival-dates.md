@@ -1,6 +1,6 @@
 # ADR: v0.5 Metadata-Driven Survival Dates
 
-**Status**: PROPOSED 2026-09-22. Design agreed with the maintainer in conversation (scope, fidelity policy, architecture, metadata convention, semantics). Two points need explicit ratification before implementation: D5 (contamination after the consistency rules) and D8 (adding `is.na` to the formula allow-list).
+**Status**: ACCEPTED 2026-09-24. Design agreed with the maintainer in conversation on 2026-09-22 (scope, fidelity policy, architecture, metadata convention, semantics); D5 and D8 ratified on 2026-09-24.
 **Date**: 2026-09-22
 **Decision owner**: MockData maintainers
 **Issue**: #40 (also advances #23, #17)
@@ -14,10 +14,10 @@
 | D2 | Scope | **Full parity** with `create_wide_survival_data()`: entry, event, death, loss to follow-up, administrative censoring, and both consistency rules |
 | D3 | Metadata convention | Two columns on `variables.csv` beside `followup_min`/`followup_max`/`event_prop`: `anchor` (required) and `censored_by` (optional) |
 | D4 | Fidelity | **Exact port** of the legacy statistics and rules; concerns are filed as issues, not fixed in #40 |
-| D5 | Contamination order | Consistency rules run on clean dates; missing codes and garbage are applied afterwards by postprocess (**ratify**) |
+| D5 | Contamination order | Consistency rules run on clean dates; missing codes and garbage are applied afterwards by postprocess |
 | D6 | Stage and seed | Pipeline becomes baseline, survival, formulas, postprocess. `.MOCK_STAGES` gains `survival = 4L` (appended; no existing index moves) |
 | D7 | Dependencies | Survival dates record `depends_on = c(anchor, censored_by)`, the field formulas already use; one ordering utility serves every derived stage |
-| D8 | Formula allow-list | Add `is.na`, so survival status and time can be derived with `mockFormula` (**ratify**; amends the #39 ADR's D3) |
+| D8 | Formula allow-list | Add `is.na`, so survival status and time can be derived with `mockFormula` (amends the #39 ADR's D3) |
 | D9 | Legacy path | `create_wide_survival_data()` warns once as deprecated and is kept as the characterization reference |
 
 ## Context
@@ -89,7 +89,7 @@ The legacy statistics and rules are ported verbatim:
 3. Date = anchor + follow-up days for events; `NA` otherwise.
 4. After all survival dates are drawn: any date earlier than its anchor becomes `NA`; then, for each variable with `censored_by`, rows where the censoring date is earlier become `NA`.
 
-Survival dates are drawn in spec `position` order. No ordering among them is needed, because every anchor is a baseline date.
+Survival dates are drawn in dependency order (D7), ties broken by spec `position`. In v0.5 every anchor is a baseline date, so this equals position order and changes no output. It keeps chained dates (a survival date anchored on another, such as an event whose hazard changes at an exposure-change date) a validator-only change later.
 
 Output cannot be bit-identical to `create_wide_survival_data()`, because the RNG streams differ (#38). Parity is therefore tested structurally and distributionally (Test strategy). Two further differences are inherent in the pipeline:
 
@@ -98,11 +98,13 @@ Output cannot be bit-identical to `create_wide_survival_data()`, because the RNG
 | Missing codes fill the last `n - n_valid` rows; events are split across the first `n_valid` rows (`R/create_date_var.R:295,417`) | Postprocess assigns missing codes at random rows | Missingness belongs to postprocess in v0.4. Proportions match in expectation |
 | Garbage is applied inside `create_date_var()`, before the rules, so before-entry garbage is erased | Rules run first; garbage afterwards (D5) | Stage order |
 
-### D5: Contamination after the consistency rules (ratify)
+### D5: Contamination after the consistency rules
 
 The consistency rules produce clean, analysis-ready dates. Missing codes and garbage are applied afterwards, by postprocess, as for every other variable. This matches #39, where formulas are computed on clean baseline values before contamination.
 
-It changes one behaviour. In the legacy engine, garbage that places a date before entry is set to `NA` by the before-entry rule; `test-survival-garbage-deprecation.R:147` acknowledges this. The garbage tutorial states that survival garbage exists to create temporal violations such as death before entry, for testing cleaning pipelines. Under D5 those violations survive, so the pipeline does what the tutorial describes. This is a change of stage order, not of any rule, but it alters legacy output and so needs explicit ratification under D4.
+It changes one behaviour. In the legacy engine, garbage that places a date before entry is set to `NA` by the before-entry rule; `test-survival-garbage-deprecation.R:147` acknowledges this. The garbage tutorial states that survival garbage exists to create temporal violations such as death before entry, for testing cleaning pipelines. Under D5 those violations survive, so the pipeline does what the tutorial describes. This is a change of stage order, not of any rule. Ratified 2026-09-24.
+
+One consequence: the rules use the true dates, and postprocess may then give a missing code to a date that censored another. The output can therefore show an event censored by a death that is itself recorded as missing. This mirrors real data, where a death is known to the registry but missing from the analysis file, and it is pinned by a test so it stays deliberate.
 
 ### D6: Stage and seed
 
@@ -112,9 +114,11 @@ It changes one behaviour. In the legacy engine, garbage that places a date befor
 
 Survival variables set `depends_on = c(anchor, censored_by)`. `.order_formula_variables()` (`R/mock_spec_formula.R:88`) is generalized to order any derived type by `depends_on`, and the formula stage uses the generalized version. The purpose is forward compatibility: a later structural-equation stage, whether in MockData or a separate package, would read a single dependency field from the spec and add a type rather than a mechanism.
 
-### D8: Add `is.na` to the formula allow-list (ratify)
+### D8: Add `is.na` to the formula allow-list
 
-The #39 allow-list has no missingness test, so a formula cannot derive an event indicator from a survival date. With `is.na` added, users can write, for example, `as.integer(!is.na(death_date))` for status and `as.numeric(pmin(death_date, admin_censor_date, na.rm = TRUE) - interview_date)` for follow-up time in days. The #39 ADR permits widening the list on concrete need; this is one. `is.na` has no side effects and cannot reach outside the sandbox.
+The #39 allow-list has no missingness test, so a formula cannot derive an event indicator from a survival date. With `is.na` added, users can write, for example, `as.integer(!is.na(death_date))` for status and `as.numeric(pmin(death_date, admin_censor_date, na.rm = TRUE) - interview_date)` for follow-up time in days. The #39 ADR permits widening the list on concrete need; this is one. `is.na` has no side effects and cannot reach outside the sandbox. Ratified 2026-09-24.
+
+Derived columns describe the true generated values. The #39 stage order computes formulas before postprocess, and postprocess contaminates each column independently: garbage only replaces existing values (`R/mock_spec_postprocess.R:255`), but missing codes may land on any row (`:192`). So a derived `status` of 1 can sit beside a `death_date` shown as missing, and a derived follow-up time reflects the true date where the observed one is garbage. (Verified with #39 code: in 1,000 rows, all 300 rows where a source column shows its missing code keep the formula value computed from the true value.) For testing a cleaning pipeline this is useful, because the derived columns are the answer key. For an analysis-ready teaching dataset it is not, and v0.5 does not offer the alternative; see Future directions.
 
 ### D9: Legacy path
 
@@ -157,6 +161,7 @@ Found while preparing this design. Each is reproduced exactly by the port.
 - New exports: `generate_survival_dates()`, `mock_survival()`, `mock_spec_survival()`. Additions to `_pkgdown.yml` in the same PR.
 - The formula allow-list grows by one function (D8).
 - Specs without survival variables: output unchanged.
+- Derived columns (formulas, survival status or time) describe true values; contamination is applied to each column independently (D8). Documented in the formula and survival vignettes.
 
 ## Test strategy
 
@@ -164,7 +169,8 @@ Found while preparing this design. Each is reproduced exactly by the port.
 2. **Validator and adapter.** One failing case, with its message, for each rule in "Validation"; the missing-anchor error.
 3. **Generation.** Event proportion within two-sided binomial bounds for each distribution (#23's direction); every non-`NA` date at or after its anchor; `censored_by` sets `NA` exactly where the censoring date is earlier and nowhere else; typed zero-row output for `n = 0`; skipping the stage makes postprocess fail on the missing column.
 4. **Contract.** Frozen-stage test extended with `survival = 4L`; pinned reference values for one survival spec; all existing pins untouched.
-5. **End to end.** `create_mock_data()` on the amended minimal example produces all five dates with no fallback; the simstudy backend produces the same survival columns; a `mockFormula` derives status and follow-up time from them (D8); D5 is pinned by a test showing before-entry garbage survives.
+5. **End to end.** `create_mock_data()` on the amended minimal example produces all five dates with no fallback; the simstudy backend produces the same survival columns; a `mockFormula` derives status and follow-up time from them (D8); D5 is pinned by a test showing before-entry garbage survives, and by a test showing an event censored by a death that postprocess then records as missing.
+6. **Draw order.** A test pins that survival draws follow dependency order with position tie-breaking, so a later change to either is visible.
 
 ## Migration
 
@@ -176,4 +182,14 @@ Found while preparing this design. Each is reproduced exactly by the port.
 ## Future directions
 
 - **Sidecar overlay (v0.6, separate ADR).** A MockData-owned table keyed by variable, joined onto `variables` before spec construction, so all extension columns can live outside recodeflow files. The legacy `mock_data_config.csv` readers from v0.2 are the starting point to reconcile or retire.
-- **Structural (causal) generation.** Out of scope. D1 and D7 keep one dependency field and one ordering mechanism for all derived variables, which is the base a DAG-driven stage would need.
+- **Observed-value derivation.** An option to compute formulas from contaminated values, so derived status and time agree with what the output shows (D8). An ordering option on the formula stage; no architectural change.
+- **Structural (causal) generation.** Out of scope. The maintainer's motivating case is exposure-dependent survival, such as smoking changing the hazard. Assessed against this design on 2026-09-24:
+
+  | Extension | What it needs | Change to the base? |
+  |---|---|---|
+  | Hazard varies with a baseline exposure | Survival parameters (for example a hazard ratio) given as sandboxed expressions over generated columns; `depends_on` records the exposure. The ported event assignment is count-based (`floor(n * event_prop)`), so per-person risk needs a per-person draw as a second path | No; additive |
+  | Hazard varies with a derived exposure (a formula variable) | Formula, then survival, then formula. The fixed stage order in D6 (survival before formulas) cannot express this; survival and formula variables would share one dependency-ordered pass | Yes, contained. D7 prepares it, and because the v0.5 validator forbids survival dates that depend on formulas, merging the passes shifts no existing seeded output |
+  | Exposure changes during follow-up | The change date is itself an anchored date; the event hazard is piecewise around it. Needs chained survival dates | No; D4 draws in dependency order, so only the validator rule changes |
+  | Several rows per person (counting-process data) | A second output shape | Yes; MockData produces one row per person. Wide data with change dates covers most analyses |
+
+  D1 and D7 keep one dependency field and one ordering mechanism for all derived variables, which is the base a DAG-driven stage would need.
