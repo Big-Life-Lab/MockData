@@ -8,7 +8,7 @@
 
 **Tech stack:** base R (no new dependency), testthat 3e (3.2.3), roxygen2.
 
-**Spec:** [development/adr/v05-survival-dates.md](../adr/v05-survival-dates.md) (ACCEPTED 2026-09-24, D1–D10). Issues: #40; concerns #54, #55, #56, #57 and #15; prerequisite #58 (PR #59).
+**Spec:** [development/adr/v05-survival-dates.md](../adr/v05-survival-dates.md) (ACCEPTED 2026-09-24, D1–D10; amended the same day after an external design review: chained censoring rejected, D8's status/time example corrected, data layers named). Issues: #40; concerns #54, #55, #56, #57 and #15; prerequisite #58 (PR #59).
 
 **Base:** branch `v05-survival-dates` at `2548b51`: `v05-formula-evaluator` (#52, which carries #51) + the ADR commits + PR #59 (#58 range missing codes and minimal-example fixture corrections) merged in. Do not start until `git log --oneline -1` shows `2548b51` or a descendant.
 
@@ -204,7 +204,7 @@ no date before entry on the minimal example, and the #54 Gompertz clamp."
   - `.is_survival_variable(variable)` → logical; `.is_derived_variable(variable)` → TRUE for `formula` or `survival`
   - `.survival_dependencies(variable)` → character
   - `.validate_survival_variable(variable)` → character vector of errors
-  - `.validate_survival_referents(spec)` → character vector of errors
+  - `.validate_survival_referents(spec)` → character vector of errors (includes the chained-censoring rejection)
   - `.order_dependent_variables(names_in_scope, dependencies, label)` → character (stops with `"<label> dependency cycle or unresolved ordering among: ..."`)
   - `.order_survival_variables(spec)` → character; `.order_formula_variables(spec)` keeps its behaviour and message
 
@@ -307,6 +307,22 @@ test_that("censored_by must name a survival variable with the same anchor", {
                          followup_max = 10, event_prop = 1, censored_by = "event")
     ),
     "cannot be censored by itself"
+  )
+})
+
+test_that("chained censored_by is rejected with a message naming the fix (ADR D7)", {
+  # A (day 30) censored by B (day 20) censored by C (day 10): sequential rules
+  # would report A as observed although observation ended on day 10.
+  expect_error(
+    survival_spec(
+      mock_spec_survival("a", anchor = "entry", followup_min = 30,
+                         followup_max = 30, event_prop = 1, censored_by = "b"),
+      mock_spec_survival("b", anchor = "entry", followup_min = 20,
+                         followup_max = 20, event_prop = 1, censored_by = "c"),
+      mock_spec_survival("c", anchor = "entry", followup_min = 10,
+                         followup_max = 10, event_prop = 1)
+    ),
+    "which is itself censored by 'c'. Chained censoring is not supported"
   )
 })
 
@@ -570,6 +586,15 @@ Replace the whole of `.order_formula_variables()` (lines 87-126, from `#' @noRd`
         label, " has censored_by '", censor,
         "', which must share its anchor ('", anchor, "')."
       ))
+    } else if (!.is_blank(censor_variable$censored_by)) {
+      # ADR D7: with a chain (A by B, B by C) the sequential rules report A as
+      # observed after observation ended, so chains are rejected in v0.5.
+      errors <- c(errors, paste0(
+        label, " has censored_by '", censor, "', which is itself censored by '",
+        censor_variable$censored_by, "'. Chained censoring is not supported in ",
+        "this version; censor '", variable$name, "' by the earliest date ",
+        "directly, or derive observed outcomes after generation."
+      ))
     }
   }
   errors
@@ -722,7 +747,7 @@ with:
 - [ ] **Step 7: Run the new tests — expected PASS**
 
 Run: `Rscript -e 'devtools::load_all(quiet = TRUE); testthat::test_file("tests/testthat/test-survival-vars.R")'`
-Expected: 9 tests PASS.
+Expected: 10 tests PASS.
 
 - [ ] **Step 8: Document, run the full suite, commit**
 
@@ -734,8 +759,9 @@ git commit -m "Add the survival variable type to the mock_spec layer (#40)" -m "
 censored_by, follow-up window, event_prop and distribution parameters, and
 records depends_on = c(anchor, censored_by). validate_mock_spec() checks
 each variable's parameters and the spec-level referents (anchor is a date
-in the spec; censored_by is a survival variable with the same anchor) and
-reports mutual censored_by as a dependency cycle.
+in the spec; censored_by is an uncensored survival variable with the same
+anchor, since chained censoring gives wrong observed outcomes) and reports
+mutual censored_by as a dependency cycle.
 
 The #39 formula ordering becomes a shared .order_dependent_variables(),
 which formulas and survival dates both use (ADR D7); formula ordering and
@@ -1814,42 +1840,62 @@ test_that("is.na is permitted in mockFormula expressions (survival ADR D8)", {
 Append to `tests/testthat/test-survival-vars.R`:
 
 ```r
-test_that("mockFormula can derive status and follow-up time from survival dates (D8)", {
+window_status <- "as.integer(!is.na(death) & death == pmin(death, admin, na.rm = TRUE))"
+window_days <- "as.numeric(pmin(death, admin, na.rm = TRUE) - entry)"
+
+test_that("mockFormula derives status and follow-up time from one observation window (D8)", {
+  # ADR D8: status and time must come from the same window. A death after
+  # administrative censoring is not an observed death.
   spec <- survival_spec(
-    mock_spec_survival("death", anchor = "entry", followup_min = 100,
-                       followup_max = 200, event_prop = 0.5),
-    mock_spec_formula("death_status", formula = "as.integer(!is.na(death))",
-                      rtype = "integer"),
-    mock_spec_formula("death_days", formula = "as.numeric(death - entry)")
+    mock_spec_survival("death", anchor = "entry", followup_min = 0,
+                       followup_max = 1000, event_prop = 0.5),
+    mock_spec_survival("admin", anchor = "entry", followup_min = 0,
+                       followup_max = 1000, event_prop = 1),
+    mock_spec_formula("death_status", formula = window_status, rtype = "integer"),
+    mock_spec_formula("followup_days", formula = window_days)
   )
-  staged <- evaluate_mock_formulas(run_stage(spec, n = 100, seed = 2), spec, seed = 2)
-  expect_identical(staged$death_status, as.integer(!is.na(staged$death)))
-  expect_identical(sum(staged$death_status), 50L)
-  ok <- !is.na(staged$death)
-  expect_true(all(staged$death_days[ok] >= 100 & staged$death_days[ok] <= 200))
-  expect_true(all(is.na(staged$death_days[!ok])))
+  staged <- evaluate_mock_formulas(run_stage(spec, n = 400, seed = 2), spec, seed = 2)
+  observed <- !is.na(staged$death) & staged$death <= staged$admin
+  expect_identical(staged$death_status, as.integer(observed))
+  expect_gt(sum(staged$death_status), 0L)
+  # Some deaths fall after administrative censoring and must not count.
+  expect_gt(sum(!is.na(staged$death) & staged$death_status == 0L), 0L)
+  end <- pmin(staged$death, staged$admin, na.rm = TRUE)
+  expect_equal(staged$followup_days, as.numeric(end - staged$entry))
 })
 
-test_that("derived status reflects true dates; a missing code on the date does not change it (D8)", {
+test_that("a death on the censoring date counts as observed (ties, D8)", {
+  spec <- survival_spec(
+    mock_spec_survival("death", anchor = "entry", followup_min = 20,
+                       followup_max = 20, event_prop = 1),
+    mock_spec_survival("admin", anchor = "entry", followup_min = 20,
+                       followup_max = 20, event_prop = 1),
+    mock_spec_formula("death_status", formula = window_status, rtype = "integer")
+  )
+  staged <- evaluate_mock_formulas(run_stage(spec, n = 10), spec, seed = 1)
+  expect_true(all(staged$death_status == 1L))
+})
+
+test_that("formula columns describe clean truth; a later missing code does not change them (D5, D8)", {
   spec <- survival_spec(
     mock_spec_survival("death", anchor = "entry", followup_min = 100,
                        followup_max = 200, event_prop = 1,
                        missing_codes = "1900-01-01", missing_proportions = 0.3),
-    mock_spec_formula("death_status", formula = "as.integer(!is.na(death))",
+    mock_spec_formula("has_death_date", formula = "as.integer(!is.na(death))",
                       rtype = "integer")
   )
   staged <- evaluate_mock_formulas(run_stage(spec, n = 100, seed = 2), spec, seed = 2)
   out <- postprocess_mock_data(staged, spec, seed = 2)
   shown_missing <- out$death == as.Date("1900-01-01")
   expect_gt(sum(shown_missing), 0)
-  expect_true(all(out$death_status[shown_missing] == 1L))
+  expect_true(all(out$has_death_date[shown_missing] == 1L))
 })
 ```
 
 - [ ] **Step 2: Run to verify failure**
 
 Run: `Rscript -e 'devtools::load_all(quiet = TRUE); testthat::test_file("tests/testthat/test-formula-vars.R"); testthat::test_file("tests/testthat/test-survival-vars.R")'`
-Expected: the three new tests ERROR with `uses function(s) not permitted in mockFormula expressions: is.na`.
+Expected: the four new tests ERROR with `uses function(s) not permitted in mockFormula expressions: is.na`.
 
 - [ ] **Step 3: Widen the allow-list**
 
@@ -1897,10 +1943,10 @@ Task 1 Step 1 snippet. Expected: FAIL 0 | ERROR 0; WARN and SKIP no higher than 
 ```bash
 git add R/mock_spec_formula.R development/adr/v05-formula-evaluator.md tests/testthat/test-formula-vars.R tests/testthat/test-survival-vars.R
 git commit -m "Allow is.na in mockFormula to derive survival status (#40)" -m "Adds is.na to the formula allow-list (survival ADR D8, amending the #39
-ADR's D3), so status and follow-up time can be derived from survival dates,
-e.g. as.integer(!is.na(death_date)). A test pins that derived columns
-describe true values: a missing code applied to the date afterwards leaves
-the derived status unchanged."
+ADR's D3). Tests derive status and follow-up time from one observation
+window (a death after administrative censoring is not observed; a death on
+the censoring date is), and pin that formula columns describe clean truth:
+a missing code applied to the date afterwards leaves them unchanged."
 ```
 
 ---
@@ -2070,10 +2116,15 @@ In `NEWS.md`, insert immediately before the line `## Reproducibility (breaking c
 - Missing codes and garbage are applied to survival dates after the survival
   rules. Garbage that places a date before entry is therefore kept, whereas
   the legacy engine set such dates to `NA`.
-- Derived columns, from `mockFormula` or survival dates, describe the true
+- Derived columns, from `mockFormula` or survival dates, describe the clean
   generated values; missing codes and garbage are then applied to each column
-  independently. `is.na` is added to the `mockFormula` allow-list, so status
-  can be derived, for example `as.integer(!is.na(death_date))`.
+  independently. `is.na` is added to the `mockFormula` allow-list so status
+  and follow-up time can be derived. Derive both from the same observation
+  window: `as.integer(!is.na(death_date))` only says a death date exists,
+  not that the death was observed before censoring.
+- A `censored_by` target may not itself have `censored_by`. Chained censoring
+  would report some events as observed after observation ended, so it is
+  rejected in this version with a message naming the fix.
 - The packaged minimal example now generates entirely through the v0.4
   pipeline, because its Gompertz survival dates no longer force the legacy
   generator. Its seeded output differs from v0.4.
@@ -2277,7 +2328,7 @@ The indicator is 0 for censored (loss to follow-up or administrative censoring),
 
 ### As generated columns, with mockFormula
 
-Status and follow-up time can also be generated as columns, with formula variables (`mockFormula` in `variable_details.csv`, or `mock_spec_formula()` in R):
+Status and follow-up time can also be generated as columns, with formula variables (`mockFormula` in `variable_details.csv`, or `mock_spec_formula()` in R). Derive both from the same observation window. `!is.na(death)` only says that a death date exists: a death after administrative censoring was not observed, so its status is 0 and its follow-up ends at the censoring date. A formula cannot return a `Date`, so the end of observation is written out in both formulas:
 
 ```{r}
 #| label: formula-derivation
@@ -2285,9 +2336,13 @@ spec_derived <- mock_spec(
   mock_spec_date("entry", range = as.Date(c("2001-01-01", "2005-12-31"))),
   mock_spec_survival("death", anchor = "entry",
     followup_min = 365, followup_max = 7300, event_prop = 0.2),
-  mock_spec_formula("death_status", formula = "as.integer(!is.na(death))",
+  mock_spec_survival("admin", anchor = "entry",
+    followup_min = 1825, followup_max = 5475, event_prop = 1),
+  mock_spec_formula("death_status",
+    formula = "as.integer(!is.na(death) & death == pmin(death, admin, na.rm = TRUE))",
     rtype = "integer"),
-  mock_spec_formula("death_days", formula = "as.numeric(death - entry)")
+  mock_spec_formula("followup_days",
+    formula = "as.numeric(pmin(death, admin, na.rm = TRUE) - entry)")
 )
 derived <- evaluate_mock_formulas(
   generate_survival_dates(
@@ -2299,7 +2354,17 @@ derived <- evaluate_mock_formulas(
 head(derived)
 ```
 
-Derived columns describe the true generated values. If you add missing codes or garbage to `death`, they are applied afterwards and to each column independently, so `death_status` can be 1 on a row where `death` shows a missing code. When testing a cleaning pipeline that is useful, because the derived columns are the answer key. When the columns must agree, derive them from the output in R instead.
+A death on the censoring date counts as observed, which matches the censoring rule: an event is removed only when the censoring date is strictly earlier.
+
+### Clean truth, observed data and analysis variables
+
+Generation produces three layers:
+
+- **Clean truth:** the generated dates and formula columns before contamination. The code above keeps this layer, because it stops before `postprocess_mock_data()`.
+- **Observed data:** the output of `postprocess_mock_data()` and `create_mock_data()`, after missing codes and garbage.
+- **Analysis variables:** status, follow-up time and similar quantities that a downstream analysis recalculates from the observed data, as in the R code above.
+
+Formula columns belong to the clean-truth layer. If you add missing codes or garbage to `death`, they are applied afterwards and to each column independently, so `death_status` can be 1 on a row where `death` shows a missing code. When testing a cleaning pipeline that is useful, because the clean columns are the answer key. When the columns must agree, compute the analysis variables from the observed data.
 
 ## Distributions for follow-up times
 
@@ -2350,10 +2415,10 @@ Before MockData 0.5, survival data had to be generated separately with `create_w
 |---------|----------------|---------|
 | **Survival date** | `anchor` in variables.csv | Generated relative to the named entry date |
 | **Event proportions** | `event_prop` in variables.csv | Exactly `floor(n * event_prop)` events |
-| **Competing risks** | `censored_by` in variables.csv | Set to `NA` where the censoring date is earlier |
+| **Competing risks** | `censored_by` in variables.csv | Set to `NA` where the censoring date is earlier; no chains |
 | **Temporal ordering** | Automatic | No survival date before its anchor |
 | **Distributions** | `distribution` in variables.csv | Uniform, exponential or Gompertz follow-up times |
-| **Derived columns** | `mockFormula` or R after generation | Formulas describe true values |
+| **Derived columns** | `mockFormula` or R after generation | Formulas describe clean truth; derive status and time from one observation window |
 | **QA testing** | `garbage_*` columns | Applied after the temporal rules |
 
 ## What you learned
@@ -2480,7 +2545,7 @@ In the "Survival parameters (date variables with events)" table, add two rows af
 
 ```markdown
 | `anchor` | character | Entry-date variable this date is generated relative to; a non-blank value makes the variable a survival date | Name of a date variable | `interview_date` |
-| `censored_by` | character | Optional competing survival date with the same anchor; where it is earlier, this date becomes `NA` | Name of a survival variable | `death_date` |
+| `censored_by` | character | Optional competing survival date with the same anchor; where it is earlier, this date becomes `NA`. The target may not itself have `censored_by` | Name of a survival variable | `death_date` |
 ```
 
 Replace the "When to use" bullets with:
@@ -2511,7 +2576,9 @@ v_007,ltfu_date,uniform,interview_date,,365,7300,0.1
 
 ```markdown
 
-Survival dates are derived too: a date whose `variables.csv` row sets `anchor` is computed from that entry date (see `vignette("tutorial-survival-data")`). Derived columns, from `mockFormula` or survival dates, describe the true generated values. Missing codes and garbage are then applied to each column independently, so a derived status can disagree with a source column shown as missing; derive from the output after generation when the two must agree.
+Survival dates are derived too: a date whose `variables.csv` row sets `anchor` is computed from that entry date (see `vignette("tutorial-survival-data")`).
+
+Generation produces three layers. **Clean truth** is the generated data before contamination: run `generate_mock_data_native()`, `generate_survival_dates()` and `evaluate_mock_formulas()` yourself and keep the result. **Observed data** is what `postprocess_mock_data()` and `create_mock_data()` return, after missing codes and garbage. **Analysis variables**, such as status and follow-up time, are what a downstream analysis recalculates from the observed data. Formula columns belong to the clean-truth layer, so a derived status can disagree with a source column that postprocess later shows as missing. When they must agree, derive them from the observed data after generation.
 ```
 
 `vignettes/design-philosophy-v04.qmd`: after the paragraph ending `...and a more general evaluator, remain deferred.`, insert:

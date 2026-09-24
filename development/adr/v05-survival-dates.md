@@ -1,6 +1,6 @@
 # ADR: v0.5 Metadata-Driven Survival Dates
 
-**Status**: ACCEPTED 2026-09-24. Design agreed with the maintainer in conversation on 2026-09-22 (scope, fidelity policy, architecture, metadata convention, semantics); D5 and D8 ratified on 2026-09-24.
+**Status**: ACCEPTED 2026-09-24. Design agreed with the maintainer in conversation on 2026-09-22 (scope, fidelity policy, architecture, metadata convention, semantics); D5 and D8 ratified on 2026-09-24. Amended the same day after an external design review (Astra): D8's example corrected to derive status and time from one observation window, chained censoring rejected (D7), the three data layers named (D5), and the fixed stage order and event allocation stated as v0.5 restrictions (D4, D6, Future directions).
 **Date**: 2026-09-22
 **Decision owner**: MockData maintainers
 **Issue**: #40 (also advances #23, #17)
@@ -90,7 +90,9 @@ The legacy statistics and rules are ported verbatim:
 3. Date = anchor + `floor(follow-up days)` for events; `NA` otherwise. The legacy engine produces whole days because `create_date_var()` converts dates to character and back (`R/create_date_var.R:479`), which floors; the port floors explicitly.
 4. Any date earlier than its anchor becomes `NA`; then, if the variable has `censored_by`, rows where the censoring date is earlier become `NA`.
 
-Survival variables are processed one at a time in dependency order over `depends_on` (D7), using the #39 ordering: repeated passes in spec order, each taking the variables whose dependencies are already placed. Each variable is drawn and then has its own rules applied, so a date named in another's `censored_by` is final before it censors anything. For the legacy rule set this gives the legacy results. The draw order differs from spec order where `censored_by` points forward (in the minimal example, `death_date` is drawn before `primary_event_date`); that has no comparability cost, because the RNG streams differ from the legacy engine's anyway. Mutual `censored_by` references are reported as a dependency cycle. Processing in dependency order also keeps chained dates (a survival date anchored on another, such as an event whose hazard changes at an exposure-change date) a validator-only change later.
+Survival variables are processed one at a time in dependency order over `depends_on` (D7), using the #39 ordering: repeated passes in spec order, each taking the variables whose dependencies are already placed. Each variable is drawn and then has its own rules applied. Because chained censoring is rejected (D7), a date named in another's `censored_by` is never itself censored, so every rule compares against an unchanged drawn date. For the legacy rule set this gives the legacy results. The draw order differs from spec order where `censored_by` points forward (in the minimal example, `death_date` is drawn before `primary_event_date`); that has no comparability cost, because the RNG streams differ from the legacy engine's anyway.
+
+The fixed-count allocation in step 1 is the legacy generation method, kept in v0.5 for parity. It does not define survival generation in general: a future hazard model, such as one where risk depends on exposure, must let event occurrence and timing follow that model, which a fixed count of `floor(n * event_prop)` events cannot do. Such a model would be a second generation method beside this one.
 
 Output cannot be bit-identical to `create_wide_survival_data()`, because the RNG streams differ (#38). Parity is therefore tested structurally and distributionally (Test strategy). Two further differences are inherent in the pipeline:
 
@@ -107,17 +109,39 @@ It changes one behaviour. In the legacy engine, garbage that places a date befor
 
 One consequence: the rules use the true dates, and postprocess may then give a missing code to a date that censored another. The output can therefore show an event censored by a death that is itself recorded as missing. This mirrors real data, where a death is known to the registry but missing from the analysis file, and it is pinned by a test so it stays deliberate.
 
+The pipeline therefore produces three layers, which the documentation names explicitly:
+
+- **Clean truth:** the generated dates, and any formula columns derived from them, before contamination. Available by running the stages directly: `generate_mock_data_native()`, then `generate_survival_dates()`, then `evaluate_mock_formulas()`. Keep that data frame before calling `postprocess_mock_data()`.
+- **Observed data:** the output of `postprocess_mock_data()` (and of `create_mock_data()`), after missing codes and garbage.
+- **Analysis variables:** status, follow-up time and similar quantities that the downstream analysis recalculates from the observed data. MockData does not produce this layer; a formula column computed from clean truth is not a substitute for it.
+
+D5 applies contamination between the first and second layers. It is the right default for testing cleaning pipelines and for simulating measurement error, and it is misleading only if someone assumes that formula columns were computed from the returned dates.
+
 ### D6: Stage and seed
 
 `create_mock_data()` runs baseline, survival, formulas, then postprocess. Survival precedes formulas so that a `mockFormula` can use survival dates. `.MOCK_STAGES` (`R/mock_spec_native.R:12`) gains `survival = 4L`. Appending leaves indices 0 to 3 in place, so every existing pinned value holds; the frozen-stage test (`test-seed-contract.R:99`) is extended, not renumbered. Survival draws run inside `.with_mock_seed(seed, stage = "survival")`.
+
+The fixed order is a v0.5 restriction. It supports `death_date` then follow-up time, but not a hazard that depends on a derived exposure (for example, smoking intensity and duration, then pack-years, then `death_date`, then follow-up time), because pack-years would be computed too late. Lifting it means scheduling derived variables across types in one dependency-ordered pass; that is a scheduler refactor, which would keep the spec, the metadata adapters and the one-column-per-variable contract.
 
 ### D7: Dependencies
 
 Survival variables set `depends_on = c(anchor, censored_by)`. `.order_formula_variables()` (`R/mock_spec_formula.R:88`) is generalized to order any derived type by `depends_on`, and the formula stage uses the generalized version. The purpose is forward compatibility: a later structural-equation stage, whether in MockData or a separate package, would read a single dependency field from the spec and add a type rather than a mechanism.
 
+`depends_on` is a scheduling field only. The two relationships it combines have different roles and stay as separate fields on the spec: `anchor` determines how a date is generated; `censored_by` determines what is observed. A future observation layer can therefore treat them differently without a spec change.
+
+**Chained censoring is rejected in v0.5.** A `censored_by` target may not itself have `censored_by`. With a chain (A censored by B, B censored by C), applying the rules in sequence gives a wrong result: with A on day 30, B on day 20 and C on day 10, B becomes `NA`, so A is no longer compared with an earlier date and is reported as observed on day 30, although observation ended on day 10 (reproduced 2026-09-24). Comparing against unchanged dates instead gives the right answer here only by coincidence. The legacy engine has a single rule and the minimal example no chain, so parity is unaffected. The longer-term design (Future directions) keeps generated event times and derives observed outcomes from all censoring sources at once.
+
 ### D8: Add `is.na` to the formula allow-list
 
-The #39 allow-list has no missingness test, so a formula cannot derive an event indicator from a survival date. With `is.na` added, users can write, for example, `as.integer(!is.na(death_date))` for status and `as.numeric(pmin(death_date, admin_censor_date, na.rm = TRUE) - interview_date)` for follow-up time in days. The #39 ADR permits widening the list on concrete need; this is one. `is.na` has no side effects and cannot reach outside the sandbox. Ratified 2026-09-24.
+The #39 allow-list has no missingness test, so a formula cannot derive an event indicator from a survival date. With `is.na` added, status and follow-up time can be derived, but they must come from the same observation window. `as.integer(!is.na(death_date))` only records that a death date exists: for a death on day 50 and administrative censoring on day 20 it gives status 1 beside a follow-up time of 20 days (reproduced 2026-09-24). The correct pair uses the end of observation for both:
+
+```r
+end = pmin(death_date, ltfu_date, admin_censor_date, na.rm = TRUE)
+status = as.integer(!is.na(death_date) & death_date == end)
+followup_days = as.numeric(end - interview_date)
+```
+
+(A formula cannot return a `Date`, so `end` is written out inside both formulas.) Ties count as observed events: a death on the censoring date gives status 1. This matches the censoring rule, which removes an event only when the censoring date is strictly earlier. The external review points to simstudy's survival documentation (<https://kgoldfeld.github.io/simstudy/articles/survival.html>) for the same separation of event times from observed outcomes. The #39 ADR permits widening the list on concrete need; this is one. `is.na` has no side effects and cannot reach outside the sandbox. Ratified 2026-09-24.
 
 Derived columns describe the true generated values. The #39 stage order computes formulas before postprocess, and postprocess contaminates each column independently: garbage only replaces existing values (`R/mock_spec_postprocess.R:255`), but missing codes may land on any row (`:192`). So a derived `status` of 1 can sit beside a `death_date` shown as missing, and a derived follow-up time reflects the true date where the observed one is garbage. (Verified with #39 code: in 1,000 rows, all 300 rows where a source column shows its missing code keep the formula value computed from the true value.) For testing a cleaning pipeline this is useful, because the derived columns are the answer key. For an analysis-ready teaching dataset it is not, and v0.5 does not offer the alternative; see Future directions.
 
@@ -134,7 +158,7 @@ Derived columns describe the true generated values. The #39 stage order computes
 **Validator.** A `survival` branch in `validate_mock_spec()` beside the `date` and `formula` branches (`R/mock_spec.R:968`):
 
 - `anchor` names a spec variable of type `date` (not `survival` or `formula`; chained anchors are not supported)
-- `censored_by`, if set, names a `survival` variable with the same `anchor`
+- `censored_by`, if set, names a `survival` variable with the same `anchor`, and that variable has no `censored_by` of its own (no chained censoring, D7)
 - `followup_min` and `followup_max` finite, non-negative, and `followup_min <= followup_max`
 - `event_prop` in [0, 1]
 - `distribution` one of `uniform`, `exponential`, `gompertz`; `shape` and `rate` positive when supplied
@@ -190,14 +214,16 @@ Found while preparing this design and filed on 2026-09-24. Each is reproduced ex
 ## Future directions
 
 - **Sidecar overlay (v0.6, separate ADR; #57).** A MockData-owned table keyed by variable, joined onto `variables` before spec construction, so all extension columns can live outside recodeflow files. The legacy `mock_data_config.csv` readers from v0.2 are the starting point to reconcile or retire.
-- **Observed-value derivation.** An option to compute formulas from contaminated values, so derived status and time agree with what the output shows (D8). An ordering option on the formula stage; no architectural change.
-- **Structural (causal) generation.** Out of scope. The maintainer's motivating case is exposure-dependent survival, such as smoking changing the hazard. Assessed against this design on 2026-09-24:
+- **Observation layer.** Keep the generated event times and derive observed outcomes (status, time, cause) from all censoring sources at once, instead of overwriting censored dates with `NA`. This handles several censoring sources per event cleanly and removes the chaining problem in D7. An option to compute formulas from observed rather than clean values (D5) belongs with it.
+- **Structural (causal) generation.** Out of scope. The maintainer's motivating case is exposure-dependent survival, such as smoking changing the hazard. Assessed on 2026-09-24, with corrections from an external review:
 
-  | Extension | What it needs | Change to the base? |
+  | Use case | What would need adding | Architectural implication |
   |---|---|---|
-  | Hazard varies with a baseline exposure | Survival parameters (for example a hazard ratio) given as sandboxed expressions over generated columns; `depends_on` records the exposure. The ported event assignment is count-based (`floor(n * event_prop)`), so per-person risk needs a per-person draw as a second path | No; additive |
-  | Hazard varies with a derived exposure (a formula variable) | Formula, then survival, then formula. The fixed stage order in D6 (survival before formulas) cannot express this; survival and formula variables would share one dependency-ordered pass | Yes, contained. D7 prepares it, and because the v0.5 validator forbids survival dates that depend on formulas, merging the passes shifts no existing seeded output |
-  | Exposure changes during follow-up | The change date is itself an anchored date; the event hazard is piecewise around it. Needs chained survival dates | No; D4 draws in dependency order, so only the validator rule changes |
-  | Several rows per person (counting-process data) | A second output shape | Yes; MockData produces one row per person. Wide data with change dates covers most analyses |
+  | Baseline smokers have a different hazard | A survival model using each person's exposure and covariates, with event occurrence following the model rather than the fixed allocation (D4) | Fits the existing spec and generator pattern |
+  | Hazard depends on derived pack-years | Formulas evaluated before the survival variables that need them | Scheduling refactor (D6) |
+  | Someone quits smoking during follow-up | Exposure history, and a hazard that changes over time using only the exposure known at each time; applying final smoking status retrospectively would use information from the future | Substantial generator extension; the core spec may remain |
+  | Illness changes smoking, which changes later outcomes | Sequential updates to exposures and health states | A longitudinal simulation mechanism; the current execution architecture cannot be assumed to hold |
 
-  D1 and D7 keep one dependency field and one ordering mechanism for all derived variables, which is the base a DAG-driven stage would need.
+  A causal interpretation of any of these would also need explicit assumptions about confounding and interventions, which the metadata does not yet express.
+
+  Future exposure-dependent survival models should reuse the spec, the metadata adapters and the column assembly contract. They may need additional model parameters, dependency scheduling across variable types, and separate event-generation and observation rules. The fixed stage order and the legacy event-allocation method are v0.5 restrictions.
