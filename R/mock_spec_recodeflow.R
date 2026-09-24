@@ -221,7 +221,45 @@
 }
 
 #' @noRd
-.recodeflow_missing <- function(details) {
+.expand_range_missing_codes <- function(codes, proportions, variable) {
+  # #58: recodeflow writes grouped missing codes in range notation, e.g.
+  # "[997,999]" for don't know / refusal / not stated. Expand an integer range
+  # into its individual codes, splitting the row's proportion equally (the
+  # legacy generators draw uniformly within the range). Any other bracketed
+  # code cannot be inserted as a value, so fail naming the variable rather
+  # than writing the literal string into the data.
+  codes <- as.character(codes)
+  expanded_codes <- character(0)
+  expanded_proportions <- numeric(0)
+  for (i in seq_along(codes)) {
+    code <- trimws(codes[i])
+    if (!startsWith(code, "[") && !startsWith(code, "(")) {
+      expanded_codes <- c(expanded_codes, code)
+      expanded_proportions <- c(expanded_proportions, proportions[i])
+      next
+    }
+    parsed <- parse_range_notation(code)
+    if (is.null(parsed) || !identical(parsed$type, "integer") ||
+        length(parsed$values) == 0) {
+      stop(
+        "Variable '", variable, "' has a range missing code '", code,
+        "' that is not an integer range. Write it as an integer range such ",
+        "as [997,999], or list each code on its own row.",
+        call. = FALSE
+      )
+    }
+    values <- as.character(parsed$values)
+    expanded_codes <- c(expanded_codes, values)
+    expanded_proportions <- c(
+      expanded_proportions,
+      rep(proportions[i] / length(values), length(values))
+    )
+  }
+  list(codes = expanded_codes, proportions = expanded_proportions)
+}
+
+#' @noRd
+.recodeflow_missing <- function(details, variable = "<unknown>") {
   if (is.null(details) || nrow(details) == 0 || !"recEnd" %in% names(details)) {
     return(list(codes = character(0), proportions = numeric(0)))
   }
@@ -239,9 +277,10 @@
   proportions <- if ("proportion" %in% names(missing_rows)) missing_rows$proportion else rep(NA_real_, nrow(missing_rows))
   proportions[is.na(proportions)] <- 0
 
-  list(
-    codes = as.character(missing_rows$recStart),
-    proportions = as.numeric(proportions)
+  .expand_range_missing_codes(
+    missing_rows$recStart,
+    as.numeric(proportions),
+    variable
   )
 }
 
@@ -338,7 +377,7 @@
   kind <- .recodeflow_variable_kind(var_row)
   rtype <- .recodeflow_rtype(var_row, kind)
   provenance <- .recodeflow_provenance(variable, databaseStart)
-  missing <- .recodeflow_missing(details)
+  missing <- .recodeflow_missing(details, variable)
   garbage_rules <- .recodeflow_garbage_rules(var_row)
 
   # Formula-type construction takes precedence over the kind dispatch below
@@ -366,14 +405,19 @@
     if (length(proportions$categories) == 0) {
       stop("Variable '", variable, "' has no valid categorical levels.", call. = FALSE)
     }
+    categorical_missing <- .expand_range_missing_codes(
+      names(proportions$missing),
+      as.numeric(unlist(proportions$missing, use.names = FALSE)),
+      variable
+    )
 
     return(mock_spec_categorical(
       name = variable,
       levels = proportions$categories,
       proportions = proportions$category_proportions,
       rtype = rtype,
-      missing_codes = names(proportions$missing),
-      missing_proportions = as.numeric(unlist(proportions$missing, use.names = FALSE)),
+      missing_codes = categorical_missing$codes,
+      missing_proportions = categorical_missing$proportions,
       garbage_rules = garbage_rules,
       provenance = provenance,
       model_hint = "native"
@@ -431,7 +475,9 @@
 #' This adapter preserves recodeflow semantics instead of treating metadata as a
 #' generic table. It uses exact role and `databaseStart` token matching, parses
 #' valid ranges from `recStart`, classifies missing codes from `recEnd` values
-#' that begin with `NA::`, preserves categorical levels and proportions, carries
+#' that begin with `NA::` (expanding an integer range such as `[997,999]` into
+#' its individual codes, with the row's proportion split equally), preserves
+#' categorical levels and proportions, carries
 #' `garbage_*` settings into `garbage_rules`, and stores survival/date fields
 #' such as `rate`, `shape`, `followup_min`, `followup_max`, and `event_prop` on
 #' date variables for later backend milestones.

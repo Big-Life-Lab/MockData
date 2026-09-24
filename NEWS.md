@@ -48,6 +48,19 @@
   identical to the native backend's output, instead of failing inside
   `simstudy::genData()` (whose `1:n` id table has two rows when `n = 0`).
   (#50)
+- The v0.4 pipeline now expands range-notation missing codes such as
+  `[997,999]` (the usual CCHS and CHMS pattern for don't know, refusal and
+  not stated) into their individual codes, splitting the row's proportion
+  equally. Previously a continuous variable with such a code failed in
+  post-processing, and a categorical variable silently wrote the literal
+  string `"[997,999]"` into the data. A bracketed missing code that is not
+  an integer range now fails with a message naming the variable. (#58)
+- The packaged minimal example corrects two metadata errors: BMI's low
+  garbage range had a stray parenthesis (`[-10;15])`), and height's
+  low-garbage proportion was 1.00 (every row) instead of 0.01. With these
+  and #58, every variable in the example except its survival dates now
+  generates through the v0.4 pipeline. Seeded output for the example
+  changes.
 - With `validate = TRUE` (the default), invalid distribution parameters in
   metadata — e.g. `distribution = "exponential"` without a positive `rate` —
   now stop generation with a message naming the variable and how to fix it,
