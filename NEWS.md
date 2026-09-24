@@ -1,5 +1,16 @@
 # MockData (development version)
 
+## Formula-derived variables (#39, Phase A)
+
+- Variables can now be generated from algebraic expressions over other
+  generated variables via a new `mockFormula` column in `variable_details`
+  (e.g. `weight / (height^2)`), or the new `mock_formula()` direct API.
+  Formulas are evaluated in dependency order by `evaluate_mock_formulas()`,
+  in a restricted environment exposing only the generated columns and a
+  fixed allow-list of base functions. `DerivedVar::`/`Func::` semantics are
+  unchanged: derived variables without a `mockFormula` remain excluded from
+  generation, and `Func::` dispatch is not yet supported.
+
 ## Reproducibility (breaking change)
 
 - Seeded output changed once for the RNG-stream mechanism in this release.

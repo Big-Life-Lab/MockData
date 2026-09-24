@@ -542,26 +542,26 @@ Tasks 5 and 6 **must land in the same minor release**: both change seeded output
 
 **Deliverable:** `development/adr/v05-seed-contract.md`, approved by the maintainer.
 
-- [ ] **Step 1: Draft the ADR** with these sections and decision points:
+- [x] **Step 1: Draft the ADR** with these sections and decision points:
   - **Context:** three regimes (legacy global `set.seed` at `R/create_mock_data.R:325-327`; v0.4 `seed`/`seed + 1L` at `:85-90`; simstudy backend's own handling); fallback stream-switch is verbose-gated (#33 item 11).
   - **Options:** (a) document the status quo; (b) L'Ecuyer-CMRG sub-streams via `parallel::nextRNGStream()`, one stream per stage; (c) hash-derived per-stage (or per-variable) integer seeds. **Recommendation: (b) at stage granularity** — principled, base-R only, and per-variable granularity is YAGNI until parallel generation is on the table.
   - **Guarantee scope:** same seed + same spec + same package version ⇒ identical output; stability across minor versions explicitly *not* guaranteed when NEWS declares a break.
   - **Migration:** single break, coordinated with Task 6; pinned-value regression tests (fulfils #22); decide whether the fallback stream-switch message becomes always-on (#33 item 11).
-- [ ] **Step 2: Maintainer review — STOP until approved.**
-- [ ] **Step 3: Write the implementation plan** (superpowers:writing-plans → `development/plans/`) and execute.
+- [x] **Step 2: Maintainer review — STOP until approved.**
+- [x] **Step 3: Write the implementation plan** (superpowers:writing-plans → `development/plans/`) and execute.
 
 ### Task 6: Formula-evaluator ADR + implementation (#39)
 
 **Deliverable:** `development/adr/v05-formula-evaluator.md`, approved; then phased implementation.
 
-- [ ] **Step 1: Recover the spike:** `git show f4f9b41:development/v04-simstudy-spike/prototype.R > /tmp/spike-prototype.R` and read it. It contains `formula_dependencies()` (`all.vars(str2lang(...))`), topological ordering with cycle detection ("Formula dependency cycle or unresolved ordering among: ..."), and `validate_formula_referents()`.
-- [ ] **Step 2: Draft the ADR** with these decision points:
+- [x] **Step 1: Recover the spike:** `git show f4f9b41:development/v04-simstudy-spike/prototype.R > /tmp/spike-prototype.R` and read it. It contains `formula_dependencies()` (`all.vars(str2lang(...))`), topological ordering with cycle detection ("Formula dependency cycle or unresolved ordering among: ..."), and `validate_formula_referents()`.
+- [x] **Step 2: Draft the ADR** with these decision points:
   - **Syntax entry:** (a) new MockData-extension column (e.g. `mockFormula`) vs (b) reuse `variableStart` `DerivedVar::`/`Func::`. **Recommendation: (a)** — cchsflow/chmsflow are CRAN downstreams; do not overload shared recodeflow semantics. `identify_derived_vars()` continues to detect-and-skip `DerivedVar::` entries that carry no `mockFormula`.
   - **Evaluation environment:** restricted env containing only generated columns + an enumerated whitelist of base math/logic functions (`+ - * / ^ %% < <= > >= == != & | ! ifelse pmin pmax log exp sqrt abs round`); no filesystem, network, or global lookup. List the exact whitelist in the ADR.
   - **Phasing:** Phase A — algebraic formulas over generated columns (spec fields `formula`/`depends_on` already exist, `R/mock_spec.R:94-145`). Phase B — `Func::` dispatch to the consuming package's namespace (define lookup order and failure semantics).
   - **Diagnostics:** derived columns get a `derived = TRUE` entry in `mockdata_diagnostics` with their dependency list.
-- [ ] **Step 3: Maintainer review — STOP until approved.**
-- [ ] **Step 4: Implementation plan + execution.** Required tests: referent validation errors, cycle detection message, deterministic ordering, seed reproducibility under the Task 5 contract.
+- [x] **Step 3: Maintainer review — STOP until approved.**
+- [x] **Step 4: Implementation plan + execution.** Required tests: referent validation errors, cycle detection message, deterministic ordering, seed reproducibility under the Task 5 contract.
 
 ### Task 7: Survival pairs in batch generation (#40)
 

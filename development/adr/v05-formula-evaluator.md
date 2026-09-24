@@ -1,6 +1,6 @@
 # ADR: v0.5 Formula-Derived Variables
 
-**Status**: ACCEPTED 2026-07-07 — Phase A (algebraic formulas), via a `mockFormula` extension column on `variable_details`, evaluated as a post-baseline stage in a restricted sandbox. Any individual decision remains open to maintainer revision before implementation begins.
+**Status**: ACCEPTED 2026-07-07 — Phase A (algebraic formulas), via a `mockFormula` extension column on `variable_details`, evaluated as a post-baseline stage in a restricted sandbox. Any individual decision remains open to maintainer revision before implementation begins. Implemented on branch v05-formula-evaluator (Phase A).
 **Date**: 2026-07-07
 **Decision owner**: MockData maintainers
 **Issue**: #39
@@ -204,6 +204,14 @@ metadata with no `mockFormula` behaves identically to today.
 - `identify_derived_vars()` gains a `mockFormula`-aware carve-out (generate vs
   exclude).
 - `Func::` generation remains unsupported (documented), pending Phase B.
+
+**Phase B caveat:** allow-listed base functions can reach R internal-generic S3
+dispatch (e.g. `as.factor` → `as.character` generic), which resolves methods in
+the caller's globalenv. This is not exploitable in Phase A (formulas cannot
+assign a class to a value — no `structure`/`class<-`/`oldClass` in the
+allow-list — and MockData only feeds numeric/factor/character/Date columns to
+eval). If Phase B introduces `Func::` dispatch or class-producing operations,
+this dispatch path must be re-audited.
 
 **Costs / risks:**
 

@@ -36,7 +36,7 @@ This guide covers advanced technical topics for MockData power users, including:
 
 ## Derived variables
 
-Derived variables are calculated from other variables using custom functions. MockData identifies and skips derived variables during generation, leaving them for post-generation calculation.
+Derived variables are calculated from other variables using custom functions. MockData identifies and skips derived variables during generation, leaving them for post-generation calculation — unless the variable also carries a `mockFormula` expression (v0.5+), in which case it is generated natively from that formula. See `vignette("design-philosophy-v04")` and `NEWS.md` for the formula-derived variables feature; the pattern below still applies to `DerivedVar::`/`Func::` variables without a `mockFormula`.
 
 ### Identifying derived variables
 

@@ -10,6 +10,15 @@
 #' @noRd
 .create_mock_data_v04_unsupported_variables <- function(spec) {
   unsupported <- vapply(spec$variables, function(variable) {
+    # type = "formula" is supported end-to-end (#39, Phase A): baseline
+    # generation skips it, evaluate_mock_formulas() computes it, and
+    # postprocess_mock_data() applies its missing codes/garbage like any
+    # other variable. A stray non-empty `formula` field on a NON-formula
+    # variable is defensive fallback bait, not a supported feature.
+    if (variable$type == "formula") {
+      return(FALSE)
+    }
+
     formula <- variable$formula
     has_formula <- !is.null(formula) &&
       !(is.character(formula) && length(formula) == 1 && (is.na(formula) || trimws(formula) == ""))
@@ -96,10 +105,12 @@
   }
 
   baseline <- generate_mock_data_native(spec, n = n, seed = seed)
-  # Baseline and post-processing use distinct L'Ecuyer-CMRG sub-streams derived
-  # from the single public seed (see .with_mock_seed / ADR v05-seed-contract),
-  # so both stages pass the same seed and select their own stage internally.
-  postprocess_mock_data(baseline, spec, seed = seed)
+  staged <- evaluate_mock_formulas(baseline, spec, seed = seed)
+  # Baseline generation, formula evaluation, and post-processing use distinct
+  # L'Ecuyer-CMRG sub-streams derived from the single public seed (see
+  # .with_mock_seed / ADR v05-seed-contract), so all three stages pass the
+  # same seed and select their own stage internally.
+  postprocess_mock_data(staged, spec, seed = seed)
 }
 
 #' Create mock data from configuration files
