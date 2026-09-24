@@ -573,3 +573,41 @@ test_that("formula columns describe clean truth; a later missing code does not c
   expect_gt(sum(shown_missing), 0)
   expect_true(all(out$has_death_date[shown_missing] == 1L))
 })
+
+test_that("create_wide_survival_data() warns once per session that it is deprecated", {
+  state <- MockData:::.mockdata_state
+  previous <- state$wide_survival_warned
+  on.exit(assign("wide_survival_warned", previous, envir = state), add = TRUE)
+  assign("wide_survival_warned", FALSE, envir = state)
+
+  variables <- data.frame(
+    variable = c("entry", "event"), variableType = c("Date", "Date"),
+    rType = c("date", "date"), role = c("enabled", "enabled"),
+    distribution = c("uniform", "uniform"), followup_min = c(NA, 0),
+    followup_max = c(NA, 10), event_prop = c(NA, 1),
+    stringsAsFactors = FALSE
+  )
+  details <- data.frame(
+    variable = c("entry", "event"),
+    recStart = c("[2001-01-01,2001-12-31]", "[2001-01-01,2040-12-31]"),
+    recEnd = c("copy", "copy"), proportion = c(1, 1),
+    stringsAsFactors = FALSE
+  )
+  call_legacy <- function() {
+    messages <- character(0)
+    withCallingHandlers(
+      create_wide_survival_data(
+        var_entry_date = "entry", var_event_date = "event",
+        databaseStart = "test", variables = variables,
+        variable_details = details, n = 5, seed = 1
+      ),
+      warning = function(w) {
+        messages <<- c(messages, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
+    )
+    messages
+  }
+  expect_true(any(grepl("deprecated as of MockData 0.5.0", call_legacy())))
+  expect_false(any(grepl("deprecated as of MockData 0.5.0", call_legacy())))
+})
