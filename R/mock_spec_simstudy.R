@@ -128,13 +128,14 @@
 
 #' @noRd
 .native_only_variables <- function(spec) {
-  # Mirror generate_mock_data_native()'s skip: type = "formula" variables have
-  # no distribution to sample from in either backend. They are computed
-  # post-baseline by evaluate_mock_formulas(), not by .generate_native_variable()
+  # Mirror generate_mock_data_native()'s skip: derived variables (formula and
+  # survival) have no distribution to sample from in either backend. They are
+  # computed post-baseline by evaluate_mock_formulas() and
+  # generate_survival_dates(), not by .generate_native_variable()
   # (which has no "formula" branch and would stop with an unhelpful "Native
   # backend does not support variable type 'formula'").
   Filter(function(variable) {
-    !.is_formula_variable(variable) && !.simstudy_can_generate(variable)
+    !.is_derived_variable(variable) && !.simstudy_can_generate(variable)
   }, spec$variables)
 }
 
@@ -252,12 +253,12 @@ generate_mock_data_simstudy <- function(spec, n, seed = NULL) {
 
   simstudy_variables <- .simstudy_variables(spec)
   native_only_variables <- .native_only_variables(spec)
-  # type = "formula" variables are excluded from both `simstudy_variables` and
+  # Derived variables (formula and survival) are excluded from both `simstudy_variables` and
   # `native_only_variables` above; exclude them here too so the final
   # assembly doesn't index `columns` by names that were never generated (see
   # generate_mock_data_native()'s identical formula skip).
   generated_variable_names <- names(spec$variables)[
-    !vapply(spec$variables, .is_formula_variable, logical(1))
+    !vapply(spec$variables, .is_derived_variable, logical(1))
   ]
 
   .with_mock_seed(seed, {

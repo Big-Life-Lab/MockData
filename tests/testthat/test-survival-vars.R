@@ -170,3 +170,239 @@ test_that("formula ordering is unchanged by the shared ordering helper", {
   )
   expect_identical(MockData:::.order_formula_variables(spec), c("b", "c"))
 })
+
+run_stage <- function(spec, n = 200, seed = 1) {
+  baseline <- generate_mock_data_native(spec, n = n, seed = seed)
+  generate_survival_dates(baseline, spec, seed = seed)
+}
+
+days_after <- function(data, column, anchor = "entry") {
+  as.numeric(data[[column]] - data[[anchor]])
+}
+
+test_that("both backends skip survival variables in baseline generation", {
+  spec <- survival_spec(
+    mock_spec_survival("death", anchor = "entry", followup_min = 0,
+                       followup_max = 10, event_prop = 1)
+  )
+  expect_identical(names(generate_mock_data_native(spec, n = 5, seed = 1)), "entry")
+  skip_if_not_installed("simstudy")
+  expect_identical(names(generate_mock_data_simstudy(spec, n = 5, seed = 1)), "entry")
+})
+
+test_that("the survival stage runs on a simstudy baseline too", {
+  skip_if_not_installed("simstudy")
+  spec <- survival_spec(
+    mock_spec_categorical("smoking", levels = c("never", "former", "current")),
+    mock_spec_survival("death", anchor = "entry", followup_min = 0,
+                       followup_max = 100, event_prop = 0.5)
+  )
+  baseline <- generate_mock_data_simstudy(spec, n = 100, seed = 1)
+  result <- generate_survival_dates(baseline, spec, seed = 1)
+  expect_identical(sum(!is.na(result$death)), 50L)
+  expect_true(all(result$death >= result$entry, na.rm = TRUE))
+})
+
+test_that("the survival stage reproduces the legacy competing-risk rule", {
+  later <- run_stage(survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 1000,
+                       followup_max = 2000, event_prop = 1, censored_by = "death"),
+    mock_spec_survival("death", anchor = "entry", followup_min = 0,
+                       followup_max = 500, event_prop = 1)
+  ))
+  expect_true(all(is.na(later$event)))
+  expect_false(any(is.na(later$death)))
+
+  earlier <- run_stage(survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 0,
+                       followup_max = 500, event_prop = 1, censored_by = "death"),
+    mock_spec_survival("death", anchor = "entry", followup_min = 1000,
+                       followup_max = 2000, event_prop = 1)
+  ))
+  expect_false(any(is.na(earlier$event)))
+})
+
+test_that("censored_by sets NA exactly where the censoring date is earlier", {
+  result <- run_stage(survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 0,
+                       followup_max = 1000, event_prop = 1, censored_by = "death"),
+    mock_spec_survival("death", anchor = "entry", followup_min = 0,
+                       followup_max = 1000, event_prop = 0.5)
+  ), n = 400)
+  both <- !is.na(result$event) & !is.na(result$death)
+  expect_false(any(result$death[both] < result$event[both]))
+  # event_prop = 1, so the only way an event is NA is censoring by an
+  # earlier death.
+  expect_true(all(!is.na(result$death[is.na(result$event)])))
+  expect_gt(sum(is.na(result$event)), 0)
+  expect_gt(sum(both), 0)
+})
+
+test_that("exactly floor(n * event_prop) rows receive an event", {
+  result <- run_stage(survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 100,
+                       followup_max = 200, event_prop = 0.3)
+  ), n = 200)
+  expect_identical(sum(!is.na(result$event)), 60L)
+})
+
+test_that("follow-up days are whole days inside the window for every distribution", {
+  for (distribution in c("uniform", "exponential", "gompertz")) {
+    result <- run_stage(survival_spec(
+      mock_spec_survival("event", anchor = "entry", followup_min = 10,
+                         followup_max = 400, event_prop = 1,
+                         distribution = distribution)
+    ))
+    days <- days_after(result, "event")
+    expect_false(anyNA(days), info = distribution)
+    expect_true(all(days == floor(days)), info = distribution)
+    expect_true(all(days >= 10 & days <= 400), info = distribution)
+  }
+})
+
+test_that("gompertz with the packaged parameters reproduces the legacy clamp (#54)", {
+  # Pins behaviour filed as #54; update deliberately when #54 is resolved.
+  result <- run_stage(survival_spec(
+    mock_spec_survival("death", anchor = "entry", followup_min = 365,
+                       followup_max = 7300, event_prop = 1,
+                       distribution = "gompertz", shape = 0.1, rate = 1e-4)
+  ))
+  expect_true(all(days_after(result, "death") == 365))
+})
+
+test_that("n = 0 returns a typed zero-row survival column", {
+  result <- run_stage(survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 0,
+                       followup_max = 10, event_prop = 0.5)
+  ), n = 0)
+  expect_identical(nrow(result), 0L)
+  expect_s3_class(result$event, "Date")
+})
+
+test_that("zero events from flooring is an all-NA column, not an error", {
+  spec <- survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 0,
+                       followup_max = 10, event_prop = 0.2)
+  )
+  expect_no_warning(result <- run_stage(spec, n = 3))
+  expect_true(all(is.na(result$event)))
+  expect_s3_class(result$event, "Date")
+  diag <- attr(postprocess_mock_data(result, spec, seed = 1), "mockdata_diagnostics")
+  expect_identical(diag$variables$event$n_events, 0L)
+})
+
+test_that("NA anchors give NA survival dates in those rows only", {
+  spec <- survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 1,
+                       followup_max = 2, event_prop = 1)
+  )
+  data <- data.frame(entry = as.Date("2001-01-01") + 0:9)
+  data$entry[1:3] <- as.Date(NA)
+  result <- generate_survival_dates(data, spec, seed = 1)
+  expect_true(all(is.na(result$event[1:3])))
+  expect_false(anyNA(result$event[4:10]))
+})
+
+test_that("generate_survival_dates rejects a non-Date anchor column", {
+  spec <- survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 0,
+                       followup_max = 10, event_prop = 1)
+  )
+  data <- data.frame(entry = c("2001-01-01", "2001-06-01"), stringsAsFactors = FALSE)
+  expect_error(
+    generate_survival_dates(data, spec, seed = 1),
+    "Anchor column 'entry' must be of class Date; got character"
+  )
+})
+
+test_that("generate_survival_dates fails loudly when an anchor column is missing", {
+  spec <- survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 0,
+                       followup_max = 10, event_prop = 1)
+  )
+  expect_error(
+    generate_survival_dates(data.frame(other = 1:2), spec, seed = 1),
+    "missing anchor column\\(s\\) required by survival variables: entry"
+  )
+})
+
+test_that("generate_survival_dates is a no-op without survival variables", {
+  spec <- mock_spec(mock_spec_continuous("x", range = c(0, 1)))
+  data <- generate_mock_data_native(spec, n = 5, seed = 1)
+  expect_identical(generate_survival_dates(data, spec, seed = 1), data)
+})
+
+test_that("skipping the survival stage makes postprocess fail on the missing column", {
+  spec <- survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 0,
+                       followup_max = 10, event_prop = 1)
+  )
+  baseline <- generate_mock_data_native(spec, n = 5, seed = 1)
+  expect_error(
+    postprocess_mock_data(baseline, spec, seed = 1),
+    "missing column\\(s\\) required by spec: event"
+  )
+})
+
+test_that("the survival stage leaves the caller's RNG untouched and is reproducible", {
+  spec <- survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 0,
+                       followup_max = 100, event_prop = 0.5)
+  )
+  baseline <- generate_mock_data_native(spec, n = 50, seed = 3)
+  set.seed(99)
+  before <- .Random.seed
+  a <- generate_survival_dates(baseline, spec, seed = 3)
+  expect_identical(.Random.seed, before)
+  expect_identical(a, generate_survival_dates(baseline, spec, seed = 3))
+})
+
+test_that("postprocess marks survival variables as derived with anchor, dependencies and event count", {
+  spec <- survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 0,
+                       followup_max = 10, event_prop = 0.5, censored_by = "death"),
+    mock_spec_survival("death", anchor = "entry", followup_min = 100,
+                       followup_max = 200, event_prop = 0.5)
+  )
+  staged <- run_stage(spec, n = 100)
+  diag <- attr(postprocess_mock_data(staged, spec, seed = 1), "mockdata_diagnostics")$variables
+  expect_true(isTRUE(diag$event$derived))
+  expect_identical(diag$event$anchor, "entry")
+  expect_identical(diag$event$censored_by, "death")
+  expect_identical(diag$event$depends_on, c("entry", "death"))
+  expect_identical(diag$event$n_events, sum(!is.na(staged$event)))
+  expect_null(diag$death$censored_by)
+  expect_null(diag$entry$derived)
+})
+
+test_that("garbage applied after the rules keeps before-entry violations (D5)", {
+  spec <- survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 10,
+                       followup_max = 100, event_prop = 1,
+                       garbage_rules = list(low = list(
+                         proportion = 0.2, range = "[1990-01-01;1990-12-31]"
+                       )))
+  )
+  out <- postprocess_mock_data(run_stage(spec, n = 200), spec, seed = 1)
+  before_entry <- which(out$event < out$entry)
+  garbage_rows <- attr(out, "mockdata_diagnostics")$variables$event$assigned_garbage_indices$low
+  expect_gt(length(before_entry), 0)
+  expect_setequal(before_entry, garbage_rows)
+})
+
+test_that("the rules use true dates: a censoring death later replaced by garbage still censored (D5)", {
+  spec <- survival_spec(
+    mock_spec_survival("event", anchor = "entry", followup_min = 1000,
+                       followup_max = 2000, event_prop = 1, censored_by = "death"),
+    mock_spec_survival("death", anchor = "entry", followup_min = 0,
+                       followup_max = 500, event_prop = 1,
+                       garbage_rules = list(high = list(
+                         proportion = 0.5, range = "[2090-01-01;2090-12-31]"
+                       )))
+  )
+  out <- postprocess_mock_data(run_stage(spec, n = 200), spec, seed = 1)
+  # Every death preceded its event before post-processing, so every event is
+  # NA; about half the deaths now show a 2090 garbage date.
+  expect_true(all(is.na(out$event)))
+  expect_true(any(out$death >= as.Date("2090-01-01")))
+})

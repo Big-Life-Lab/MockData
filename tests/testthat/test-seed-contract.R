@@ -99,7 +99,7 @@ test_that("native output is independent of ambient normal.kind and sample.kind",
 test_that("stage indices are frozen (renumbering would shift seeded output)", {
   expect_identical(
     MockData:::.MOCK_STAGES,
-    c(baseline = 0L, postprocess = 1L, formula = 2L, correlate = 3L)
+    c(baseline = 0L, postprocess = 1L, formula = 2L, correlate = 3L, survival = 4L)
   )
 })
 
@@ -131,5 +131,27 @@ test_that("pinned reference values catch the next accidental RNG change", {
     got,
     c(0.626896562612263, 0.068286009645902, 0.426707671898230),
     tolerance = 1e-8
+  )
+})
+
+test_that("survival stage output is pinned (catches a stage-index shift)", {
+  spec <- mock_spec(
+    mock_spec_date("entry", range = as.Date(c("2001-01-01", "2001-12-31"))),
+    mock_spec_survival("event", anchor = "entry", followup_min = 0,
+                       followup_max = 1000, event_prop = 0.5)
+  )
+  baseline <- generate_mock_data_native(spec, n = 6, seed = 20260924)
+  got <- generate_survival_dates(baseline, spec, seed = 20260924)
+  # Reference computed independently on 2026-09-24 by emulating
+  # .with_mock_seed() for sub-stream index 4, not captured from this code.
+  # If this breaks, the survival stream shifted or the port changed: treat as
+  # a deliberate, NEWS-documented break, not a silent one.
+  expect_identical(
+    as.character(baseline$entry),
+    c("2001-07-25", "2001-05-26", "2001-09-10", "2001-11-16", "2001-09-06", "2001-09-03")
+  )
+  expect_identical(
+    as.character(got$event),
+    c(NA, "2003-12-02", NA, "2002-04-18", NA, "2003-10-29")
   )
 })
