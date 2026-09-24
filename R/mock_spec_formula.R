@@ -85,6 +85,35 @@
 }
 
 #' @noRd
+.order_dependent_variables <- function(names_in_scope, dependencies, label) {
+  # Shared by every derived-variable stage (ADR v05-survival-dates D7):
+  # repeated passes in spec order, each placing the variables whose in-scope
+  # dependencies are already placed. Dependencies outside `names_in_scope`
+  # (baseline columns) are available from the start.
+  remaining <- names_in_scope
+  ordered <- character(0)
+  while (length(remaining) > 0) {
+    progressed <- FALSE
+    for (name in remaining) {
+      deps <- intersect(dependencies[[name]], names_in_scope)
+      if (all(deps %in% ordered)) {
+        ordered <- c(ordered, name)
+        remaining <- setdiff(remaining, name)
+        progressed <- TRUE
+      }
+    }
+    if (!progressed) {
+      stop(
+        label, " dependency cycle or unresolved ordering among: ",
+        paste(remaining, collapse = ", "),
+        call. = FALSE
+      )
+    }
+  }
+  ordered
+}
+
+#' @noRd
 .order_formula_variables <- function(spec) {
   formula_names <- names(spec$variables)[
     vapply(spec$variables, .is_formula_variable, logical(1))
@@ -102,27 +131,8 @@
     }, error = function(e) FALSE)
   }, formula_names)
 
-  remaining <- parseable_names
-  ordered <- character(0)
-  while (length(remaining) > 0) {
-    progressed <- FALSE
-    for (name in remaining) {
-      deps <- intersect(.formula_dependencies(spec$variables[[name]]), parseable_names)
-      if (all(deps %in% ordered)) {
-        ordered <- c(ordered, name)
-        remaining <- setdiff(remaining, name)
-        progressed <- TRUE
-      }
-    }
-    if (!progressed) {
-      stop(
-        "Formula dependency cycle or unresolved ordering among: ",
-        paste(remaining, collapse = ", "),
-        call. = FALSE
-      )
-    }
-  }
-  ordered
+  dependencies <- lapply(spec$variables[parseable_names], .formula_dependencies)
+  .order_dependent_variables(parseable_names, dependencies, "Formula")
 }
 
 #' @noRd
