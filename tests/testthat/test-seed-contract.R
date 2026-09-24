@@ -44,6 +44,9 @@ test_that("legacy path (validate = FALSE) leaves the caller's RNG untouched", {
   if (!nzchar(vars) || !nzchar(dets)) skip("minimal-example fixtures not installed")
   variables <- read.csv(vars, stringsAsFactors = FALSE, check.names = FALSE)
   variable_details <- read.csv(dets, stringsAsFactors = FALSE, check.names = FALSE)
+  # Survival dates (anchor set) are generated only by the v0.4 pipeline
+  # (ADR v05-survival-dates D10); this test exercises the legacy path.
+  variables <- variables[variables$anchor == "", ]
 
   set.seed(123)
   before <- .Random.seed
@@ -60,6 +63,9 @@ test_that("legacy path is reproducible for a given seed", {
   if (!nzchar(vars) || !nzchar(dets)) skip("minimal-example fixtures not installed")
   variables <- read.csv(vars, stringsAsFactors = FALSE, check.names = FALSE)
   variable_details <- read.csv(dets, stringsAsFactors = FALSE, check.names = FALSE)
+  # Survival dates (anchor set) are generated only by the v0.4 pipeline
+  # (ADR v05-survival-dates D10); this test exercises the legacy path.
+  variables <- variables[variables$anchor == "", ]
   a <- suppressWarnings(suppressMessages(
     create_mock_data("minimal-example", variables, variable_details, n = 20, seed = 42, validate = FALSE)))
   b <- suppressWarnings(suppressMessages(

@@ -406,3 +406,119 @@ test_that("the rules use true dates: a censoring death later replaced by garbage
   expect_true(all(is.na(out$event)))
   expect_true(any(out$death >= as.Date("2090-01-01")))
 })
+
+survival_metadata <- function() {
+  list(
+    variables = data.frame(
+      variable = c("entry", "event", "death"),
+      variableType = c("Date", "Date", "Date"),
+      rType = c("date", "date", "date"),
+      role = c("enabled", "enabled", "enabled"),
+      distribution = c("uniform", "uniform", "uniform"),
+      anchor = c("", "entry", "entry"),
+      censored_by = c("", "death", ""),
+      followup_min = c(NA, 0, 0),
+      followup_max = c(NA, 1000, 1000),
+      event_prop = c(NA, 0.5, 0.4),
+      stringsAsFactors = FALSE
+    ),
+    variable_details = data.frame(
+      variable = "entry",
+      recStart = "[2001-01-01,2001-12-31]",
+      recEnd = "copy",
+      proportion = 1,
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+test_that("mock_spec_from_recodeflow builds survival variables from anchor rows", {
+  md <- survival_metadata()
+  spec <- mock_spec_from_recodeflow(md$variables, md$variable_details)
+  expect_identical(spec$variables$entry$type, "date")
+  expect_identical(spec$variables$event$type, "survival")
+  expect_identical(spec$variables$event$anchor, "entry")
+  expect_identical(spec$variables$event$censored_by, "death")
+  expect_null(spec$variables$death$censored_by)
+  expect_equal(spec$variables$death$event_prop, 0.4)
+})
+
+test_that("a date with survival parameters but no anchor fails with a message naming the fix", {
+  md <- survival_metadata()
+  md$variables$anchor[md$variables$variable == "death"] <- ""
+  expect_error(
+    mock_spec_from_recodeflow(md$variables, md$variable_details),
+    "Date variable 'death' has survival parameter\\(s\\) followup_min, followup_max, event_prop but no anchor"
+  )
+})
+
+test_that("an anchor without survival parameters fails validation", {
+  md <- survival_metadata()
+  md$variables$followup_min[md$variables$variable == "death"] <- NA
+  expect_error(
+    mock_spec_from_recodeflow(md$variables, md$variable_details),
+    "requires finite numeric followup_min and followup_max"
+  )
+})
+
+test_that("create_mock_data generates survival dates from metadata via the v0.4 pipeline", {
+  md <- survival_metadata()
+  expect_message(
+    result <- create_mock_data("study", md$variables, md$variable_details,
+                               n = 300, seed = 5, verbose = TRUE),
+    "Generating via v0.4 mock_spec pipeline"
+  )
+  expect_true(all(c("entry", "event", "death") %in% names(result)))
+  expect_identical(sum(!is.na(result$death)), 120L)
+  both <- !is.na(result$event) & !is.na(result$death)
+  expect_false(any(result$death[both] < result$event[both]))
+  diag <- attr(result, "mockdata_diagnostics")$variables
+  expect_true(isTRUE(diag$event$derived))
+})
+
+test_that("an anchor that is not enabled fails with a message naming it", {
+  md <- survival_metadata()
+  md$variables$role[md$variables$variable == "entry"] <- "disabled"
+  expect_error(
+    suppressMessages(create_mock_data("study", md$variables, md$variable_details,
+                                      n = 10, seed = 1)),
+    "has anchor 'entry', which is not a variable in the spec"
+  )
+})
+
+test_that("legacy generator stops on anchored metadata instead of dropping survival dates", {
+  md <- survival_metadata()
+  expect_error(
+    suppressMessages(create_mock_data("study", md$variables, md$variable_details,
+                                      n = 10, seed = 1, validate = FALSE)),
+    "Survival date variable\\(s\\) event, death \\(anchor set\\) are generated only by the v0.4 pipeline"
+  )
+})
+
+test_that("the minimal example generates all five survival dates via the v0.4 pipeline", {
+  vars <- system.file("extdata", "minimal-example", "variables.csv", package = "MockData")
+  dets <- system.file("extdata", "minimal-example", "variable_details.csv", package = "MockData")
+  if (!nzchar(vars) || !nzchar(dets)) skip("minimal-example fixtures not installed")
+  variables <- read.csv(vars, stringsAsFactors = FALSE, check.names = FALSE)
+  variable_details <- read.csv(dets, stringsAsFactors = FALSE, check.names = FALSE)
+
+  expect_message(
+    result <- suppressWarnings(create_mock_data(
+      "minimal-example", variables, variable_details,
+      n = 500, seed = 1, verbose = TRUE
+    )),
+    "Generating via v0.4 mock_spec pipeline"
+  )
+  survival <- c("primary_event_date", "death_date", "ltfu_date", "admin_censor_date")
+  expect_true(all(c("interview_date", survival) %in% names(result)))
+  for (column in survival) {
+    ok <- !is.na(result[[column]])
+    expect_true(all(result[[column]][ok] >= result$interview_date[ok]), info = column)
+  }
+  # Garbage only replaces existing values and the example's date missing
+  # codes are ignored (#15), so the event counts are exact.
+  expect_identical(sum(!is.na(result$death_date)), 100L)
+  expect_identical(sum(!is.na(result$ltfu_date)), 50L)
+  expect_identical(sum(!is.na(result$admin_censor_date)), 500L)
+  expect_lte(sum(!is.na(result$primary_event_date)), 150L)
+})

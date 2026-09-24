@@ -18,6 +18,11 @@
     if (variable$type == "formula") {
       return(FALSE)
     }
+    # type = "survival" is supported end-to-end (#40): both backends skip it,
+    # generate_survival_dates() computes it, postprocess treats it as a date.
+    if (variable$type == "survival") {
+      return(FALSE)
+    }
 
     formula <- variable$formula
     has_formula <- !is.null(formula) &&
@@ -105,11 +110,14 @@
   }
 
   baseline <- generate_mock_data_native(spec, n = n, seed = seed)
-  staged <- evaluate_mock_formulas(baseline, spec, seed = seed)
-  # Baseline generation, formula evaluation, and post-processing use distinct
-  # L'Ecuyer-CMRG sub-streams derived from the single public seed (see
-  # .with_mock_seed / ADR v05-seed-contract), so all three stages pass the
-  # same seed and select their own stage internally.
+  dated <- generate_survival_dates(baseline, spec, seed = seed)
+  staged <- evaluate_mock_formulas(dated, spec, seed = seed)
+  # Baseline generation, survival dates, formula evaluation, and
+  # post-processing use distinct L'Ecuyer-CMRG sub-streams derived from the
+  # single public seed (see .with_mock_seed / ADR v05-seed-contract), so all
+  # four stages pass the same seed and select their own stage internally.
+  # Survival precedes formulas so a mockFormula can use survival dates
+  # (ADR v05-survival-dates D6).
   postprocess_mock_data(staged, spec, seed = seed)
 }
 
@@ -206,9 +214,9 @@
 #' see \code{vignette("reference-config", package = "MockData")}.
 #'
 #' @examples
-#' # The packaged minimal example includes deliberately messy metadata
-#' # (auto-normalized proportions, survival dates without an anchor): the
-#' # warnings it generates are expected and demonstrate MockData's diagnostics.
+#' # The packaged minimal example covers every variable type, including
+#' # survival dates anchored on interview_date. It auto-normalizes some
+#' # proportions, so warnings about that are expected.
 #' mock_data <- create_mock_data(
 #'   databaseStart = "minimal-example",
 #'   variables = system.file("extdata/minimal-example/variables.csv",
@@ -337,6 +345,27 @@ create_mock_data <- function(databaseStart,
 
       # Filter out derived variables
       enabled_vars <- enabled_vars[!enabled_vars$variable %in% derived_vars, ]
+    }
+  }
+
+  # ADR v05-survival-dates D10: the legacy dispatcher cannot build survival
+  # dates from anchors (it would warn and drop them), so stop rather than
+  # return plausible-looking partial survival data.
+  if ("anchor" %in% names(enabled_vars)) {
+    anchor_values <- as.character(enabled_vars$anchor)
+    anchored <- enabled_vars$variable[
+      !is.na(anchor_values) & trimws(anchor_values) != ""
+    ]
+    if (length(anchored) > 0) {
+      stop(
+        "Survival date variable(s) ", paste(anchored, collapse = ", "),
+        " (anchor set) are generated only by the v0.4 pipeline, but the ",
+        "legacy generator was selected. It is used when validate = FALSE, ",
+        "when variable_details is NULL, when only variable_details has a ",
+        "databaseStart column, or when another variable uses a feature the ",
+        "v0.4 pipeline does not support. Run with verbose = TRUE to see which.",
+        call. = FALSE
+      )
     }
   }
 
