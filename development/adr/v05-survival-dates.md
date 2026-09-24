@@ -19,6 +19,7 @@
 | D7 | Dependencies | Survival dates record `depends_on = c(anchor, censored_by)`, the field formulas already use; one ordering utility serves every derived stage |
 | D8 | Formula allow-list | Add `is.na`, so survival status and time can be derived with `mockFormula` (amends the #39 ADR's D3) |
 | D9 | Legacy path | `create_wide_survival_data()` warns once as deprecated and is kept as the characterization reference |
+| D10 | Legacy generator and `anchor` | If the legacy generator runs on metadata carrying `anchor`, `create_mock_data()` stops and names the survival variables instead of dropping them |
 
 ## Context
 
@@ -86,10 +87,10 @@ The legacy statistics and rules are ported verbatim:
 
 1. `n_events = floor(n * event_prop)`; the event indicator is shuffled with `sample()`.
 2. Follow-up days for events, by `distribution`. **Uniform:** `runif(n_events, followup_min, followup_max)`. **Exponential:** `rexp(n_events, rate = 1 / ((followup_max - followup_min) / 3)) + followup_min`, capped at `followup_max`. **Gompertz:** `(1/shape) * log(1 - (shape/rate) * log(1 - u))` with `u ~ runif`, clamped to the window; `shape` defaults to 0.1 and `rate` to 0.0001.
-3. Date = anchor + follow-up days for events; `NA` otherwise.
-4. After all survival dates are drawn: any date earlier than its anchor becomes `NA`; then, for each variable with `censored_by`, rows where the censoring date is earlier become `NA`.
+3. Date = anchor + `floor(follow-up days)` for events; `NA` otherwise. The legacy engine produces whole days because `create_date_var()` converts dates to character and back (`R/create_date_var.R:479`), which floors; the port floors explicitly.
+4. Any date earlier than its anchor becomes `NA`; then, if the variable has `censored_by`, rows where the censoring date is earlier become `NA`.
 
-Survival dates are drawn in dependency order (D7), ties broken by spec `position`. In v0.5 every anchor is a baseline date, so this equals position order and changes no output. It keeps chained dates (a survival date anchored on another, such as an event whose hazard changes at an exposure-change date) a validator-only change later.
+Survival variables are processed one at a time in dependency order over `depends_on` (D7), using the #39 ordering: repeated passes in spec order, each taking the variables whose dependencies are already placed. Each variable is drawn and then has its own rules applied, so a date named in another's `censored_by` is final before it censors anything. For the legacy rule set this gives the legacy results. The draw order differs from spec order where `censored_by` points forward (in the minimal example, `death_date` is drawn before `primary_event_date`); that has no comparability cost, because the RNG streams differ from the legacy engine's anyway. Mutual `censored_by` references are reported as a dependency cycle. Processing in dependency order also keeps chained dates (a survival date anchored on another, such as an event whose hazard changes at an exposure-change date) a validator-only change later.
 
 Output cannot be bit-identical to `create_wide_survival_data()`, because the RNG streams differ (#38). Parity is therefore tested structurally and distributionally (Test strategy). Two further differences are inherent in the pipeline:
 
@@ -124,6 +125,10 @@ Derived columns describe the true generated values. The #39 stage order computes
 
 `create_wide_survival_data()` is already tagged `@keywords deprecated`. v0.5 adds a one-time deprecation warning pointing to metadata-driven generation. The function is retained unchanged: it is the reference for the characterization tests that pin the rules before the port.
 
+### D10: Legacy generator and `anchor`
+
+`create_mock_data()` uses the legacy generator when `validate = FALSE`, when `variable_details` is `NULL`, when only `variable_details` has a `databaseStart` column, or when another variable uses a feature the v0.4 pipeline does not support. The legacy dispatcher cannot generate survival dates from metadata; today it warns and drops them. With `anchor` in the metadata, that would silently produce partial survival data. Instead, the legacy path stops, names the survival variables, lists the four conditions that select it, and suggests `verbose = TRUE` to see which applied. This follows the no-backward-compatibility constraint: a loud error that names the fix, rather than plausible-looking partial output.
+
 ## Validation, direct API and diagnostics
 
 **Validator.** A `survival` branch in `validate_mock_spec()` beside the `date` and `formula` branches (`R/mock_spec.R:968`):
@@ -134,31 +139,34 @@ Derived columns describe the true generated values. The #39 stage order computes
 - `event_prop` in [0, 1]
 - `distribution` one of `uniform`, `exponential`, `gompertz`; `shape` and `rate` positive when supplied
 - `rtype` is `date`
+- `sourceFormat` is `analysis` (other formats are not supported for survival dates in v0.5)
 
 `generate_survival_dates()` strict-validates at entry, like `evaluate_mock_formulas()`, and stops if an anchor column is absent from `data`.
 
 **Adapter.** `.recodeflow_variable_kind()` (`R/mock_spec_recodeflow.R:117`) returns `survival` for a date row with a non-blank `anchor`. Construction reads `anchor` and `censored_by` beside the existing `followup_*`, `event_prop`, `rate` and `shape` reads. The `recStart` range of a survival date is not used for generation, as in the legacy engine.
 
-**Direct API.** `mock_survival()` returns a one-variable `mock_spec`; `mock_spec_survival()` returns a composable variable. Arguments: `name`, `anchor`, `followup_min`, `followup_max`, `event_prop`, `distribution = "uniform"`, `censored_by = NULL`, `shape = NULL`, `rate = NULL`, plus the usual missing-code, garbage, provenance and model-hint arguments.
+**Direct API.** `mock_spec_survival()` returns a composable variable, used with `mock_spec()` beside its anchor. Arguments: `name`, `anchor`, `followup_min`, `followup_max`, `event_prop`, `distribution = "uniform"`, `censored_by = NULL`, `shape = NULL`, `rate = NULL`, `source_format = "analysis"`, plus the usual missing-code, garbage, provenance and model-hint arguments. There is no one-variable `mock_survival()` counterpart to `mock_formula()`: a spec holding only a survival variable can never validate, because its anchor must be in the same spec.
 
 **Diagnostics.** Following #39's D5 (`R/mock_spec_postprocess.R:35`): `derived = TRUE`, `anchor`, `censored_by`, `depends_on`, and `n_events`, the number of non-`NA` dates after the consistency rules and before postprocess.
 
-## Concerns to file as issues (not fixed in #40)
+## Concerns filed as issues (not fixed in #40)
 
-Found while preparing this design. Each is reproduced exactly by the port.
+Found while preparing this design and filed on 2026-09-24. Each is reproduced exactly by the port.
 
-1. **Gompertz output is degenerate with the packaged parameters.** With `shape = 0.1` and `rate = 1e-04`, time in days, the inverse-CDF never exceeds about 94 days (median 65). In the minimal example every non-garbage `death_date` therefore clamps to `followup_min`, exactly 365 days after entry (388 of 400 deaths in a 2,000-row legacy run; the other 12 are the 3 per cent high garbage). Every non-garbage `primary_event_date` falls within about 94 days despite a 15-year window. No death precedes an event, so the competing-risk rule never fires. The survival tutorial is built on this fixture. Whether the fault lies in the parameterization, the time scale, or the fixture values needs a methodological decision before the tutorial is rewritten around `create_mock_data()`.
-2. **Administrative censoring is drawn per person.** `admin_censor_date` has `event_prop = 1.0` and a follow-up window, so each person gets a random date between one and 20 years after entry (1,762 distinct values in 2,000 rows). Its `variable_details` row specifies a fixed date, 2024-12-31, which is ignored. Administrative censoring is usually a fixed study end date.
-3. **Declared date missingness is ignored.** Every missing row for the minimal example's dates is `else` with `NA::b` and a proportion (0.05 for `death_date`). Neither path applies it: the v0.4 adapter skips `else` rows (`R/mock_spec_recodeflow.R:232`), and the legacy `death_date` is exactly 20.0 per cent non-missing, its `event_prop`. Belongs with #15.
-4. **The documentation overstates censoring.** `create_wide_survival_data()` documents that "observation ends at min(event, death, ltfu, admin_censor)" (`:61`), but the code applies only death before event. Under D3, users encode additional rules with `censored_by`.
-5. **Positional missing-code placement** in `create_date_var()`: the last rows are the missing ones, so row order carries meaning.
-6. **Inert range rows.** The `recStart` range on a survival date's `variable_details` row (for example `[2002-01-01,2021-01-01]`) never bounds anything, which invites the reader to think it does.
+1. **Gompertz output is degenerate with the packaged parameters** (#54). With `shape = 0.1` and `rate = 1e-04`, time in days, the inverse-CDF never exceeds about 94 days (median 65). In the minimal example every non-garbage `death_date` therefore clamps to `followup_min`, exactly 365 days after entry (388 of 400 deaths in a 2,000-row legacy run; the other 12 are the 3 per cent high garbage). Every non-garbage `primary_event_date` falls within about 94 days despite a 15-year window. No death precedes an event, so the competing-risk rule never fires. The survival tutorial is built on this fixture. Whether the fault lies in the parameterization, the time scale, or the fixture values needs a methodological decision before the tutorial is rewritten around `create_mock_data()`.
+2. **Administrative censoring is drawn per person** (#55). `admin_censor_date` has `event_prop = 1.0` and a follow-up window, so each person gets a random date between one and 20 years after entry (1,762 distinct values in 2,000 rows). Its `variable_details` row specifies a fixed date, 2024-12-31, which is ignored. Administrative censoring is usually a fixed study end date.
+3. **Declared date missingness is ignored** (evidence added to #15). Every missing row for the minimal example's dates is `else` with `NA::b` and a proportion (0.05 for `death_date`). Neither path applies it: the v0.4 adapter skips `else` rows (`R/mock_spec_recodeflow.R:232`), and the legacy `death_date` is exactly 20.0 per cent non-missing, its `event_prop`. Belongs with #15.
+4. **The documentation overstates censoring** (#56). `create_wide_survival_data()` documents that "observation ends at min(event, death, ltfu, admin_censor)" (`:61`), but the code applies only death before event. Under D3, users encode additional rules with `censored_by`.
+5. **Positional missing-code placement** (#56) in `create_date_var()`: the last rows are the missing ones, so row order carries meaning.
+6. **Inert range rows** (#56). The `recStart` range on a survival date's `variable_details` row (for example `[2002-01-01,2021-01-01]`) never bounds anything, which invites the reader to think it does.
+7. **Exponential survival dates ignore `rate`** (#56). The generator derives its rate from the window, `1 / ((followup_max - followup_min) / 3)` (`R/create_date_var.R:328`), while `reference-config.qmd` says the exponential distribution requires `rate`.
 
 ## Consequences
 
 - `create_mock_data()` generates complete survival data from metadata, closing the NEWS known issue from v0.2.0.
 - Survival metadata that previously generated silently wrong output now either generates correctly (with `anchor`) or fails validation with a message naming the fix.
-- New exports: `generate_survival_dates()`, `mock_survival()`, `mock_spec_survival()`. Additions to `_pkgdown.yml` in the same PR.
+- New exports: `generate_survival_dates()` and `mock_spec_survival()`. Additions to `_pkgdown.yml` in the same PR.
+- The packaged minimal example now generates entirely through the v0.4 pipeline. Its two Gompertz dates were its only legacy-fallback triggers, so every vignette and test that runs `create_mock_data()` on it sees different values.
 - The formula allow-list grows by one function (D8).
 - Specs without survival variables: output unchanged.
 - Derived columns (formulas, survival status or time) describe true values; contamination is applied to each column independently (D8). Documented in the formula and survival vignettes.
@@ -181,7 +189,7 @@ Found while preparing this design. Each is reproduced exactly by the port.
 
 ## Future directions
 
-- **Sidecar overlay (v0.6, separate ADR).** A MockData-owned table keyed by variable, joined onto `variables` before spec construction, so all extension columns can live outside recodeflow files. The legacy `mock_data_config.csv` readers from v0.2 are the starting point to reconcile or retire.
+- **Sidecar overlay (v0.6, separate ADR; #57).** A MockData-owned table keyed by variable, joined onto `variables` before spec construction, so all extension columns can live outside recodeflow files. The legacy `mock_data_config.csv` readers from v0.2 are the starting point to reconcile or retire.
 - **Observed-value derivation.** An option to compute formulas from contaminated values, so derived status and time agree with what the output shows (D8). An ordering option on the formula stage; no architectural change.
 - **Structural (causal) generation.** Out of scope. The maintainer's motivating case is exposure-dependent survival, such as smoking changing the hazard. Assessed against this design on 2026-09-24:
 
