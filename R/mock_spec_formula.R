@@ -6,13 +6,14 @@
 
 # Base functions/operators a mockFormula may call. Deliberately closed and
 # RNG-free: Phase A formulas are deterministic transformations of generated
-# columns. Widen only on concrete need (ADR D3).
+# columns. Widen only on concrete need (ADR D3). is.na was added for deriving
+# survival status (ADR v05-survival-dates D8).
 .formula_allowlist <- c(
   "+", "-", "*", "/", "^", "%%", "%/%", "(",
   "<", "<=", ">", ">=", "==", "!=", "&", "|", "!",
   "ifelse", "pmin", "pmax", "min", "max", "abs", "round", "floor",
   "ceiling", "sqrt", "exp", "log", "log10", "sum", "mean", "cut",
-  "as.numeric", "as.integer", "as.factor", "factor", "c"
+  "as.numeric", "as.integer", "as.factor", "factor", "c", "is.na"
 )
 
 #' @noRd

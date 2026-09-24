@@ -522,3 +522,54 @@ test_that("the minimal example generates all five survival dates via the v0.4 pi
   expect_identical(sum(!is.na(result$admin_censor_date)), 500L)
   expect_lte(sum(!is.na(result$primary_event_date)), 150L)
 })
+
+window_status <- "as.integer(!is.na(death) & death == pmin(death, admin, na.rm = TRUE))"
+window_days <- "as.numeric(pmin(death, admin, na.rm = TRUE) - entry)"
+
+test_that("mockFormula derives status and follow-up time from one observation window (D8)", {
+  # ADR D8: status and time must come from the same window. A death after
+  # administrative censoring is not an observed death.
+  spec <- survival_spec(
+    mock_spec_survival("death", anchor = "entry", followup_min = 0,
+                       followup_max = 1000, event_prop = 0.5),
+    mock_spec_survival("admin", anchor = "entry", followup_min = 0,
+                       followup_max = 1000, event_prop = 1),
+    mock_spec_formula("death_status", formula = window_status, rtype = "integer"),
+    mock_spec_formula("followup_days", formula = window_days)
+  )
+  staged <- evaluate_mock_formulas(run_stage(spec, n = 400, seed = 2), spec, seed = 2)
+  observed <- !is.na(staged$death) & staged$death <= staged$admin
+  expect_identical(staged$death_status, as.integer(observed))
+  expect_gt(sum(staged$death_status), 0L)
+  # Some deaths fall after administrative censoring and must not count.
+  expect_gt(sum(!is.na(staged$death) & staged$death_status == 0L), 0L)
+  end <- pmin(staged$death, staged$admin, na.rm = TRUE)
+  expect_equal(staged$followup_days, as.numeric(end - staged$entry))
+})
+
+test_that("a death on the censoring date counts as observed (ties, D8)", {
+  spec <- survival_spec(
+    mock_spec_survival("death", anchor = "entry", followup_min = 20,
+                       followup_max = 20, event_prop = 1),
+    mock_spec_survival("admin", anchor = "entry", followup_min = 20,
+                       followup_max = 20, event_prop = 1),
+    mock_spec_formula("death_status", formula = window_status, rtype = "integer")
+  )
+  staged <- evaluate_mock_formulas(run_stage(spec, n = 10), spec, seed = 1)
+  expect_true(all(staged$death_status == 1L))
+})
+
+test_that("formula columns describe clean truth; a later missing code does not change them (D5, D8)", {
+  spec <- survival_spec(
+    mock_spec_survival("death", anchor = "entry", followup_min = 100,
+                       followup_max = 200, event_prop = 1,
+                       missing_codes = "1900-01-01", missing_proportions = 0.3),
+    mock_spec_formula("has_death_date", formula = "as.integer(!is.na(death))",
+                      rtype = "integer")
+  )
+  staged <- evaluate_mock_formulas(run_stage(spec, n = 100, seed = 2), spec, seed = 2)
+  out <- postprocess_mock_data(staged, spec, seed = 2)
+  shown_missing <- out$death == as.Date("1900-01-01")
+  expect_gt(sum(shown_missing), 0)
+  expect_true(all(out$has_death_date[shown_missing] == 1L))
+})
