@@ -118,6 +118,7 @@ articles:
   navbar: How-to guides
   contents:
   - recodeflow-metadata-v04
+  - survival-dates-v05
   - diagnostics-and-garbage-v04
   - migrating-from-v03-v04
   - choosing-a-backend-v04
@@ -128,6 +129,7 @@ articles:
   navbar: Explanation
   contents:
   - design-philosophy-v04
+  - survival-design-v05
   - advanced-topics
 
 - title: Reference

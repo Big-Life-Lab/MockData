@@ -1,0 +1,261 @@
+---
+title: "How survival dates are generated"
+format: html
+vignette: >
+  %\VignetteIndexEntry{How survival dates are generated}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+# Load package - works in both local dev and pkgdown build
+if (file.exists("../DESCRIPTION")) {
+  devtools::load_all("../", quiet = TRUE)
+} else {
+  library(MockData)
+}
+```
+
+::: {.vignette-about}
+**About this article:** How MockData generates survival dates and why it works this way: where survival dates sit in the generation pipeline, how events and censoring are decided, which layer of the output a column belongs to, and what version 0.5 does not yet do. Each mechanism is shown with code that runs when the vignette is built, and hidden checks stop the build if MockData stops behaving as described. The full design record is the survival-dates decision record, `development/adr/v05-survival-dates.md` in the [MockData repository](https://github.com/Big-Life-Lab/MockData).
+:::
+
+## A survival date is derived from its anchor
+
+A survival date depends on another generated column, its anchor. MockData therefore does not draw it with the other variables. Generation runs in four stages:
+
+1. **Baseline:** every sampled variable, including the anchor dates.
+2. **Survival:** each survival date, computed from its anchor.
+3. **Formulas:** each `mockFormula` variable, which may use survival dates.
+4. **Post-processing:** missing codes and garbage, applied to every column.
+
+`create_mock_data()` runs all four. The stages can also be run one at a time:
+
+```{r}
+#| label: stages
+spec <- mock_spec(
+  mock_spec_date("entry", range = as.Date(c("2001-01-01", "2005-12-31"))),
+  mock_spec_survival("death", anchor = "entry",
+    followup_min = 0, followup_max = 3650, event_prop = 0.3),
+  mock_spec_survival("event", anchor = "entry",
+    followup_min = 0, followup_max = 3650, event_prop = 0.5,
+    censored_by = "death"),
+  mock_spec_formula("death_days", formula = "as.numeric(death - entry)")
+)
+
+baseline <- generate_mock_data_native(spec, n = 1000, seed = 1)
+dated <- generate_survival_dates(baseline, spec, seed = 1)
+derived <- evaluate_mock_formulas(dated, spec, seed = 1)
+names(baseline)
+names(dated)
+names(derived)
+```
+
+```{r}
+#| label: stage-claims
+#| include: false
+stopifnot(
+  "the baseline holds only the anchor" = identical(names(baseline), "entry"),
+  "the survival stage adds the survival dates" =
+    setequal(setdiff(names(dated), names(baseline)), c("death", "event")),
+  "the formula stage adds formula columns" =
+    identical(setdiff(names(derived), names(dated)), "death_days")
+)
+```
+
+Each stage adds its own columns and each variable stays one column, so survival dates need no special handling in assembly, post-processing or diagnostics. Survival dates and formulas share one dependency field, `depends_on`, and one ordering routine: a variable is computed after the variables it depends on. Each stage draws from its own random-number stream, so adding survival dates to a specification does not change the values of its other variables.
+
+## How events are decided
+
+Each survival date receives an event for exactly `floor(n * event_prop)` people, chosen at random, and is `NA` for everyone else. Follow-up times are whole days inside the window, spread by the chosen distribution (`uniform`, `exponential` or `gompertz`).
+
+```{r}
+#| label: events
+n_deaths <- sum(!is.na(dated$death))
+death_days <- derived$death_days[!is.na(derived$death_days)]
+range(death_days)
+```
+
+```{r}
+#| label: event-claims
+#| include: false
+stopifnot(
+  "deaths are exactly floor(n * event_prop)" = n_deaths == floor(1000 * 0.3),
+  "follow-up times are whole days" = all(death_days == floor(death_days)),
+  "follow-up times fall inside the window" =
+    all(death_days >= 0 & death_days <= 3650)
+)
+```
+
+Here `r n_deaths` of 1,000 people have a death date, and every follow-up time is a whole number of days between 0 and 3,650.
+
+A fixed count is the method of the legacy `create_wide_survival_data()`, kept in version 0.5 so that results match it. It suits mock data for testing pipelines. It cannot express a risk that differs from person to person, which a future hazard model would need.
+
+The Gompertz parameters in the packaged minimal example (`shape = 0.1`, `rate = 0.0001`, time in days) show one limit of the ported method. The draws never exceed about three months, so every time is clamped to the start of the window ([#54](https://github.com/Big-Life-Lab/MockData/issues/54)):
+
+```{r}
+#| label: gompertz
+gompertz <- mock_spec(
+  mock_spec_date("entry", range = as.Date(c("2001-01-01", "2005-12-31"))),
+  mock_spec_survival("death", anchor = "entry",
+    followup_min = 365, followup_max = 7300, event_prop = 1,
+    distribution = "gompertz", shape = 0.1, rate = 1e-4)
+)
+gompertz_dates <- generate_survival_dates(
+  generate_mock_data_native(gompertz, n = 500, seed = 1), gompertz, seed = 1
+)
+gompertz_days <- unique(as.numeric(gompertz_dates$death - gompertz_dates$entry))
+```
+
+```{r}
+#| label: gompertz-claims
+#| include: false
+# Update this claim, and the prose, when #54 is resolved.
+stopifnot("#54: packaged Gompertz deaths all clamp to followup_min" =
+  identical(gompertz_days, 365))
+```
+
+All 500 deaths fall `r gompertz_days` days after entry, the lower end of a window that runs to 7,300 days.
+
+## Rules run on clean dates
+
+After drawing a survival date, MockData applies two rules, in dependency order:
+
+1. A date earlier than its anchor becomes `NA`.
+2. If the variable has `censored_by`, it becomes `NA` wherever the censoring date is strictly earlier. A date censored by death is drawn after death, so it always compares against the final death date.
+
+An event on the same day as the censoring date is kept:
+
+```{r}
+#| label: ties
+ties <- mock_spec(
+  mock_spec_date("entry", range = as.Date(c("2001-01-01", "2001-12-31"))),
+  mock_spec_survival("death", anchor = "entry",
+    followup_min = 20, followup_max = 20, event_prop = 1),
+  mock_spec_survival("event", anchor = "entry",
+    followup_min = 20, followup_max = 20, event_prop = 1,
+    censored_by = "death")
+)
+tie_dates <- generate_survival_dates(
+  generate_mock_data_native(ties, n = 100, seed = 1), ties, seed = 1
+)
+n_tied_events <- sum(!is.na(tie_dates$event))
+```
+
+```{r}
+#| label: tie-claims
+#| include: false
+stopifnot("an event on the censoring date is kept" = n_tied_events == 100)
+```
+
+All `r n_tied_events` events on the same day as death are kept. The rules run before post-processing, on the dates as generated. Missing codes and garbage come afterwards, so a garbage value added to test a cleaning pipeline, such as a date before entry, stays in the output instead of being removed by the rules.
+
+## Three layers of data
+
+Because contamination comes last, generation produces three layers:
+
+- **Clean truth:** the generated dates and formula columns, before contamination.
+- **Observed data:** what `postprocess_mock_data()` and `create_mock_data()` return, after missing codes and garbage.
+- **Analysis variables:** status, follow-up time and similar quantities that an analysis recalculates from the observed data. MockData does not produce this layer.
+
+A formula column belongs to the clean-truth layer, even though it is returned with the observed data. Here a death date is later shown as a missing code:
+
+```{r}
+#| label: layers
+layers <- mock_spec(
+  mock_spec_date("entry", range = as.Date(c("2001-01-01", "2001-12-31"))),
+  mock_spec_survival("death", anchor = "entry",
+    followup_min = 100, followup_max = 200, event_prop = 1,
+    missing_codes = "1900-01-01", missing_proportions = 0.3),
+  mock_spec_formula("has_death_date", formula = "as.integer(!is.na(death))",
+    rtype = "integer")
+)
+clean <- evaluate_mock_formulas(
+  generate_survival_dates(
+    generate_mock_data_native(layers, n = 200, seed = 2), layers, seed = 2
+  ),
+  layers, seed = 2
+)
+observed <- postprocess_mock_data(clean, layers, seed = 2)
+shown_missing <- observed$death == as.Date("1900-01-01")
+```
+
+```{r}
+#| label: layer-claims
+#| include: false
+stopifnot(
+  "post-processing shows some deaths as missing" = sum(shown_missing) > 0,
+  "the formula column still describes the clean dates" =
+    all(observed$has_death_date[shown_missing] == 1L)
+)
+```
+
+`r sum(shown_missing)` death dates are shown as the missing code `1900-01-01`, but `has_death_date` is 1 on all of them, because it was computed from the clean dates. For testing a cleaning pipeline that is what you want: the formula columns are the answer key. For analysis variables that must agree with the observed dates, compute them from the observed data after generation (`vignette("survival-dates-v05")` shows how).
+
+## Why chained censoring is rejected
+
+A `censored_by` target may not have `censored_by` of its own. Consider three dates, A on day 30, B on day 20 and C on day 10, with A censored by B and B censored by C. Applied in order, the rules set B to `NA`, so A is no longer compared with an earlier date and would be reported as observed on day 30, although observation ended on day 10. MockData refuses the specification instead:
+
+```{r}
+#| label: chained
+chained_message <- tryCatch(
+  mock_spec(
+    mock_spec_date("entry", range = as.Date(c("2001-01-01", "2001-12-31"))),
+    mock_spec_survival("a", anchor = "entry", followup_min = 30,
+      followup_max = 30, event_prop = 1, censored_by = "b"),
+    mock_spec_survival("b", anchor = "entry", followup_min = 20,
+      followup_max = 20, event_prop = 1, censored_by = "c"),
+    mock_spec_survival("c", anchor = "entry", followup_min = 10,
+      followup_max = 10, event_prop = 1)
+  ),
+  error = conditionMessage
+)
+cat(chained_message)
+```
+
+```{r}
+#| label: chained-claims
+#| include: false
+stopifnot("chained censoring is rejected" =
+  grepl("Chained censoring is not supported", chained_message, fixed = TRUE))
+```
+
+A later version could keep every generated event time and derive observed outcomes from all censoring sources at once, which would allow several censoring sources per event.
+
+## What version 0.5 does not do
+
+The stage order is fixed: survival dates are computed before formulas, so a formula can use a survival date, but a survival date cannot depend on a formula. An anchor must be a sampled date:
+
+```{r}
+#| label: restriction
+restriction_message <- tryCatch(
+  mock_spec(
+    mock_spec_date("entry", range = as.Date(c("2001-01-01", "2001-12-31"))),
+    mock_spec_formula("entry_plus", formula = "entry"),
+    mock_spec_survival("death", anchor = "entry_plus",
+      followup_min = 0, followup_max = 10, event_prop = 1)
+  ),
+  error = conditionMessage
+)
+cat(restriction_message)
+```
+
+```{r}
+#| label: restriction-claims
+#| include: false
+stopifnot("an anchor must be a sampled date" =
+  grepl("an anchor must be a date variable", restriction_message, fixed = TRUE))
+```
+
+This matters for exposure-dependent survival, where the hazard depends on an exposure such as smoking. The design leaves room for it, but some cases need more than new parameters:
+
+| Use case | What would need adding | Change to the design |
+|---|---|---|
+| Baseline smokers have a different hazard | A survival model using each person's exposure, with event occurrence following the model rather than a fixed count | Fits the existing specification and stage |
+| The hazard depends on derived pack-years | Formulas computed before the survival dates that use them | Scheduling across stages |
+| Someone quits smoking during follow-up | Exposure history, and a hazard that uses only the exposure known at each time | A substantial generator extension |
+| Illness changes smoking, which changes later outcomes | Repeated updates to exposures and health states | A longitudinal simulation mechanism |
+
+A causal reading of any of these would also need explicit assumptions about confounding and interventions, which the metadata does not yet express. Future survival models should keep the specification, the metadata adapters and the one-column-per-variable contract. They may need more parameters, scheduling across variable types, and separate rules for generating events and for observing them.
