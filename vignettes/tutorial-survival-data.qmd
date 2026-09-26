@@ -145,7 +145,7 @@ spec <- mock_spec(
   mock_spec_survival("death", anchor = "entry",
     followup_min = 0, followup_max = 3650, event_prop = 0.5),
   mock_spec_survival("event", anchor = "entry",
-    followup_min = 0, followup_max = 3650, event_prop = 1,
+    followup_min = 1825, followup_max = 1825, event_prop = 1,
     censored_by = "death")
 )
 baseline <- generate_mock_data_native(spec, n = 1000, seed = 1)
@@ -158,14 +158,16 @@ n_censored <- sum(is.na(demo$event))
 #| include: false
 stopifnot(
   "death removes some events" = n_censored > 0 && n_censored < 1000,
-  "every removed event has an earlier death" =
-    all(!is.na(demo$death[is.na(demo$event)])),
+  # Every event would fall 1,825 days after entry, so a removed event must
+  # have a death before that day.
+  "every removed event has a death before its event day" =
+    all(demo$death[is.na(demo$event)] < demo$entry[is.na(demo$event)] + 1825),
   "no remaining event falls after a death" =
     sum(demo$death < demo$event, na.rm = TRUE) == 0
 )
 ```
 
-Everyone would have the event (`event_prop = 1`), but `r n_censored` of 1,000 events are removed because death came first.
+Everyone would have the event (`event_prop = 1`) exactly five years after entry, but `r n_censored` of 1,000 events are removed because death came first.
 
 ```{r}
 #| label: admin-claims
