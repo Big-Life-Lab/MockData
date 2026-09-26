@@ -180,6 +180,11 @@ prop.table(table(strict_data$smoking))
 - the requested metadata uses a feature not yet supported by the v0.4 native
   backend
 
+Survival dates (rows that set `anchor`, from v0.5) are generated only by the
+v0.4 pipeline. If one of these conditions selects the legacy path for metadata
+that sets `anchor`, `create_mock_data()` stops and names the survival
+variables rather than dropping them.
+
 For example, `variable_details = NULL` keeps the simple legacy fallback.
 
 ```{r}

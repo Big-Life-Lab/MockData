@@ -257,6 +257,8 @@ sandbox exposing only the generated columns and a fixed allow-list of base
 functions. `Func::` dispatch to a consuming package's own derivation
 function (Phase B), and a more general evaluator, remain deferred.
 
+Metadata-driven survival dates also landed in v0.5: a date with an `anchor` is computed from its entry date in a post-baseline stage, with the rules of the legacy `create_wide_survival_data()`. Exposure-dependent hazards and other causal structure remain future work; `development/adr/v05-survival-dates.md` records how the design leaves room for them.
+
 Multi-variable correlation and richer joint distributions are future work.
 `simstudy` is one possible engine for those features, but v0.4 does not claim to
 generate statistically realistic joint distributions.

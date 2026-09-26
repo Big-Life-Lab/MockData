@@ -131,6 +131,13 @@ This reference documents the complete v0.2.1 schema, including all extension col
 
 ### Extension columns (MockData-specific)
 
+MockData reads its generation settings from extension columns added to the recodeflow files; recodeflow and its consuming packages (cchsflow, chmsflow) ignore them. The placement rule:
+
+- On `variables.csv`, extension columns are unprefixed and sit beside the recodeflow columns (`rType`, `distribution`, `garbage_*`, `followup_min`, `anchor` and so on).
+- On `variable_details.csv`, where MockData columns sit among recodeflow's own semantic columns (`recStart`, `recEnd`, `catLabel`), they carry a `mock` prefix, as `mockFormula` does.
+
+Other packages can extend recodeflow metadata the same way. A MockData-owned sidecar file that keeps recodeflow files free of extension columns is planned ([#57](https://github.com/Big-Life-Lab/MockData/issues/57)).
+
 #### Type and generation control
 
 | Column | Type | Description | Values | Example |
@@ -215,13 +222,11 @@ v006,death_date,NA,"[,]",NA,"[,]",0.02
 
 **For date variables:**
 
-- `"uniform"` - Equal probability for all dates
-- `"gompertz"` - Age-related hazard (requires `rate`, `shape`, `followup_min`, `followup_max`, `event_prop`)
-- `"exponential"` - Constant hazard (requires `rate`, `followup_min`, `followup_max`, `event_prop`)
+- `"uniform"` - Equal probability for all dates, or follow-up times spread evenly across the window for survival dates
+- `"gompertz"` - Survival dates only: a hazard rising over time, with `shape` and `rate` (defaults 0.1 and 0.0001)
+- `"exponential"` - Survival dates only: follow-up times concentrated early in the window. The rate is derived from the window; the `rate` column is not used for survival dates ([#56](https://github.com/Big-Life-Lab/MockData/issues/56))
 
-The `followup_min`, `followup_max`, and `event_prop` fields apply only to the
-date/survival use of `exponential`. For continuous variables, `exponential`
-requires only `rate`.
+Survival dates also need `anchor`, `followup_min`, `followup_max` and `event_prop` (see below). For continuous variables, `exponential` requires only `rate`.
 
 **For categorical variables:** Set to `NA` (categories defined by proportions in variable_details.csv)
 
@@ -252,26 +257,29 @@ v005,primary_event_date,gompertz,NA,NA,0.0001,0.1
 | `followup_min` | integer | Minimum follow-up days | Positive integer | `365` |
 | `followup_max` | integer | Maximum follow-up days | Positive integer | `5475` |
 | `event_prop` | numeric | Proportion experiencing event | 0 to 1 | `0.1` |
+| `anchor` | character | Entry-date variable this date is generated relative to; a non-blank value makes the variable a survival date | Name of a date variable | `interview_date` |
+| `censored_by` | character | Optional competing survival date with the same anchor; where it is earlier, this date becomes `NA`. The target may not itself have `censored_by` | Name of a survival variable | `death_date` |
 
 **When to use:**
 
 - Date variables representing events (death_date, disease_diagnosis, etc.)
-- NOT for index dates (interview_date) - those are the time origin
+- NOT for index dates (interview_date) - those are the anchor
+- Every survival date needs `anchor`; a date with `followup_min`, `followup_max` or `event_prop` but no `anchor` fails validation
 
 **Example:**
 
 ```csv
-# Primary event date: 10% experience dementia diagnosis within 1-15 years
-uid,variable,distribution,followup_min,followup_max,event_prop
-v005,primary_event_date,gompertz,365,5475,0.1
+# Primary event date: 10% experience dementia diagnosis within 1-15 years; death censors it
+uid,variable,distribution,anchor,censored_by,followup_min,followup_max,event_prop
+v005,primary_event_date,gompertz,interview_date,death_date,365,5475,0.1
 
 # Death date: 20% die within 1-20 years (competing risk)
-uid,variable,distribution,followup_min,followup_max,event_prop
-v006,death_date,gompertz,365,7300,0.2
+uid,variable,distribution,anchor,censored_by,followup_min,followup_max,event_prop
+v006,death_date,gompertz,interview_date,,365,7300,0.2
 
 # Loss to follow-up: 10% lost within 1-20 years (censoring)
-uid,variable,distribution,followup_min,followup_max,event_prop
-v_007,ltfu_date,uniform,365,7300,0.1
+uid,variable,distribution,anchor,censored_by,followup_min,followup_max,event_prop
+v_007,ltfu_date,uniform,interview_date,,365,7300,0.1
 ```
 
 #### Versioning
@@ -835,9 +843,9 @@ v002,smoking,Categorical,
 uid,variable,variableType,distribution
 v004,interview_date,Date,uniform
 
-# Date: gompertz survival (event date)
-uid,variable,variableType,distribution,rate,shape,followup_min,followup_max,event_prop
-v005,death_date,Date,gompertz,0.0001,0.1,365,7300,0.2
+# Date: gompertz survival (event date), anchored on the index date
+uid,variable,variableType,distribution,rate,shape,anchor,followup_min,followup_max,event_prop
+v005,death_date,Date,gompertz,0.0001,0.1,interview_date,365,7300,0.2
 ```
 
 **Common errors:**
@@ -1503,8 +1511,8 @@ v004,d_008,interview_date,else,NA::b,Missing interview date,0
 
 ```csv
 # variables.csv
-uid,variable,label,variableType,rType,role,position,seed,garbage_high_prop,garbage_high_range,distribution,rate,shape,followup_min,followup_max,event_prop
-v005,primary_event_date,Primary event date (dementia),Date,date,"enabled,outcome,table1",50,500,0.03,"[2021-01-01,2099-12-31]",gompertz,0.0001,0.1,0,5475,0.1
+uid,variable,label,variableType,rType,role,position,seed,garbage_high_prop,garbage_high_range,distribution,rate,shape,anchor,followup_min,followup_max,event_prop
+v005,primary_event_date,Primary event date (dementia),Date,date,"enabled,outcome,table1",50,500,0.03,"[2021-01-01,2099-12-31]",gompertz,0.0001,0.1,interview_date,0,5475,0.1
 
 # variable_details.csv
 uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
@@ -1515,6 +1523,7 @@ v005,d_010,primary_event_date,else,NA::b,Missing event date,0
 **Interpretation:**
 
 - 10% experience dementia diagnosis within 0-15 years after interview
+- The date is anchored on `interview_date`, which must be another enabled date variable
 - Event times follow gompertz distribution (increasing hazard with age)
 - 3% have impossible future dates (2021-2099) for QA testing
 - 90% censored (no event)
@@ -1607,12 +1616,12 @@ mock_data$BMI_derived <- bmi_fun(mock_data$height, mock_data$weight)
 
 ```csv
 # variables.csv
-uid,variable,label,variableType,rType,role,position,seed,distribution,rate,shape,followup_min,followup_max,event_prop
-v004,interview_date,Interview date,Date,date,"enabled,metadata",40,400,uniform,,,,,,
-v005,primary_event_date,Dementia diagnosis,Date,date,"enabled,outcome",50,500,gompertz,0.0001,0.1,0,5475,0.1
-v006,death_date,Death date,Date,date,"enabled,outcome",60,600,gompertz,0.0001,0.1,365,7300,0.2
-v_007,ltfu_date,Loss to follow-up,Date,date,"enabled,outcome",70,700,uniform,,,365,7300,0.1
-v_008,admin_censor_date,Administrative censoring,Date,date,"enabled,metadata",80,800,,,,365,7300,1
+uid,variable,label,variableType,rType,role,position,seed,distribution,rate,shape,anchor,censored_by,followup_min,followup_max,event_prop
+v004,interview_date,Interview date,Date,date,"enabled,metadata",40,400,uniform,,,,,,,
+v005,primary_event_date,Dementia diagnosis,Date,date,"enabled,outcome",50,500,gompertz,0.0001,0.1,interview_date,death_date,0,5475,0.1
+v006,death_date,Death date,Date,date,"enabled,outcome",60,600,gompertz,0.0001,0.1,interview_date,,365,7300,0.2
+v_007,ltfu_date,Loss to follow-up,Date,date,"enabled,outcome",70,700,uniform,,,interview_date,,365,7300,0.1
+v_008,admin_censor_date,Administrative censoring,Date,date,"enabled,metadata",80,800,,,,interview_date,,365,7300,1
 
 # variable_details.csv
 uid,uid_detail,variable,recStart,recEnd,proportion
@@ -1629,14 +1638,14 @@ v_008,d_015,admin_censor_date,2024-12-31,copy,1
 - **Primary event:** 10% develop dementia within 0-15 years (gompertz hazard)
 - **Competing risk:** 20% die within 1-20 years (gompertz hazard)
 - **Censoring:** 10% lost to follow-up within 1-20 years (uniform)
-- **Administrative:** All censored at 2024-12-31
+- **Administrative:** a date between one and 20 years after entry for everyone. It is drawn per person; the fixed `2024-12-31` in `variable_details.csv` is not used ([#55](https://github.com/Big-Life-Lab/MockData/issues/55))
 
-**Result:** Realistic competing risks dataset with:
+**Result:** a competing risks dataset in which:
 
-- Some experience primary event before death/censoring
-- Some die before primary event
-- Some censored (lost to follow-up or administrative)
-- No individual can have more than one terminal event
+- A primary event later than death is removed (`censored_by = death_date`)
+- Everyone has an interview and an administrative date; some also have a primary event, death or loss-to-follow-up date
+- Loss to follow-up and administrative censoring apply when you derive status and follow-up time from the dates (see the tutorial)
+- With these Gompertz parameters every death falls 365 days after entry ([#54](https://github.com/Big-Life-Lab/MockData/issues/54))
 
 See [Tutorial: Generating survival data with competing risks](tutorial-survival-data.html) for complete workflow.
 

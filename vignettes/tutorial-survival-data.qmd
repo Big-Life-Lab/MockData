@@ -19,439 +19,202 @@ if (file.exists("../DESCRIPTION")) {
 ```
 
 ::: {.vignette-about}
-**About this vignette:** This tutorial teaches survival data generation for cohort studies. You'll learn how to create time-to-event data with competing risks (death, disease incidence, loss-to-follow-up), apply temporal ordering constraints, and generate survival indicators for analysis. All code examples run during vignette build to ensure accuracy.
+**About this vignette:** A first walk through survival data for cohort studies: an entry date, event dates, a competing risk (death) and censoring. You will see how survival dates are described in `variables.csv`, generate them with `create_mock_data()`, and check the rules MockData applies. All code runs during the vignette build, and hidden checks stop the build if MockData stops behaving as this page describes.
 :::
 
 ## Overview
 
-Survival analysis requires careful coordination of multiple date variables with strict temporal ordering:
+Survival analysis needs several date variables that respect each other:
 
 - **Cohort entry date** (baseline, index date)
 - **Event dates** (disease incidence, outcomes of interest)
-- **Competing risks** (death prevents observation of primary event)
-- **Censoring events** (loss to follow-up, administrative censoring)
+- **Competing risks** (death prevents observation of the primary event)
+- **Censoring** (loss to follow-up, administrative censoring)
 
-MockData's `create_wide_survival_data()` generates these dates with proper temporal constraints and realistic distributions.
+`create_mock_data()` generates all of these from metadata. A survival date is a date variable whose row in `variables.csv` names, in the `anchor` column, the entry date it is generated from.
 
-::: {.callout-important}
-## About this tutorial: Clean survival data with correct temporal ordering
+## Survival dates in the metadata
 
-This tutorial teaches how to create **meaningful, analysis-ready survival data** with correct temporal ordering. All dates follow proper survival analysis constraints (entry ≤ event, death as competing risk, etc.).
-
-**For data quality testing:** If you need to generate **raw data with temporal violations** (e.g., death before entry, impossible dates) for testing data cleaning pipelines, see the [Garbage data tutorial](tutorial-garbage-data.html#survival-data-garbage) which covers survival-specific garbage patterns.
-:::
-
-## Basic survival data generation
-
-### Minimal example: entry + event
-
-The simplest survival data has two dates: cohort entry and a single event.
+The packaged minimal example has an entry date and four survival dates:
 
 ```{r}
-#| label: survival-basic
-#| warning: false
-#| message: false
-
-# Load minimal-example metadata
+#| label: load-metadata
 variables <- read.csv(
   system.file("extdata/minimal-example/variables.csv", package = "MockData"),
   stringsAsFactors = FALSE,
   check.names = FALSE
 )
-
 variable_details <- read.csv(
   system.file("extdata/minimal-example/variable_details.csv", package = "MockData"),
   stringsAsFactors = FALSE,
   check.names = FALSE
 )
 
-# Generate entry + event dates
-surv_basic <- create_wide_survival_data(
-  var_entry_date = "interview_date",
-  var_event_date = "primary_event_date", # disease incidence or similar
-  var_death_date = NULL,
-  var_ltfu = NULL,  # Loss to follow-up
-  var_admin_censor = NULL, # i.e. End of study follow-up
-  databaseStart = "minimal-example",
-  variables = variables,
-  variable_details = variable_details,
-  n = 1000,
-  seed = 123
-)
-
-# View first few rows
-head(surv_basic)
+survival_columns <- c("variable", "anchor", "censored_by", "distribution",
+                      "followup_min", "followup_max", "event_prop")
+date_rows <- variables$rType == "date"
+variables[date_rows, survival_columns]
 ```
 
-**Result:** Each row has an interview date (cohort entry) and primary event date. Some event dates are `NA` (censored - event did not occur during follow-up).
+Each survival date has:
 
-### Event proportions
+- `anchor`: the entry-date variable it is generated from (`interview_date`)
+- `followup_min`, `followup_max`: the follow-up window, in days after the anchor
+- `event_prop`: the share of people who have the event; the rest are `NA` (censored)
+- `distribution`: how follow-up times spread across the window (`uniform`, `exponential` or `gompertz`)
+- `censored_by` (optional): a competing survival date. Where it comes first, this date is set to `NA`. Here `death_date` censors `primary_event_date`.
 
-Not all individuals experience the primary event. The `event_prop` parameter in variables.csv controls event occurrence rate:
+## Generating survival data
 
-```{r}
-#| label: check-event-prop
-#| echo: false
-
-# Check event proportion from metadata
-primary_event_row <- variables[variables$variable == "primary_event_date", ]
-event_prop <- primary_event_row$event_prop
-
-# Calculate actual event rate
-n_events <- sum(!is.na(surv_basic$primary_event_date))
-observed_prop <- n_events / nrow(surv_basic)
-```
-
-**Configuration:** The primary_event_date variable has `event_prop = `r event_prop`` in variables.csv, meaning `r event_prop * 100`% of individuals experience the event.
-
-**Observed:** `r n_events` out of `r nrow(surv_basic)` individuals (`r round(observed_prop * 100, 1)`%) experienced the primary event.
-
-## Competing risks: adding death
-
-Death is a competing risk - individuals who die cannot experience the primary event. MockData handles this temporal logic automatically.
+The minimal example also adds future-date garbage to its survival dates, for data-quality testing. This section removes it to show clean data; the last section puts it back.
 
 ```{r}
-#| label: competing-risks
+#| label: generate
 #| warning: false
 #| message: false
+clean_variables <- variables
+clean_variables$garbage_high_prop[date_rows] <- 0
 
-# Generate entry + event + death
-surv_compete <- create_wide_survival_data(
-  var_entry_date = "interview_date",
-  var_event_date = "primary_event_date",
-  var_death_date = "death_date",
-  var_ltfu = NULL,
-  var_admin_censor = NULL,
+mock <- create_mock_data(
   databaseStart = "minimal-example",
-  variables = variables,
-  variable_details = variable_details,
-  n = 1000,
-  seed = 456
-)
-
-# Check temporal ordering
-head(surv_compete[, c("interview_date", "primary_event_date", "death_date")])
-```
-
-### Competing risk logic
-
-MockData applies these rules:
-
-1. **Entry date is baseline**: All other dates occur after entry
-2. **Death prevents events**: If death < event, set event to NA (cannot observe event after death)
-3. **Temporal ordering**: interview_date ≤ event_date, interview_date ≤ death_date
-
-```{r}
-#| label: verify-temporal-ordering
-# Verify temporal ordering
-# Note: Dates are already R Date objects (sourceFormat = "analysis" in variables.csv)
-interview_dates <- surv_compete$interview_date
-event_dates <- surv_compete$primary_event_date
-death_dates <- surv_compete$death_date
-
-# Check: All events occur after entry
-all_events_after_entry <- all(
-  event_dates[!is.na(event_dates)] >= interview_dates[!is.na(event_dates)],
-  na.rm = TRUE
-)
-
-# Check: All deaths occur after entry
-all_deaths_after_entry <- all(
-  death_dates[!is.na(death_dates)] >= interview_dates[!is.na(death_dates)],
-  na.rm = TRUE
-)
-```
-
-**Temporal ordering validation:**
-
-- All events occur after entry: `r all_events_after_entry`
-- All deaths occur after entry: `r all_deaths_after_entry`
-
-This confirms MockData correctly enforces temporal constraints.
-
-## Complete survival data: entry + event + death + censoring
-
-Real cohort studies have multiple censoring mechanisms:
-
-- **Loss to follow-up**: Participants drop out
-- **Administrative censoring**: Study ends on specific date
-
-```{r}
-#| label: survival-complete
-#| warning: false
-#| message: false
-
-# Generate complete survival data (all 5 date variables)
-surv_complete <- create_wide_survival_data(
-  var_entry_date = "interview_date",
-  var_event_date = "primary_event_date",
-  var_death_date = "death_date",
-  var_ltfu = "ltfu_date",
-  var_admin_censor = "admin_censor_date",
-  databaseStart = "minimal-example",
-  variables = variables,
+  variables = clean_variables,
   variable_details = variable_details,
   n = 2000,
-  seed = 789
-)
-
-# View structure
-head(surv_complete)
-```
-
-## Creating survival indicators
-
-Survival analysis requires deriving time-to-event and event indicators from the date variables.
-
-### Calculate observation end date
-
-Observation ends at the earliest of: primary event, death, loss to follow-up, or administrative censoring.
-
-```{r}
-#| label: calculate-end-date
-# Dates are already R Date objects (sourceFormat = "analysis")
-# Calculate end date (earliest of all outcomes)
-# Build list of existing date columns
-date_cols <- c("primary_event_date", "death_date", "ltfu_date", "admin_censor_date")
-existing_cols <- date_cols[date_cols %in% names(surv_complete)]
-
-# Calculate minimum date across existing columns
-if (length(existing_cols) > 0) {
-  # Use row-wise minimum to avoid pmin Inf issues with all-NA rows
-  surv_complete$t_end <- as.Date(
-    apply(surv_complete[, existing_cols, drop = FALSE], 1, function(row_dates) {
-      valid_dates <- row_dates[!is.na(row_dates)]
-      if (length(valid_dates) == 0) return(NA_real_)
-      min(valid_dates)
-    }),
-    origin = "1970-01-01"
-  )
-} else {
-  surv_complete$t_end <- as.Date(NA)
-}
-
-# Calculate follow-up time in days
-# Date subtraction returns difftime object; convert to numeric days
-surv_complete$followup_days <- as.numeric(difftime(surv_complete$t_end, surv_complete$interview_date, units = "days"))
-
-head(surv_complete[, c("interview_date", "t_end", "followup_days")])
-```
-
-### Create event indicator
-
-Event indicator identifies why observation ended:
-
-- **0**: Censored (loss to follow-up or administrative censoring)
-- **1**: Primary event occurred
-- **2**: Death occurred (competing risk)
-
-```{r}
-#| label: create-event-indicator
-# Create event indicator
-surv_complete$event_indicator <- ifelse(
-  !is.na(surv_complete$primary_event_date) & surv_complete$primary_event_date == surv_complete$t_end, 1,  # Event
-  ifelse(!is.na(surv_complete$death_date) & surv_complete$death_date == surv_complete$t_end, 2,  # Death
-  0)  # Censored
-)
-
-# Tabulate outcomes
-table(surv_complete$event_indicator)
-```
-
-```{r}
-#| label: calculate-percentages
-#| echo: false
-
-# Calculate percentages for display
-event_counts <- table(surv_complete$event_indicator)
-pct_censored <- round(100 * event_counts["0"] / nrow(surv_complete), 1)
-pct_event <- round(100 * event_counts["1"] / nrow(surv_complete), 1)
-pct_death <- round(100 * event_counts["2"] / nrow(surv_complete), 1)
-```
-
-**Result:**
-
-- **Censored (0)**: `r event_counts["0"]` (`r pct_censored`%) - lost to follow-up or administratively censored
-- **Primary event (1)**: `r event_counts["1"]` (`r pct_event`%) - experienced primary event
-- **Death (2)**: `r event_counts["2"]` (`r pct_death`%) - died before primary event
-
-## Distributions for survival data
-
-Survival dates use realistic distributions to match real-world patterns:
-
-**Uniform**: Constant hazard (administrative censoring, loss to follow-up)
-
-```r
-distribution = "uniform"
-```
-
-**Gompertz**: Age-dependent hazard (death, chronic disease)
-
-```r
-distribution = "gompertz"
-rate = 0.0001
-shape = 0.1
-```
-
-**Exponential**: Constant hazard with early concentration
-
-```r
-distribution = "exponential"
-rate = 0.001
-```
-
-Distribution parameters are specified in variables.csv and used automatically by `create_wide_survival_data()`.
-
-## Date output formats: sourceFormat column
-
-By default, survival dates are generated as R Date objects (`sourceFormat = "analysis"`). However, you can simulate different raw data formats using the `sourceFormat` column in variables.csv:
-
-**Available sourceFormat values:**
-
-- **analysis** (default): R Date objects ready for analysis
-- **csv**: Character strings in ISO format (YYYY-MM-DD), simulating CSV file imports
-- **sas**: Numeric values (days since 1960-01-01), simulating SAS date format
-
-**Why this matters:**
-
-Real cohort data doesn't arrive as clean R Date objects:
-
-- CSV files from survey instruments contain character dates requiring parsing
-- SAS files may have numeric dates that need conversion
-- Different data sources require different harmonization approaches
-
-**Example: Testing different source formats**
-
-The `sourceFormat` value in variables.csv controls the output format. Let's generate interview_date in SAS numeric format while keeping other dates in analysis format:
-
-```{r}
-#| label: sourceformat-sas-example
-#| warning: false
-#| message: false
-
-# Modify only interview_date to use SAS format
-vars_sas <- variables
-vars_sas$sourceFormat[vars_sas$variable == "interview_date"] <- "sas"
-
-surv_sas <- create_wide_survival_data(
-  var_entry_date = "interview_date",
-  var_event_date = "primary_event_date",
-  var_death_date = NULL,
-  var_ltfu = NULL,
-  var_admin_censor = NULL,
-  databaseStart = "minimal-example",
-  variables = vars_sas,  # Modified to use SAS format for interview_date
-  variable_details = variable_details,
-  n = 100,
   seed = 123
 )
 
-# Check the format: interview_date is numeric (SAS), others are Date
-head(surv_sas)
+surv <- mock[, c("interview_date", "primary_event_date", "death_date",
+                 "ltfu_date", "admin_censor_date")]
+head(surv)
 ```
-
-**Result:** The `interview_date` column is numeric (days since 1960-01-01), while `primary_event_date` remains a Date object. This simulates mixed-format raw data that requires harmonization.
-
-To convert SAS dates to R Date format:
 
 ```{r}
-#| label: convert-sas-dates
-#| warning: false
-#| message: false
-
-# Convert SAS numeric dates to R Date
-interview_converted <- as.Date(surv_sas$interview_date, origin = "1960-01-01")
-head(interview_converted)
+#| label: generate-claims
+#| include: false
+death_prop <- variables$event_prop[variables$variable == "death_date"]
+n_deaths <- sum(!is.na(surv$death_date))
+stopifnot(
+  "all five survival columns are generated" = ncol(surv) == 5,
+  "deaths are exactly floor(n * event_prop)" =
+    n_deaths == floor(nrow(surv) * death_prop)
+)
 ```
+
+Each row has an interview date (cohort entry). Survival dates that did not occur are `NA`. `death_date` has `event_prop = `r death_prop``, and `r n_deaths` of `r nrow(surv)` people have a death date: exactly `floor(n * event_prop)`, because MockData assigns a fixed number of events and shuffles who receives them.
+
+## Competing risks and temporal rules
+
+MockData applies two rules to each survival date:
+
+1. **Entry is the baseline.** A date earlier than its anchor is set to `NA`.
+2. **Competing risks.** If a date has `censored_by`, it is set to `NA` wherever the censoring date is earlier: death before a primary event means the event cannot be observed.
+
+```{r}
+#| label: verify-rules
+events_after_entry <- all(surv$primary_event_date >= surv$interview_date, na.rm = TRUE)
+deaths_after_entry <- all(surv$death_date >= surv$interview_date, na.rm = TRUE)
+events_after_death <- sum(surv$death_date < surv$primary_event_date, na.rm = TRUE)
+```
+
+```{r}
+#| label: rule-claims
+#| include: false
+death_days <- as.numeric(surv$death_date - surv$interview_date)
+event_days <- as.numeric(surv$primary_event_date - surv$interview_date)
+max_event_days <- max(event_days, na.rm = TRUE)
+stopifnot(
+  "no event before entry" = events_after_entry,
+  "no death before entry" = deaths_after_entry,
+  "no event recorded after a death" = events_after_death == 0,
+  # #54: update these claims, and the prose below, when #54 is resolved.
+  "#54: every death falls at followup_min" = all(death_days[!is.na(death_days)] == 365),
+  "#54: every primary event falls within about three months" = max_event_days < 100
+)
+```
+
+- All events on or after entry: `r events_after_entry`
+- All deaths on or after entry: `r deaths_after_entry`
+- Events recorded after a death: `r events_after_death`
+
+In the minimal example no death comes before an event, so the competing-risk rule never applies. Its Gompertz parameters put every death exactly 365 days after entry and every primary event within `r max_event_days` days ([#54](https://github.com/Big-Life-Lab/MockData/issues/54)). This small specification shows the rule at work, with follow-up times that overlap:
+
+```{r}
+#| label: competing-risk-demo
+spec <- mock_spec(
+  mock_spec_date("entry", range = as.Date(c("2001-01-01", "2005-12-31"))),
+  mock_spec_survival("death", anchor = "entry",
+    followup_min = 0, followup_max = 3650, event_prop = 0.5),
+  mock_spec_survival("event", anchor = "entry",
+    followup_min = 1825, followup_max = 1825, event_prop = 1,
+    censored_by = "death")
+)
+baseline <- generate_mock_data_native(spec, n = 1000, seed = 1)
+demo <- generate_survival_dates(baseline, spec, seed = 1)
+n_censored <- sum(is.na(demo$event))
+```
+
+```{r}
+#| label: demo-claims
+#| include: false
+stopifnot(
+  "death removes some events" = n_censored > 0 && n_censored < 1000,
+  # Every event would fall 1,825 days after entry, so a removed event must
+  # have a death before that day.
+  "every removed event has a death before its event day" =
+    all(demo$death[is.na(demo$event)] < demo$entry[is.na(demo$event)] + 1825),
+  "no remaining event falls after a death" =
+    sum(demo$death < demo$event, na.rm = TRUE) == 0
+)
+```
+
+Everyone would have the event (`event_prop = 1`) exactly five years after entry, but `r n_censored` of 1,000 events are removed because death came first.
+
+```{r}
+#| label: admin-claims
+#| include: false
+n_admin_dates <- length(unique(surv$admin_censor_date))
+# #55: update this claim, and the prose below, when #55 is resolved.
+stopifnot("#55: administrative censoring is drawn per person" = n_admin_dates > 1)
+```
+
+One caveat about the example: `admin_censor_date` is a survival date with `event_prop = 1`, so each person gets a random date, `r n_admin_dates` distinct dates in all, rather than one study end date ([#55](https://github.com/Big-Life-Lab/MockData/issues/55)).
 
 ## Temporal violations for QA testing
 
-The minimal-example metadata includes temporal violations through the `garbage_high_prop` and `garbage_high_range` parameters. These generate future dates that violate temporal constraints for testing validation pipelines:
+With its garbage settings back, the minimal example adds future dates to its survival dates. MockData applies garbage after the temporal rules, so the violations stay in the output for your validation pipeline to find:
 
 ```{r}
 #| label: temporal-violations-qa
 #| warning: false
 #| message: false
-
-# Generate survival data with configured garbage dates
-surv_qa <- create_wide_survival_data(
-  var_entry_date = "interview_date",
-  var_event_date = "primary_event_date",
-  var_death_date = "death_date",
-  var_ltfu = NULL,
-  var_admin_censor = NULL,
+mock_qa <- create_mock_data(
   databaseStart = "minimal-example",
   variables = variables,
   variable_details = variable_details,
   n = 1000,
   seed = 999
 )
-
-# Check for temporal violations
-# Look for events that occur after impossibly far in the future (2025+)
 future_threshold <- as.Date("2025-01-01")
-
-# Count future dates in primary_event_date
-n_future_events <- sum(surv_qa$primary_event_date > future_threshold, na.rm = TRUE)
-
-# Count future dates in death_date
-n_future_deaths <- sum(surv_qa$death_date > future_threshold, na.rm = TRUE)
-
-# Total violations
-n_violations <- n_future_events + n_future_deaths
-prop_violations <- round(100 * n_violations / nrow(surv_qa), 1)
+n_future_events <- sum(mock_qa$primary_event_date > future_threshold, na.rm = TRUE)
+n_future_deaths <- sum(mock_qa$death_date > future_threshold, na.rm = TRUE)
 ```
 
 ```{r}
-#| label: store-qa-variables
-#| echo: false
-
-# Store variables for inline display
-n_total_qa <- nrow(surv_qa)
+#| label: qa-claims
+#| include: false
+stopifnot(
+  "garbage adds future primary events" = n_future_events > 0,
+  "garbage adds future deaths" = n_future_deaths > 0
+)
 ```
-
-**Validation detects:** `r n_violations` temporal violations out of `r n_total_qa` observations (`r prop_violations`%). These future dates (> 2025-01-01) represent data quality issues that your validation pipeline should flag.
-
-**Breakdown:**
 
 - Future primary events: `r n_future_events`
 - Future deaths: `r n_future_deaths`
 
-This demonstrates how MockData's garbage parameters help test validation logic by generating realistic data quality issues.
-
-## Key concepts summary
-
-| Concept | Implementation | Details |
-|---------|----------------|---------|
-| **Competing risks** | Death prevents primary event | If death < event, set event to NA |
-| **Event proportions** | `event_prop` in variables.csv | Controls % experiencing each outcome |
-| **Temporal ordering** | Automatic constraint enforcement | All dates ≥ entry date |
-| **Distributions** | Gompertz, uniform, exponential | Specified in variables.csv |
-| **End date** | `pmin(event, death, ltfu, admin)` | Earliest outcome defines observation end |
-| **Event indicator** | Derived from date comparison | 0=censored, 1=event, 2=death |
-| **QA testing** | `prop_garbage` parameter | Generates temporal violations for validation testing |
-
-## What you learned
-
-In this tutorial, you learned:
-
-- **Basic survival generation**: Entry date + event date with event proportions
-- **Competing risks**: Death as a competing event that prevents primary event observation
-- **Temporal constraints**: How MockData enforces proper date ordering
-- **Complete cohort data**: Entry + event + death + loss-to-follow-up + administrative censoring
-- **Derived variables**: Creating follow-up time and event indicators from raw dates
-- **Distributions**: Using Gompertz, uniform, and exponential for realistic temporal patterns
-- **QA testing**: Generating temporal violations to validate data quality pipelines
+The [Garbage data tutorial](tutorial-garbage-data.html#survival-data-garbage) covers survival garbage in more detail.
 
 ## Next steps
 
-**Tutorials:**
-
-- [Date variables](tutorial-dates.html) - Learn interval notation and date distributions
-- [Garbage data](tutorial-garbage-data.html) - Testing validation pipelines
-- [Getting started](getting-started.html) - Review MockData fundamentals
-
-**Reference:**
-
-- [Configuration reference](reference-config.html) - Complete metadata schema
-- [Advanced topics](advanced-topics.html) - Technical implementation details
+- `vignette("survival-dates-v05")`: add survival dates to your own metadata, move from `create_wide_survival_data()`, and derive observed status and follow-up time
+- `vignette("survival-design-v05")`: how the survival stage works, the three layers of data, and what version 0.5 does not yet do
+- `vignette("reference-config")`: every survival column

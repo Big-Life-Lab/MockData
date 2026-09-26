@@ -7,7 +7,7 @@
 # ==============================================================================
 
 #' @noRd
-.postprocess_empty_diagnostics <- function(spec, n) {
+.postprocess_empty_diagnostics <- function(spec, n, data = NULL) {
   variables <- lapply(spec$variables, function(variable) {
     garbage_rule_names <- names(variable$garbage_rules)
     if (is.null(garbage_rule_names)) {
@@ -39,6 +39,20 @@
       entry$derived <- TRUE
       entry$formula <- variable$formula
       entry$depends_on <- variable$depends_on
+    }
+
+    # ADR v05-survival-dates D7: survival dates are derived from their anchor;
+    # n_events counts the dates present before post-processing.
+    if (.is_survival_variable(variable)) {
+      entry$derived <- TRUE
+      entry$anchor <- variable$anchor
+      entry$censored_by <- variable$censored_by
+      entry$depends_on <- variable$depends_on
+      entry$n_events <- if (is.null(data)) {
+        NA_integer_
+      } else {
+        sum(!is.na(data[[variable$name]]))
+      }
     }
 
     entry
@@ -385,7 +399,7 @@ postprocess_mock_data <- function(data, spec, seed = NULL, diagnostics = TRUE) {
 
   .with_mock_seed(seed, {
     output <- data
-    diag <- .postprocess_empty_diagnostics(spec, nrow(data))
+    diag <- .postprocess_empty_diagnostics(spec, nrow(data), data)
 
     for (variable_name in names(spec$variables)) {
       variable <- spec$variables[[variable_name]]
