@@ -65,9 +65,7 @@ stopifnot(
 )
 ```
 
-Each stage adds its own columns and each variable stays one column, so survival dates need no special handling in assembly, post-processing or diagnostics. Survival dates and formulas share one dependency field, `depends_on`, and one ordering routine: a variable is computed after the variables it depends on. Each stage draws from its own random-number stream, so adding a survival date leaves the generated values of every other variable unchanged.
-
-Post-processing is the exception. Missing codes and garbage for all columns come from one shared stream, in column order, so a survival date that carries missing codes or garbage can change which rows of later columns receive theirs:
+Each stage adds its own columns and each variable stays one column, so survival dates need no special handling in assembly, post-processing or diagnostics. Survival dates and formulas share one dependency field, `depends_on`, and one ordering routine: a variable is computed after the variables it depends on. Each stage draws from its own random-number stream, which the variables within that stage share. Adding a survival date therefore leaves baseline values unchanged, but two kinds of value can change: survival dates drawn after it, because all survival dates share one stream in dependency order; and the missing codes and garbage of later columns, because post-processing shares one stream across all columns. If you pin expected values in tests, regenerate them after adding a survival date:
 
 ```{r}
 #| label: streams
@@ -93,13 +91,26 @@ generated_x_unchanged <- identical(
 )
 x_changed_plain <- sum(run_all(without_survival)$x != run_all(mock_spec(entry, death_plain, x))$x)
 x_changed_coded <- sum(run_all(without_survival)$x != run_all(mock_spec(entry, death_coded, x))$x)
+
+ltfu <- mock_spec_survival("ltfu", anchor = "entry",
+  followup_min = 0, followup_max = 10, event_prop = 0.2)
+clean_death <- function(s) {
+  generate_survival_dates(generate_mock_data_native(s, n = 100, seed = 7), s, seed = 7)$death
+}
+count_changed <- function(a, b) sum(!mapply(identical, as.character(a), as.character(b)))
+death_changed_before <- count_changed(clean_death(mock_spec(entry, death_plain)),
+                                      clean_death(mock_spec(entry, ltfu, death_plain)))
+death_changed_after <- count_changed(clean_death(mock_spec(entry, death_plain)),
+                                     clean_death(mock_spec(entry, death_plain, ltfu)))
 ```
 
 ```{r}
 #| label: stream-claims
 #| include: false
 stopifnot(
-  "adding a survival date leaves other generated values unchanged" = generated_x_unchanged,
+  "adding a survival date leaves baseline values unchanged" = generated_x_unchanged,
+  "a survival date drawn earlier changes later survival dates" = death_changed_before > 0,
+  "a survival date drawn later leaves earlier ones unchanged" = death_changed_after == 0,
   "a survival date without missing codes or garbage leaves returned values unchanged" =
     x_changed_plain == 0,
   "a survival date with missing codes can shift later columns' missing codes" =
@@ -107,7 +118,7 @@ stopifnot(
 )
 ```
 
-With the same seed, `x` is generated identically with or without the survival date. After post-processing, a survival date without missing codes changes `r x_changed_plain` of the 100 returned `x` values, and one with missing codes changes `r x_changed_coded`, because it draws from the shared stream before `x` does.
+With the same seed, `x` is generated identically with or without the survival date. A new survival date drawn before `death` changes `r death_changed_before` of its 100 clean dates; one drawn after it changes `r death_changed_after`. After post-processing, a survival date without missing codes changes `r x_changed_plain` of the 100 returned `x` values, and one with missing codes changes `r x_changed_coded`, because it draws from the shared stream before `x` does.
 
 ## How events are decided
 
