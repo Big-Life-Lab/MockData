@@ -49,6 +49,30 @@
 }
 
 #' @noRd
+.legacy_route_reasons <- function() {
+  paste0(
+    "It is used when validate = FALSE, when variable_details is NULL, when ",
+    "only variable_details has a databaseStart column, or when another ",
+    "variable uses a feature the v0.4 pipeline does not support. Run with ",
+    "verbose = TRUE to see which."
+  )
+}
+
+#' @noRd
+.legacy_formula_variables <- function(enabled_vars, variable_details, databaseStart) {
+  # Enabled variables with a non-blank mockFormula for the requested
+  # database, using the same lookup as the v0.4 adapter's carve-out.
+  if (is.null(variable_details) || !"mockFormula" %in% names(variable_details)) {
+    return(character(0))
+  }
+  database <- if ("databaseStart" %in% names(variable_details)) databaseStart else NULL
+  Filter(function(variable) {
+    details <- .filter_recodeflow_details(variable_details, variable, database)
+    !.is_blank(suppressWarnings(.details_mock_formula(details)))
+  }, as.character(enabled_vars$variable))
+}
+
+#' @noRd
 .has_survival_metadata <- function(variables) {
   # A row sets anchor, or carries survival parameters (followup_min,
   # followup_max, event_prop): the metadata describes survival dates.
@@ -371,6 +395,20 @@ create_mock_data <- function(databaseStart,
     enabled_vars <- variables
   }
 
+  # Formula variables are computed only by the v0.4 pipeline; the legacy
+  # dispatcher ignores mockFormula and would return unrelated random values,
+  # or drop a DerivedVar:: variable, without saying so. Checked before the
+  # derived exclusion below, which would otherwise hide DerivedVar:: rows.
+  formula_vars <- .legacy_formula_variables(enabled_vars, variable_details, databaseStart)
+  if (length(formula_vars) > 0) {
+    stop(
+      "Formula variable(s) ", paste(formula_vars, collapse = ", "),
+      " (mockFormula set) are computed only by the v0.4 pipeline, but the ",
+      "legacy generator was selected. ", .legacy_route_reasons(),
+      call. = FALSE
+    )
+  }
+
   # Exclude derived variables (identified by DerivedVar:: and Func:: patterns)
   if (!is.null(variable_details)) {
     derived_vars <- identify_derived_vars(enabled_vars, variable_details)
@@ -398,10 +436,7 @@ create_mock_data <- function(databaseStart,
       stop(
         "Survival date variable(s) ", paste(anchored, collapse = ", "),
         " (anchor set) are generated only by the v0.4 pipeline, but the ",
-        "legacy generator was selected. It is used when validate = FALSE, ",
-        "when variable_details is NULL, when only variable_details has a ",
-        "databaseStart column, or when another variable uses a feature the ",
-        "v0.4 pipeline does not support. Run with verbose = TRUE to see which.",
+        "legacy generator was selected. ", .legacy_route_reasons(),
         call. = FALSE
       )
     }

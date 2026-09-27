@@ -457,3 +457,49 @@ test_that("is.na is permitted in mockFormula expressions (survival ADR D8)", {
                                 spec, seed = 1)
   expect_identical(out$flag, rep(0L, 5))
 })
+
+test_that("the legacy generator stops on formula metadata instead of generating wrong values", {
+  # Release review of 0.5.0: when any variable forces the legacy path, the
+  # legacy generator ignored mockFormula, so z = x * 2 came back as unrelated
+  # random values (or vanished with DerivedVar:: notation), silently.
+  variables <- data.frame(
+    variable = c("x", "y", "z"),
+    variableType = "Continuous",
+    rType = "double",
+    role = "enabled",
+    distribution = c("uniform", "lognormal", NA),
+    stringsAsFactors = FALSE
+  )
+  details <- data.frame(
+    variable = c("x", "y", "z"),
+    recStart = c("[0,1]", "[1,10]", "[0,1]"),
+    recEnd = "copy",
+    proportion = 1,
+    mockFormula = c("", "", "x * 2"),
+    stringsAsFactors = FALSE
+  )
+  run <- function(v, d, ...) {
+    suppressWarnings(suppressMessages(
+      create_mock_data("study", v, d, n = 20, seed = 1, ...)
+    ))
+  }
+  guard <- "Formula variable\\(s\\) z \\(mockFormula set\\) are computed only by the v0.4 pipeline"
+
+  # An unsupported feature on another variable (lognormal y) forces fallback.
+  expect_error(run(variables, details), guard)
+
+  # With DerivedVar:: notation z used to disappear from the output.
+  derived <- details
+  derived$recStart[3] <- "DerivedVar::[x]"
+  derived$recEnd[3] <- "Func::double_x"
+  expect_error(run(variables, derived), guard)
+
+  # Explicit validate = FALSE selects the legacy path too.
+  supported <- variables
+  supported$distribution[2] <- "uniform"
+  expect_error(run(supported, details, validate = FALSE), guard)
+
+  # Control: on the v0.4 path the formula is honoured.
+  result <- run(supported, details)
+  expect_equal(result$z, result$x * 2)
+})
