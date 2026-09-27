@@ -119,6 +119,10 @@
   variable_type <- tolower(.row_character(var_row, "variableType", ""))
 
   if (rtype == "date" || variable_type == "date") {
+    # A non-blank anchor makes a date a survival date (#40, ADR D3).
+    if (!.is_blank(.row_character(var_row, "anchor", ""))) {
+      return("survival")
+    }
     return("date")
   }
   if (variable_type == "categorical" || rtype %in% c("factor", "character", "logical")) {
@@ -150,7 +154,8 @@
     kind,
     continuous = "double",
     categorical = "factor",
-    date = "date"
+    date = "date",
+    survival = "date"
   )
 }
 
@@ -443,6 +448,41 @@
     ))
   }
 
+  if (kind == "survival") {
+    return(mock_spec_survival(
+      name = variable,
+      anchor = .row_character(var_row, "anchor"),
+      censored_by = .row_character(var_row, "censored_by", NULL),
+      followup_min = .row_numeric(var_row, "followup_min"),
+      followup_max = .row_numeric(var_row, "followup_max"),
+      event_prop = .row_numeric(var_row, "event_prop"),
+      distribution = .recodeflow_distribution(var_row, details),
+      shape = .row_numeric(var_row, "shape"),
+      rate = .row_numeric(var_row, "rate"),
+      source_format = .row_character(var_row, "sourceFormat", "analysis"),
+      missing_codes = missing$codes,
+      missing_proportions = missing$proportions,
+      garbage_rules = garbage_rules,
+      provenance = provenance
+    ))
+  }
+
+  # ADR v05-survival-dates D3: survival parameters without an anchor were
+  # silently dropped or generated as a plain calendar date before #40.
+  survival_fields <- c("followup_min", "followup_max", "event_prop")
+  present <- survival_fields[!vapply(survival_fields, function(field) {
+    is.na(.row_numeric(var_row, field))
+  }, logical(1))]
+  if (length(present) > 0) {
+    stop(
+      "Date variable '", variable, "' has survival parameter(s) ",
+      paste(present, collapse = ", "), " but no anchor. Add anchor = ",
+      "\"<entry-date variable>\" to its variables row to generate it as a ",
+      "survival date, or remove the survival parameters.",
+      call. = FALSE
+    )
+  }
+
   source_format <- .row_character(var_row, "sourceFormat", "analysis")
 
   .new_mock_spec_variable(
@@ -458,10 +498,7 @@
     provenance = provenance,
     model_hint = "native-postprocess",
     rate = .row_numeric(var_row, "rate"),
-    shape = .row_numeric(var_row, "shape"),
-    followup_min = .row_numeric(var_row, "followup_min"),
-    followup_max = .row_numeric(var_row, "followup_max"),
-    event_prop = .row_numeric(var_row, "event_prop")
+    shape = .row_numeric(var_row, "shape")
   )
 }
 
@@ -478,9 +515,11 @@
 #' that begin with `NA::` (expanding an integer range such as `[997,999]` into
 #' its individual codes, with the row's proportion split equally), preserves
 #' categorical levels and proportions, carries
-#' `garbage_*` settings into `garbage_rules`, and stores survival/date fields
-#' such as `rate`, `shape`, `followup_min`, `followup_max`, and `event_prop` on
-#' date variables for later backend milestones.
+#' `garbage_*` settings into `garbage_rules`, and builds a survival date
+#' ([mock_spec_survival()]) from any date row that sets `anchor`, reading
+#' `censored_by`, `followup_min`, `followup_max`, `event_prop`, `distribution`,
+#' `shape` and `rate`. A date row with survival parameters but no `anchor` is
+#' an error.
 #'
 #' By default, variables identified by `DerivedVar::` or `Func::` rows are
 #' excluded because they should be evaluated after raw mock variables are

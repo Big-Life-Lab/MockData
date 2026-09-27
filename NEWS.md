@@ -11,6 +11,48 @@
   unchanged: derived variables without a `mockFormula` remain excluded from
   generation, and `Func::` dispatch is not yet supported.
 
+## Survival dates in create_mock_data() (#40)
+
+- `create_mock_data()` now generates survival dates from metadata. A date
+  whose `variables.csv` row sets `anchor` (its entry-date variable) is a
+  survival date: `floor(n * event_prop)` rows receive a date between
+  `followup_min` and `followup_max` days after the anchor, drawn from a
+  uniform, exponential or Gompertz distribution, and the rest are `NA`. An
+  optional `censored_by` column names a competing survival date, such as
+  death, that sets this date to `NA` where it comes first. The statistics and
+  rules are those of `create_wide_survival_data()`, ported exactly. New
+  functions: `mock_spec_survival()` and `generate_survival_dates()`. This
+  resolves the known issue, listed since v0.2.0, that survival data had to be
+  generated separately.
+- Migration: add `anchor` (and `censored_by` where a competing risk applies)
+  to each survival date's row. A date with `followup_min`, `followup_max` or
+  `event_prop` but no `anchor` now fails with a message naming the fix;
+  previously it was silently dropped or generated as a plain calendar date.
+- Missing codes and garbage are applied to survival dates after the survival
+  rules. Garbage that places a date before entry is therefore kept, whereas
+  the legacy engine set such dates to `NA`.
+- Derived columns, from `mockFormula` or survival dates, describe the clean
+  generated values; missing codes and garbage are then applied to each column
+  independently. `is.na` is added to the `mockFormula` allow-list so status
+  and follow-up time can be derived. Derive both from the same observation
+  window: `as.integer(!is.na(death_date))` only says a death date exists,
+  not that the death was observed before censoring.
+- A `censored_by` target may not itself have `censored_by`. Chained censoring
+  would report some events as observed after observation ended, so it is
+  rejected in this version with a message naming the fix.
+- The packaged minimal example now generates entirely through the v0.4
+  pipeline, because its Gompertz survival dates no longer force the legacy
+  generator. Its seeded output differs from v0.4.
+- If the legacy generator is selected (`validate = FALSE`,
+  `variable_details = NULL`, detail-level-only `databaseStart`, or another
+  unsupported variable) on metadata that sets `anchor`, `create_mock_data()`
+  stops and names the survival variables rather than dropping them.
+- `create_wide_survival_data()` is deprecated and warns once per session.
+- Known issues found while porting, reproduced unchanged: #54 (Gompertz
+  follow-up times are degenerate with the packaged parameters), #55
+  (administrative censoring is drawn per person), #56 (smaller legacy
+  discrepancies).
+
 ## Reproducibility (breaking change)
 
 - Seeded output changed once for the RNG-stream mechanism in this release.
@@ -368,8 +410,8 @@ vars_with_garbage <- variables %>%
 
 ## Known issues
 
-- Survival variable type must be generated manually with `create_wide_survival_data()`
-- Cannot be used in `create_mock_data()` batch generation (requires paired variables)
+- Survival variable type must be generated manually with `create_wide_survival_data()` (resolved in 0.5.0, #40)
+- Cannot be used in `create_mock_data()` batch generation (requires paired variables) (resolved in 0.5.0, #40)
 
 ---
 

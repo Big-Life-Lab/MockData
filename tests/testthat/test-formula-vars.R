@@ -447,3 +447,13 @@ test_that("warn when variable details have conflicting mockFormula values", {
   # Verify the first value was used
   expect_identical(spec$variables$z$formula, "x * 2")
 })
+
+test_that("is.na is permitted in mockFormula expressions (survival ADR D8)", {
+  spec <- mock_spec(
+    mock_spec_continuous("x", range = c(0, 1)),
+    mock_spec_formula("flag", formula = "as.integer(is.na(x))", rtype = "integer")
+  )
+  out <- evaluate_mock_formulas(generate_mock_data_native(spec, n = 5, seed = 1),
+                                spec, seed = 1)
+  expect_identical(out$flag, rep(0L, 5))
+})
