@@ -5,8 +5,23 @@
 # garbage, diagnostics, and richer rType handling lands in later milestones.
 # ==============================================================================
 
+# Named generation stages -> fixed L'Ecuyer-CMRG sub-stream indices. Indices
+# are FROZEN: adding a future stage must not renumber baseline/postprocess, or
+# seeded output for existing features would shift. correlate (#42) is reserved
+# though unused; survival (#40) is appended, never inserted.
+.MOCK_STAGES <- c(
+  baseline    = 0L,
+  postprocess = 1L,
+  formula     = 2L,
+  correlate   = 3L,
+  survival    = 4L
+)
+
 #' @noRd
-.with_mock_seed <- function(seed, expr) {
+.with_mock_seed <- function(seed, expr, stage = "baseline") {
+  if (!stage %in% names(.MOCK_STAGES)) {
+    stop("Unknown generation stage: '", stage, "'.", call. = FALSE)
+  }
   if (is.null(seed)) {
     return(force(expr))
   }
@@ -15,13 +30,20 @@
     stop("seed must be a single whole number.", call. = FALSE)
   }
 
+  # Save the caller's RNG state AND kind so generation never perturbs them.
+  old_kind <- RNGkind()
   had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   if (had_seed) {
     old_seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   }
-
-  # Generation should be reproducible without changing the caller's RNG stream.
   on.exit({
+    # Suppress: restoring the caller's own ambient RNGkind (e.g. sample.kind
+    # = "Rounding" from RNGversion("3.5.0")) would otherwise re-fire the
+    # "non-uniform 'Rounding' sampler used" warning on every seeded call -
+    # the caller already chose that kind and was already warned about it once.
+    suppressWarnings(
+      RNGkind(kind = old_kind[1], normal.kind = old_kind[2], sample.kind = old_kind[3])
+    )
     if (had_seed) {
       assign(".Random.seed", old_seed, envir = .GlobalEnv)
     } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
@@ -29,7 +51,16 @@
     }
   }, add = TRUE)
 
-  set.seed(seed)
+  # One L'Ecuyer-CMRG stream from the public seed, advanced to this stage's
+  # provably-independent sub-stream. Pinning the kind makes output independent
+  # of the caller's ambient RNGkind().
+  set.seed(seed, kind = "L'Ecuyer-CMRG", normal.kind = "Inversion", sample.kind = "Rejection")
+  stream <- .Random.seed
+  for (i in seq_len(.MOCK_STAGES[[stage]])) {
+    stream <- parallel::nextRNGStream(stream)
+  }
+  assign(".Random.seed", stream, envir = .GlobalEnv)
+
   force(expr)
 }
 
@@ -49,6 +80,14 @@
 #' @noRd
 .native_formula_variables <- function(spec) {
   names(Filter(function(variable) {
+    # type == "formula" variables are supported (#39): the native backend
+    # skips them (see generate_mock_data_native()) and evaluate_mock_formulas()
+    # computes them post-baseline. This check only guards a *stray* formula
+    # field left on a variable of some OTHER type (e.g. an adapter mistake) -
+    # that combination remains an unsupported/fallback trigger.
+    if (.is_formula_variable(variable)) {
+      return(FALSE)
+    }
     formula <- variable$formula
     !is.null(formula) &&
       !(is.character(formula) && length(formula) == 1 && (is.na(formula) || trimws(formula) == ""))
@@ -103,6 +142,30 @@
   }
 
   values
+}
+
+# Exact truncation via inverse-CDF (pexp/qexp): exponential's CDF is
+# closed-form and invertible, so no rejection-sampling fallback is needed
+# (contrast .native_truncated_normal above).
+#' @noRd
+.native_truncated_exponential <- function(n, rate, range, variable_name) {
+  if (n == 0) {
+    return(numeric(0))
+  }
+
+  lower <- range[[1]]
+  upper <- range[[2]]
+  p_lower <- stats::pexp(lower, rate = rate)
+  p_upper <- stats::pexp(upper, rate = rate)
+  if (!is.finite(p_lower) || !is.finite(p_upper) || p_upper <= p_lower) {
+    stop(
+      "Variable '", variable_name,
+      "' exponential distribution has no probability mass inside range [",
+      lower, ", ", upper, "].",
+      call. = FALSE
+    )
+  }
+  stats::qexp(stats::runif(n, p_lower, p_upper), rate = rate)
 }
 
 #' @noRd
@@ -199,6 +262,13 @@
       variable$range,
       variable$name
     )
+  } else if (distribution == "exponential") {
+    values <- .native_truncated_exponential(
+      n,
+      variable$rate,
+      variable$range,
+      variable$name
+    )
   } else {
     stop(
       "Native backend does not yet support continuous distribution '",
@@ -272,30 +342,41 @@
 #'
 #' `generate_mock_data_native()` consumes a validated `mock_spec` and generates
 #' baseline valid values using MockData's native R backend. This milestone does
-#' not yet apply missing-code injection, garbage values, diagnostics, formula
-#' evaluation, or optional `simstudy` features.
+#' not yet apply missing-code injection, garbage values, diagnostics, or
+#' optional `simstudy` features.
 #'
 #' @details
 #' The native backend is the default MIT-licensed baseline engine. It currently
 #' supports uniform continuous variables, truncated-normal continuous variables,
-#' categorical variables, and uniform calendar dates. Missing codes, garbage
+#' truncated-exponential continuous variables, categorical variables, and
+#' uniform calendar dates. Missing codes, garbage
 #' values, and diagnostics are intentionally handled by [postprocess_mock_data()]
 #' so that all backends share the same audit trail.
 #'
-#' If `seed` is supplied, the previous R random state is restored after
-#' generation. This gives reproducible output without advancing the caller's RNG
-#' stream. Formula variables are rejected loudly until the formula/dependency
-#' milestone promotes the spike evaluator into production.
+#' `type = "formula"` variables are skipped by this backend — they carry no
+#' distribution to sample from. They are computed post-baseline by
+#' [evaluate_mock_formulas()], which evaluates each formula over this
+#' function's output columns in dependency order. A spec containing only
+#' formula variables still returns an `n`-row, zero-column data frame here (see
+#' [evaluate_mock_formulas()] for how columns are appended afterwards). A
+#' stray `formula` field on a variable of some other type remains an
+#' unsupported/fallback trigger.
 #'
 #' @param spec A `mock_spec` object.
 #' @param n Non-negative whole number of rows to generate.
-#' @param seed Optional whole-number random seed. The previous R random state is
-#'   restored after generation.
+#' @param seed Optional whole-number seed. Generation uses an isolated
+#'   L'Ecuyer-CMRG sub-stream and restores the caller's RNG state and kind on
+#'   exit, so output is reproducible for a given seed and package version
+#'   without perturbing the caller's RNG.
 #'
-#' @return A data frame with one column per `mock_spec` variable and `n` rows.
+#' @return A data frame with `n` rows and one column per non-derived
+#'   `mock_spec` variable (`type = "survival"` and `type = "formula"`
+#'   variables are appended afterwards by [generate_survival_dates()] and
+#'   [evaluate_mock_formulas()]).
 #' @family mock generation APIs
 #' @seealso [mock_spec()], [mock_continuous()], [mock_spec_from_recodeflow()],
-#'   [postprocess_mock_data()], [generate_mock_data_simstudy()]
+#'   [postprocess_mock_data()], [generate_mock_data_simstudy()],
+#'   [evaluate_mock_formulas()]
 #'
 #' @examples
 #' spec <- mock_spec(
@@ -315,12 +396,22 @@ generate_mock_data_native <- function(spec, n, seed = NULL) {
   .check_native_backend_scope(spec)
 
   .with_mock_seed(seed, {
-    if (length(spec$variables) == 0) {
+    # Derived variables (type = "formula" or "survival") are computed
+    # post-baseline by evaluate_mock_formulas() and generate_survival_dates(). Filtering them
+    # out here (rather than in .generate_native_variable()) leaves this
+    # branch's assembly of `columns` byte-identical to before #39 for any
+    # spec with no formula variables (the common, zero-seeded-output-change
+    # case) - and a formula-only spec still falls through to the same
+    # .empty_native_data(n) path a variable-less spec would use.
+    generated_variables <- spec$variables[
+      !vapply(spec$variables, .is_derived_variable, logical(1))
+    ]
+    if (length(generated_variables) == 0) {
       .empty_native_data(n)
     } else {
-      columns <- lapply(spec$variables, .generate_native_variable, n = n)
-      names(columns) <- names(spec$variables)
+      columns <- lapply(generated_variables, .generate_native_variable, n = n)
+      names(columns) <- names(generated_variables)
       as.data.frame(columns, stringsAsFactors = FALSE, check.names = FALSE)
     }
-  })
+  }, stage = "baseline")
 }

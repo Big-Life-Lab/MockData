@@ -38,13 +38,17 @@ test_that("create_mock_data uses the v0.4 pipeline for strict supported metadata
 })
 
 test_that("create_mock_data keeps legacy fallback for unsupported v0.4 backend features", {
+  # "lognormal" is not among the native backend's supported continuous
+  # distributions (uniform/normal/exponential), so this pins the v0.4
+  # orchestrator's fallback-to-legacy behaviour for a still-unsupported
+  # distribution. (Exponential moved to the native path in #37; see
+  # test-native-exponential.R for its coverage.)
   variables <- data.frame(
     variable = "time_to_visit",
     variableType = "Continuous",
     rType = "double",
     role = "enabled",
-    distribution = "exponential",
-    rate = 0.5,
+    distribution = "lognormal",
     stringsAsFactors = FALSE
   )
   variable_details <- data.frame(
@@ -71,6 +75,71 @@ test_that("create_mock_data keeps legacy fallback for unsupported v0.4 backend f
   expect_equal(nrow(result), 50)
   expect_true(is.numeric(result$time_to_visit))
   expect_null(attr(result, "mockdata_diagnostics"))
+})
+
+test_that("create_mock_data announces the always-on legacy fallback message", {
+  # Same unsupported-distribution scenario as the "lognormal" fallback test
+  # above, but asserting the always-on (non-verbose-gated) fallback message
+  # that previously had zero test coverage.
+  variables <- data.frame(
+    variable = "time_to_visit",
+    variableType = "Continuous",
+    rType = "double",
+    role = "enabled",
+    distribution = "lognormal",
+    stringsAsFactors = FALSE
+  )
+  variable_details <- data.frame(
+    variable = "time_to_visit",
+    recStart = "[0, 10]",
+    recEnd = "copy",
+    proportion = 1,
+    stringsAsFactors = FALSE
+  )
+
+  expect_message(
+    create_mock_data(
+      databaseStart = "study",
+      variables = variables,
+      variable_details = variable_details,
+      n = 50,
+      seed = 202
+    ),
+    "Falling back to the legacy generator"
+  )
+})
+
+test_that("the always-on legacy fallback message does not fire for validate = FALSE", {
+  # validate = FALSE never reaches the v0.4 pipeline / fallback branch at
+  # all, so it must not emit the "Falling back to the legacy generator"
+  # message (it has its own explicit, verbose-gated announcement instead).
+  variables <- data.frame(
+    variable = "smoking",
+    variableType = "Categorical",
+    rType = "character",
+    role = "enabled",
+    stringsAsFactors = FALSE
+  )
+  variable_details <- data.frame(
+    variable = "smoking",
+    recStart = c("1", "2"),
+    recEnd = c("copy", "copy"),
+    proportion = c(0.6, 0.4),
+    stringsAsFactors = FALSE
+  )
+
+  expect_no_message(
+    create_mock_data(
+      databaseStart = "study",
+      variables = variables,
+      variable_details = variable_details,
+      n = 20,
+      seed = 404,
+      validate = FALSE,
+      verbose = FALSE
+    ),
+    message = "Falling back to the legacy generator"
+  )
 })
 
 test_that("create_mock_data keeps legacy detail-level databaseStart filtering", {
@@ -207,4 +276,67 @@ test_that("create_mock_data v0.4 and legacy paths are distributionally aligned",
   )
   expect_type(attr(v04, "mockdata_diagnostics"), "list")
   expect_null(attr(legacy, "mockdata_diagnostics"))
+})
+
+test_that("the legacy path generates only variables that belong to the requested database", {
+  # Release review of 0.5.0: the legacy path chose variables by detail rows
+  # and ignored variable-level databaseStart, which the v0.4 adapter honours.
+  # A variable listed only for "other" was generated for "study" (as random
+  # values), and the formula and survival guards stopped "study" on variables
+  # that do not belong to it.
+  run <- function(v, d) {
+    suppressWarnings(suppressMessages(
+      create_mock_data("study", v, d, n = 20, seed = 1, validate = FALSE)
+    ))
+  }
+  details_for <- function(variables, other_only) {
+    data.frame(
+      variable = variables$variable,
+      recStart = c("[0,1]", "[0,1]"),
+      recEnd = "copy",
+      proportion = 1,
+      databaseStart = c("study, other", other_only),
+      stringsAsFactors = FALSE
+    )
+  }
+  plain <- data.frame(
+    variable = c("x", "z"),
+    variableType = "Continuous",
+    rType = "double",
+    role = "enabled",
+    databaseStart = c("study, other", "other"),
+    distribution = "uniform",
+    stringsAsFactors = FALSE
+  )
+  # Shared detail rows and "other"-only detail rows behave the same.
+  for (z_rows in c("study, other", "other")) {
+    expect_identical(names(run(plain, details_for(plain, z_rows))), "x", info = z_rows)
+
+    formula_details <- details_for(plain, z_rows)
+    formula_details$mockFormula <- c("", "x * 2")
+    expect_identical(names(run(plain, formula_details)), "x", info = z_rows)
+  }
+
+  survival <- data.frame(
+    variable = c("entry", "death"),
+    variableType = "Date",
+    rType = "date",
+    role = "enabled",
+    databaseStart = c("study, other", "other"),
+    distribution = "uniform",
+    anchor = c("", "entry"),
+    followup_min = c(NA, 0),
+    followup_max = c(NA, 10),
+    event_prop = c(NA, 1),
+    stringsAsFactors = FALSE
+  )
+  survival_details <- data.frame(
+    variable = "entry",
+    recStart = "[2001-01-01,2001-12-31]",
+    recEnd = "copy",
+    proportion = 1,
+    databaseStart = "study, other",
+    stringsAsFactors = FALSE
+  )
+  expect_identical(names(run(survival, survival_details)), "entry")
 })

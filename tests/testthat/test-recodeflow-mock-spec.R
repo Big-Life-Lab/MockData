@@ -84,7 +84,7 @@ test_that("mock_spec_from_recodeflow preserves garbage and survival fields", {
   spec <- mock_spec_from_recodeflow(variables, variable_details)
 
   expect_equal(spec$variables$BMI$garbage_rules$low$proportion, 0.02)
-  expect_equal(spec$variables$BMI$garbage_rules$low$range, "[-10;15])")
+  expect_equal(spec$variables$BMI$garbage_rules$low$range, "[-10;15]")
   expect_equal(spec$variables$BMI$garbage_rules$high$proportion, 0.01)
   expect_equal(spec$variables$BMI$garbage_rules$high$range, "[60;150]")
 

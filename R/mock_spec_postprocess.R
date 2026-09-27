@@ -7,7 +7,7 @@
 # ==============================================================================
 
 #' @noRd
-.postprocess_empty_diagnostics <- function(spec, n) {
+.postprocess_empty_diagnostics <- function(spec, n, data = NULL) {
   variables <- lapply(spec$variables, function(variable) {
     garbage_rule_names <- names(variable$garbage_rules)
     if (is.null(garbage_rule_names)) {
@@ -23,7 +23,7 @@
       garbage_rule_names
     )
 
-    list(
+    entry <- list(
       n = n,
       preexisting_missing_code_indices = integer(0),
       assigned_missing_indices = integer(0),
@@ -31,6 +31,31 @@
       assigned_garbage_indices = garbage_indices,
       assigned_garbage_values = garbage_values
     )
+
+    # D5 (#39, Phase A): formula variables get diagnostics fields marking
+    # them as derived, so downstream consumers can tell a computed column
+    # from a sampled one without re-deriving it from the spec.
+    if (.is_formula_variable(variable)) {
+      entry$derived <- TRUE
+      entry$formula <- variable$formula
+      entry$depends_on <- variable$depends_on
+    }
+
+    # ADR v05-survival-dates D7: survival dates are derived from their anchor;
+    # n_events counts the dates present before post-processing.
+    if (.is_survival_variable(variable)) {
+      entry$derived <- TRUE
+      entry$anchor <- variable$anchor
+      entry$censored_by <- variable$censored_by
+      entry$depends_on <- variable$depends_on
+      entry$n_events <- if (is.null(data)) {
+        NA_integer_
+      } else {
+        sum(!is.na(data[[variable$name]]))
+      }
+    }
+
+    entry
   })
 
   list(
@@ -306,8 +331,10 @@
 #'
 #' @param data Data frame with one column for each variable in `spec`.
 #' @param spec A validated `mock_spec` object.
-#' @param seed Optional whole-number random seed. The previous R random state is
-#'   restored after post-processing.
+#' @param seed Optional whole-number seed. Generation uses an isolated
+#'   L'Ecuyer-CMRG sub-stream and restores the caller's RNG state and kind on
+#'   exit, so output is reproducible for a given seed and package version
+#'   without perturbing the caller's RNG.
 #' @param diagnostics Logical. If `TRUE`, attach a `mockdata_diagnostics`
 #'   attribute to the returned data frame.
 #'
@@ -344,7 +371,7 @@
 #'   missing_proportions = 0.05
 #' )
 #' baseline <- generate_mock_data_native(spec, n = 20, seed = 1)
-#' result <- postprocess_mock_data(baseline, spec, seed = 2)
+#' result <- postprocess_mock_data(baseline, spec, seed = 1)
 #' attr(result, "mockdata_diagnostics")$variables$smoking
 #'
 #' @export
@@ -372,7 +399,7 @@ postprocess_mock_data <- function(data, spec, seed = NULL, diagnostics = TRUE) {
 
   .with_mock_seed(seed, {
     output <- data
-    diag <- .postprocess_empty_diagnostics(spec, nrow(data))
+    diag <- .postprocess_empty_diagnostics(spec, nrow(data), data)
 
     for (variable_name in names(spec$variables)) {
       variable <- spec$variables[[variable_name]]
@@ -390,5 +417,5 @@ postprocess_mock_data <- function(data, spec, seed = NULL, diagnostics = TRUE) {
     }
 
     output
-  })
+  }, stage = "postprocess")
 }

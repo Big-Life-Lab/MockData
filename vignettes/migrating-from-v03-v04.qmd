@@ -139,12 +139,15 @@ table(legacy_data$smoking)
 
 ## Understand seed differences
 
-In v0.3, the public seed controlled the legacy generators. In v0.4, the wrapper
-uses the public seed for baseline generation and `seed + 1L` for missing-code
-and garbage-value post-processing.
+In v0.3, the public seed controlled the legacy generators directly. In v0.4/v0.5,
+the wrapper passes the same public `seed` to both baseline generation and
+missing-code/garbage-value post-processing; internally, each stage draws from
+its own independent L'Ecuyer-CMRG sub-stream derived from that single seed
+(stage selection happens inside the package, not via `seed + 1L` as in earlier
+v0.4 releases - see `NEWS.md` for the v0.5 reproducibility change).
 
-That makes both stages reproducible, but it means exact values may differ from
-v0.3 even when you pass the same seed.
+That makes both stages reproducible from one seed, but it means exact values
+may differ from v0.3 even when you pass the same seed.
 
 ```{r}
 strict_again <- create_mock_data(
@@ -177,6 +180,11 @@ prop.table(table(strict_data$smoking))
 - the requested metadata uses a feature not yet supported by the v0.4 native
   backend
 
+Survival dates (rows that set `anchor`, from v0.5) are generated only by the
+v0.4 pipeline. If one of these conditions selects the legacy path for metadata
+that sets `anchor`, `create_mock_data()` stops and names the survival
+variables rather than dropping them.
+
 For example, `variable_details = NULL` keeps the simple legacy fallback.
 
 ```{r}
@@ -197,8 +205,8 @@ is.null(attr(fallback_data, "mockdata_diagnostics"))
 ```
 
 Unsupported v0.4 backend features also route to legacy dispatch. This example
-uses an exponential continuous distribution, which remains available through the
-legacy generator.
+uses a lognormal continuous distribution, which is not yet supported by the
+v0.4 native backend and remains available through the legacy generator.
 
 ```{r}
 exp_variables <- data.frame(
@@ -206,8 +214,7 @@ exp_variables <- data.frame(
   variableType = "Continuous",
   rType = "double",
   role = "enabled",
-  distribution = "exponential",
-  rate = 0.5,
+  distribution = "lognormal",
   stringsAsFactors = FALSE
 )
 
@@ -242,7 +249,7 @@ validate_mock_spec(spec, strict = TRUE)
 
 ```{r}
 baseline <- generate_mock_data_native(spec, n = 50, seed = 456)
-postprocessed <- postprocess_mock_data(baseline, spec, seed = 457)
+postprocessed <- postprocess_mock_data(baseline, spec, seed = 456)
 
 identical(strict_data, postprocessed)
 ```

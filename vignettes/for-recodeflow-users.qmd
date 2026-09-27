@@ -278,6 +278,8 @@ Advanced features are specified directly in `variables.csv` using additional col
 
 **Survival data parameters:**
 
+- `anchor`: the entry-date variable a survival date is generated from (required)
+- `censored_by`: an optional competing survival date that removes this one where it comes first
 - `event_prop`: Probability event occurs (0-1)
 - `followup_min`, `followup_max`: Follow-up time range in days
 - `distribution`: Distribution type (uniform, gompertz, exponential)
@@ -286,9 +288,10 @@ Advanced features are specified directly in `variables.csv` using additional col
 **Example:**
 
 ```csv
-uid,variable,rType,role,distribution,rate,shape,event_prop,followup_min,followup_max
-ices_v02,primary_event_date,date,enabled,gompertz,0.0001,0.1,0.10,0,5475
-ices_v03,death_date,date,enabled,gompertz,0.0001,0.1,0.20,365,7300
+uid,variable,rType,role,distribution,rate,shape,anchor,censored_by,event_prop,followup_min,followup_max
+ices_v01,interview_date,date,enabled,uniform,,,,,,,
+ices_v02,primary_event_date,date,enabled,gompertz,0.0001,0.1,interview_date,death_date,0.10,0,5475
+ices_v03,death_date,date,enabled,gompertz,0.0001,0.1,interview_date,,0.20,365,7300
 ```
 
 See [Generating survival data with competing risks](tutorial-survival-data.html) for details.

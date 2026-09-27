@@ -1,0 +1,271 @@
+---
+title: "Add survival dates to your metadata"
+format: html
+vignette: >
+  %\VignetteIndexEntry{Add survival dates to your metadata}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+# Load package - works in both local dev and pkgdown build
+if (file.exists("../DESCRIPTION")) {
+  devtools::load_all("../", quiet = TRUE)
+} else {
+  library(MockData)
+}
+```
+
+::: {.vignette-about}
+**About this guide:** How to describe survival dates in `variables.csv`, move from `create_wide_survival_data()` to `create_mock_data()`, derive status and follow-up time, and keep the uncontaminated data. Every example runs when the vignette is built, and hidden checks stop the build if MockData stops behaving as this page describes.
+:::
+
+## Mark dates as survival dates
+
+A survival date is a date variable whose `variables.csv` row names its entry date in the `anchor` column. It also needs a follow-up window (`followup_min`, `followup_max`, in days after the anchor) and `event_prop`, the share of people who have the event. An optional `censored_by` names a competing survival date that removes this one where it comes first.
+
+This cohort has an entry date, a primary event that death can pre-empt, death, loss to follow-up, and administrative censoring:
+
+```{r}
+#| label: metadata
+variables <- data.frame(
+  variable = c("entry_date", "event_date", "death_date", "ltfu_date", "admin_censor_date"),
+  variableType = "Date",
+  rType = "date",
+  role = "enabled",
+  distribution = "uniform",
+  anchor = c("", "entry_date", "entry_date", "entry_date", "entry_date"),
+  censored_by = c("", "death_date", "", "", ""),
+  followup_min = c(NA, 0, 0, 0, 1825),
+  followup_max = c(NA, 3650, 3650, 3650, 3650),
+  event_prop = c(NA, 0.4, 0.3, 0.1, 1),
+  sourceFormat = "analysis",
+  stringsAsFactors = FALSE
+)
+
+variable_details <- data.frame(
+  variable = variables$variable,
+  recStart = c("[2001-01-01,2005-12-31]", rep("[2001-01-01,2040-12-31]", 4)),
+  recEnd = "copy",
+  proportion = 1,
+  stringsAsFactors = FALSE
+)
+
+cohort <- create_mock_data(
+  databaseStart = "study",
+  variables = variables,
+  variable_details = variable_details,
+  n = 1000,
+  seed = 1
+)
+head(cohort)
+```
+
+```{r}
+#| label: cohort-claims
+#| include: false
+n_deaths <- sum(!is.na(cohort$death_date))
+events_after_death <- sum(cohort$death_date < cohort$event_date, na.rm = TRUE)
+stopifnot(
+  "all five dates are generated" =
+    all(variables$variable %in% names(cohort)),
+  "deaths are exactly floor(n * event_prop)" =
+    n_deaths == floor(1000 * 0.3),
+  "no event is recorded after a death" =
+    events_after_death == 0
+)
+```
+
+`r n_deaths` of 1,000 people have a death date, exactly `floor(n * event_prop)`, and `r events_after_death` events fall after a death. The `recStart` ranges on the survival dates' `variable_details` rows are not used; the follow-up window decides when events happen.
+
+## Move from create_wide_survival_data()
+
+Before MockData 0.5, survival dates were generated separately. The same metadata, without `anchor` and `censored_by`, went to `create_wide_survival_data()`:
+
+```{r}
+#| label: legacy
+#| warning: false
+legacy_variables <- variables[, setdiff(names(variables), c("anchor", "censored_by"))]
+
+legacy <- create_wide_survival_data(
+  var_entry_date = "entry_date",
+  var_event_date = "event_date",
+  var_death_date = "death_date",
+  var_ltfu = "ltfu_date",
+  var_admin_censor = "admin_censor_date",
+  databaseStart = "study",
+  variables = legacy_variables,
+  variable_details = variable_details,
+  n = 1000,
+  seed = 1
+)
+```
+
+To migrate, add `anchor` to every survival date's row, and `censored_by` where a competing risk applies (the legacy function always let death censor the primary event). Then call `create_mock_data()`, as in the first section.
+
+```{r}
+#| label: migration-claims
+#| include: false
+same_columns <- setequal(names(legacy), names(cohort))
+legacy_deaths <- sum(!is.na(legacy$death_date))
+stopifnot(
+  "legacy and new paths produce the same columns" = same_columns,
+  "both paths give floor(n * event_prop) deaths" =
+    legacy_deaths == n_deaths,
+  "the legacy path also removes events after death" =
+    sum(legacy$death_date < legacy$event_date, na.rm = TRUE) == 0,
+  "seeded values differ between the paths" =
+    !identical(legacy$death_date, cohort$death_date)
+)
+```
+
+Both paths produce the same five columns and the same number of deaths (`r legacy_deaths`), and both remove events that follow a death. The seeded values differ, because MockData 0.5 draws from its own random-number streams; regenerate any expected values you pinned against the old function. `create_wide_survival_data()` still works, but warns once per session that it is deprecated.
+
+## Derive observed status and follow-up time
+
+A death date existing is not the same as a death being observed. Observation ends at the earliest of death, loss to follow-up and administrative censoring, and a death after that point was not observed. Status and follow-up time must therefore come from the same observation window.
+
+Formula variables compute both during generation. Each gets a `mockFormula` in `variable_details`; a formula cannot return a date, so the end of observation is written out in each:
+
+```{r}
+#| label: formula-metadata
+end_of_observation <- "pmin(death_date, ltfu_date, admin_censor_date, na.rm = TRUE)"
+
+derived_variables <- rbind(variables, data.frame(
+  variable = c("death_status", "followup_days"),
+  variableType = "Continuous",
+  rType = c("integer", "double"),
+  role = "enabled",
+  distribution = NA,
+  anchor = "",
+  censored_by = "",
+  followup_min = NA,
+  followup_max = NA,
+  event_prop = NA,
+  sourceFormat = "analysis",
+  stringsAsFactors = FALSE
+))
+
+derived_details <- rbind(
+  transform(variable_details, mockFormula = ""),
+  data.frame(
+    variable = c("death_status", "followup_days"),
+    recStart = "DerivedVar::[death_date, ltfu_date, admin_censor_date]",
+    recEnd = c("Func::death_status", "Func::followup_days"),
+    proportion = NA,
+    mockFormula = c(
+      paste0("as.integer(!is.na(death_date) & death_date == ", end_of_observation, ")"),
+      paste0("as.numeric(", end_of_observation, " - entry_date)")
+    ),
+    stringsAsFactors = FALSE
+  )
+)
+
+derived <- create_mock_data(
+  databaseStart = "study",
+  variables = derived_variables,
+  variable_details = derived_details,
+  n = 1000,
+  seed = 1
+)
+head(derived[, c("death_date", "ltfu_date", "admin_censor_date",
+                 "death_status", "followup_days")])
+```
+
+The same quantities can be computed in R after generation, which is how an analysis would compute them from observed data:
+
+```{r}
+#| label: r-derivation
+end_date <- do.call(
+  pmin,
+  c(derived[c("death_date", "ltfu_date", "admin_censor_date")], na.rm = TRUE)
+)
+r_status <- as.integer(!is.na(derived$death_date) & derived$death_date == end_date)
+r_days <- as.numeric(end_date - derived$entry_date)
+```
+
+```{r}
+#| label: derivation-claims
+#| include: false
+unobserved_deaths <- sum(!is.na(derived$death_date) & derived$death_status == 0L)
+stopifnot(
+  "formula status matches the R derivation" =
+    identical(derived$death_status, r_status),
+  "formula follow-up time matches the R derivation" =
+    isTRUE(all.equal(derived$followup_days, r_days)),
+  "some deaths fall after censoring and are not observed" =
+    unobserved_deaths > 0
+)
+```
+
+The formula columns and the R calculation agree on every row. `r unobserved_deaths` of the `r sum(!is.na(derived$death_date))` death dates fall after loss to follow-up or administrative censoring, so their status is 0: counting `!is.na(death_date)` alone would have called them deaths. A death on the censoring date counts as observed.
+
+The two approaches agree here because this metadata adds no missing codes or garbage. When it does, formula columns keep describing the generated values while the date columns are contaminated; see `vignette("survival-design-v05")`.
+
+## Keep the uncontaminated data
+
+`create_mock_data()` returns data after missing codes and garbage are applied. To keep the generated values as well, run the stages yourself and hold on to the data before `postprocess_mock_data()`:
+
+```{r}
+#| label: clean-truth
+garbage_variables <- add_garbage(
+  variables, "death_date",
+  garbage_high_prop = 0.1,
+  garbage_high_range = "[2090-01-01;2090-12-31]"
+)
+spec <- mock_spec_from_recodeflow(garbage_variables, variable_details)
+
+clean <- generate_survival_dates(
+  generate_mock_data_native(spec, n = 1000, seed = 3),
+  spec, seed = 3
+)
+observed <- postprocess_mock_data(clean, spec, seed = 3)
+```
+
+```{r}
+#| label: clean-truth-claims
+#| include: false
+changed_rows <- which(clean$death_date != observed$death_date)
+garbage_rows <- attr(observed, "mockdata_diagnostics")$variables$death_date$assigned_garbage_indices$high
+stopifnot(
+  "garbage changed some death dates" = length(changed_rows) > 0,
+  "only the rows diagnostics record as garbage differ" =
+    setequal(changed_rows, garbage_rows)
+)
+```
+
+`clean` holds the generated dates; `observed` is what `create_mock_data()` would return. They differ in `r length(changed_rows)` rows, exactly the rows the `mockdata_diagnostics` attribute records as garbage.
+
+## Common errors
+
+A date with survival parameters but no `anchor` stops generation with a message that names the fix:
+
+```{r}
+#| label: no-anchor-error
+no_anchor_message <- tryCatch(
+  create_mock_data("study", legacy_variables, variable_details, n = 10, seed = 1),
+  error = conditionMessage
+)
+cat(no_anchor_message)
+```
+
+```{r}
+#| label: error-claims
+#| include: false
+stopifnot(
+  "a missing anchor is an error that names the fix" =
+    grepl("but no anchor", no_anchor_message, fixed = TRUE),
+  "the error does not suggest the legacy generator" =
+    grepl("validate = FALSE is not a workaround", no_anchor_message, fixed = TRUE)
+)
+```
+
+`validate = FALSE` is not a workaround: survival dates are generated only by the v0.4 pipeline, and the legacy generator stops on metadata that sets `anchor`. Survival dates and their anchors also need `sourceFormat = "analysis"` in this version.
+
+## See also
+
+- `vignette("tutorial-survival-data")` for a first walk through survival data
+- `vignette("survival-design-v05")` for how the stage works and why
+- `vignette("reference-config")` for every survival column

@@ -131,6 +131,30 @@ covr::package_coverage()
 - If adding new test data, document its purpose
 - Keep test data small and focused
 
+#### Vignettes are integration tests
+
+The vignettes run MockData's own code on realistic metadata, and `R CMD check` rebuilds every one of them in CI. That makes them integration tests, but only if a vignette fails when the code stops doing what its prose says. A vignette that prints a number without checking it renders happily after a regression, and a number typed into the prose goes stale without anyone noticing.
+
+When you write or change a vignette:
+
+- Compute every factual claim with inline R (`` `r n_deaths` ``) instead of typing the number into the prose.
+- Guard the claims with a hidden chunk of named `stopifnot()` conditions, so the render, and therefore `R CMD check` and CI, fails with a message naming the broken claim:
+
+  ````markdown
+  ```{r}
+  #| include: false
+  stopifnot(
+    "deaths are exactly floor(n * event_prop)" = n_deaths == floor(n * 0.3),
+    "no event is recorded after a death" = events_after_death == 0
+  )
+  ```
+  ````
+
+- State known issues as claims too, with the issue number in the message. When the issue is fixed, the render fails until the documentation is updated.
+- For a new feature, check that the assertions can fail: break the behaviour in a scratch copy and check that the render stops.
+
+The survival vignettes (`tutorial-survival-data`, `survival-dates-v05`, `survival-design-v05`) follow this pattern.
+
 ### Building Documentation
 
 #### Prerequisites for documentation builds

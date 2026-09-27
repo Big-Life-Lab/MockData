@@ -10,6 +10,20 @@
 #' @noRd
 .create_mock_data_v04_unsupported_variables <- function(spec) {
   unsupported <- vapply(spec$variables, function(variable) {
+    # type = "formula" is supported end-to-end (#39, Phase A): baseline
+    # generation skips it, evaluate_mock_formulas() computes it, and
+    # postprocess_mock_data() applies its missing codes/garbage like any
+    # other variable. A stray non-empty `formula` field on a NON-formula
+    # variable is defensive fallback bait, not a supported feature.
+    if (variable$type == "formula") {
+      return(FALSE)
+    }
+    # type = "survival" is supported end-to-end (#40): both backends skip it,
+    # generate_survival_dates() computes it, postprocess treats it as a date.
+    if (variable$type == "survival") {
+      return(FALSE)
+    }
+
     formula <- variable$formula
     has_formula <- !is.null(formula) &&
       !(is.character(formula) && length(formula) == 1 && (is.na(formula) || trimws(formula) == ""))
@@ -19,7 +33,7 @@
 
     distribution <- tolower(variable$distribution %||% "uniform")
     if (variable$type == "continuous") {
-      return(!distribution %in% c("uniform", "normal"))
+      return(!distribution %in% c("uniform", "normal", "exponential"))
     }
     if (variable$type == "categorical") {
       return(FALSE)
@@ -32,6 +46,47 @@
   }, logical(1))
 
   names(spec$variables)[unsupported]
+}
+
+#' @noRd
+.legacy_route_reasons <- function() {
+  paste0(
+    "It is used when validate = FALSE, when variable_details is NULL, when ",
+    "only variable_details has a databaseStart column, or when another ",
+    "variable uses a feature the v0.4 pipeline does not support. Run with ",
+    "verbose = TRUE to see which."
+  )
+}
+
+#' @noRd
+.legacy_formula_variables <- function(enabled_vars, variable_details, databaseStart) {
+  # Enabled variables with a non-blank mockFormula for the requested
+  # database, using the same lookup as the v0.4 adapter's carve-out.
+  if (is.null(variable_details) || !"mockFormula" %in% names(variable_details)) {
+    return(character(0))
+  }
+  database <- if ("databaseStart" %in% names(variable_details)) databaseStart else NULL
+  Filter(function(variable) {
+    details <- .filter_recodeflow_details(variable_details, variable, database)
+    !.is_blank(suppressWarnings(.details_mock_formula(details)))
+  }, as.character(enabled_vars$variable))
+}
+
+#' @noRd
+.has_survival_metadata <- function(variables) {
+  # A row sets anchor, or carries survival parameters (followup_min,
+  # followup_max, event_prop): the metadata describes survival dates.
+  if ("anchor" %in% names(variables)) {
+    anchors <- as.character(variables$anchor)
+    if (any(!is.na(anchors) & trimws(anchors) != "")) {
+      return(TRUE)
+    }
+  }
+  survival_fields <- intersect(c("followup_min", "followup_max", "event_prop"), names(variables))
+  any(vapply(survival_fields, function(field) {
+    values <- as.character(variables[[field]])
+    any(!is.na(values) & trimws(values) != "")
+  }, logical(1)))
 }
 
 #' @noRd
@@ -59,11 +114,38 @@
     return(NULL)
   }
 
-  spec <- mock_spec_from_recodeflow(
-    variables = variables,
-    variable_details = variable_details,
-    databaseStart = .create_mock_data_v04_database_filter(variables, databaseStart),
-    role = "enabled"
+  spec <- tryCatch(
+    mock_spec_from_recodeflow(
+      variables = variables,
+      variable_details = variable_details,
+      databaseStart = .create_mock_data_v04_database_filter(variables, databaseStart),
+      role = "enabled"
+    ),
+    error = function(e) {
+      # Survival dates are generated only by the v0.4 pipeline (ADR
+      # v05-survival-dates D10): validate = FALSE would stop on anchored
+      # metadata or silently drop survival dates, so it is not offered then.
+      advice <- if (.has_survival_metadata(variables)) {
+        paste0(
+          "Fix the metadata as the message above describes. Survival dates ",
+          "are generated only by the v0.4 pipeline, so validate = FALSE is ",
+          "not a workaround for survival dates."
+        )
+      } else {
+        paste0(
+          "Fix the metadata (for exponential variables, supply a positive ",
+          "'rate'), or call create_mock_data() with validate = FALSE to use ",
+          "the legacy generator, which warns and substitutes a uniform draw ",
+          "for invalid distribution parameters."
+        )
+      }
+      stop(
+        conditionMessage(e), "\n",
+        "Metadata validation failed while building the v0.4 specification. ",
+        advice,
+        call. = FALSE
+      )
+    }
   )
 
   unsupported <- .create_mock_data_v04_unsupported_variables(spec)
@@ -83,11 +165,15 @@
   }
 
   baseline <- generate_mock_data_native(spec, n = n, seed = seed)
-  # The wrapper uses a second deterministic stream for post-processing so
-  # baseline generation and missing/garbage assignment can be reproduced
-  # independently from the single public seed.
-  postprocess_seed <- if (is.null(seed)) NULL else seed + 1L
-  postprocess_mock_data(baseline, spec, seed = postprocess_seed)
+  dated <- generate_survival_dates(baseline, spec, seed = seed)
+  staged <- evaluate_mock_formulas(dated, spec, seed = seed)
+  # Baseline generation, survival dates, formula evaluation, and
+  # post-processing use distinct L'Ecuyer-CMRG sub-streams derived from the
+  # single public seed (see .with_mock_seed / ADR v05-seed-contract), so all
+  # four stages pass the same seed and select their own stage internally.
+  # Survival precedes formulas so a mockFormula can use survival dates
+  # (ADR v05-survival-dates D6).
+  postprocess_mock_data(staged, spec, seed = seed)
 }
 
 #' Create mock data from configuration files
@@ -120,6 +206,8 @@
 #'   Can also be a file path (character) to variable_details.csv.
 #'   If NULL, uses simple fallback generation.
 #' @param n Integer. Number of observations to generate (default 1000).
+#'   `n = 0` is supported and returns a zero-row data frame with the full
+#'   generated schema.
 #' @param seed Integer. Optional random seed for reproducibility.
 #' @param validate Logical. Whether to use strict generation checks (default
 #'   TRUE). When TRUE, unsupported variable types and generator errors stop
@@ -144,11 +232,14 @@
 #' when `variable_details = NULL`, when detail-level `databaseStart` filtering is
 #' needed but the variables metadata has no `databaseStart` column, or when a
 #' variable uses a feature not yet supported by the v0.4 native backend. Set
-#' `verbose = TRUE` to see which path was chosen.
+#' `verbose = TRUE` to see which path was chosen. Survival dates (rows that
+#' set `anchor`) are generated only by the v0.4 pipeline: if the legacy path
+#' is selected for metadata that sets `anchor`, `create_mock_data()` stops and
+#' names the survival variables.
 #'
-#' In the v0.4 path, `seed` is used for baseline generation and `seed + 1` is
-#' used for post-processing. This makes both stages deterministic, but generated
-#' values may differ from v0.3.x output for the same seed.
+#' In the v0.4 path, baseline generation and post-processing draw from distinct,
+#' independent sub-streams derived from a single `seed`; output is reproducible
+#' for a given seed and package version but changed in v0.5 (see NEWS).
 #'
 #' **v0.3.0 API**: This function follows the "recodeflow pattern" where it passes
 #' full metadata data frames to create_* functions, which handle internal
@@ -158,7 +249,7 @@
 #' \enumerate{
 #'   \item Load metadata from file paths or accept data frames
 #'   \item Filter for enabled variables (role has an exact "enabled" token)
-#'   \item Set global seed (if provided)
+#'   \item Generate within an isolated RNG sub-stream (if seeded), leaving the caller's RNG state untouched
 #'   \item Loop through variables in position order:
 #'     - Dispatch to create_cat_var, create_con_var, or create_date_var
 #'     - Pass full metadata data frames (functions filter internally)
@@ -181,9 +272,9 @@
 #' see \code{vignette("reference-config", package = "MockData")}.
 #'
 #' @examples
-#' # The packaged minimal example includes deliberately messy metadata
-#' # (auto-normalized proportions, survival dates without an anchor): the
-#' # warnings it generates are expected and demonstrate MockData's diagnostics.
+#' # The packaged minimal example covers every variable type, including
+#' # survival dates anchored on interview_date. It auto-normalizes some
+#' # proportions, so warnings about that are expected.
 #' mock_data <- create_mock_data(
 #'   databaseStart = "minimal-example",
 #'   variables = system.file("extdata/minimal-example/variables.csv",
@@ -200,12 +291,16 @@
 #' # Columns with straightforward metadata generate cleanly:
 #' head(mock_data[, c("age", "smoking", "interview_date")])
 #'
-#' # Fallback mode: no variable_details, simple default generators
+#' # Fallback mode: no variable_details, simple default generators. Survival
+#' # dates need the v0.4 pipeline, so drop the rows that set an anchor first.
+#' fallback_variables <- read.csv(
+#'   system.file("extdata/minimal-example/variables.csv", package = "MockData"),
+#'   stringsAsFactors = FALSE,
+#'   check.names = FALSE
+#' )
 #' mock_data <- create_mock_data(
 #'   databaseStart = "minimal-example",
-#'   variables = system.file("extdata/minimal-example/variables.csv",
-#'     package = "MockData"
-#'   ),
+#'   variables = fallback_variables[fallback_variables$anchor == "", ],
 #'   variable_details = NULL,
 #'   n = 500
 #' )
@@ -223,6 +318,14 @@ create_mock_data <- function(databaseStart,
                              validate = TRUE,
                              verbose = FALSE) {
 
+  if (missing(databaseStart)) {
+    stop(
+      "databaseStart is required. Pass the database or cycle name that ",
+      "matches your metadata's databaseStart values (e.g. \"cycle1\").",
+      call. = FALSE
+    )
+  }
+
   # ========== LOAD METADATA ==========
 
   variables <- .load_metadata_df(variables, "variables", verbose = verbose)
@@ -237,8 +340,9 @@ create_mock_data <- function(databaseStart,
 
   # ========== VALIDATE INPUT ==========
 
-  if (n < 1) {
-    stop("n must be at least 1")
+  if (!is.numeric(n) || length(n) != 1 || is.na(n) || !is.finite(n) ||
+      n < 0 || n != trunc(n)) {
+    stop("n must be a non-negative whole number.", call. = FALSE)
   }
 
   if (!"variable" %in% names(variables)) {
@@ -272,6 +376,11 @@ create_mock_data <- function(databaseStart,
     if (!is.null(v04_result)) {
       return(v04_result)
     }
+
+    message(
+      "Falling back to the legacy generator for an unsupported v0.4 feature; ",
+      "for a given seed this produces different values than the v0.4 pipeline."
+    )
   }
 
   # ========== FILTER FOR ENABLED VARIABLES ==========
@@ -286,6 +395,29 @@ create_mock_data <- function(databaseStart,
     enabled_vars <- variables
   }
 
+  # Variable-level databaseStart lists the databases a variable belongs to.
+  # The v0.4 adapter honours it; the legacy path used only detail rows, so a
+  # variable listed only for another database was generated here as random
+  # values, and the formula and survival guards below stopped on it. Same
+  # matcher and empty-means-all rule as the adapter.
+  if ("databaseStart" %in% names(enabled_vars)) {
+    enabled_vars <- .filter_recodeflow_by_database(enabled_vars, databaseStart, allow_empty = TRUE)
+  }
+
+  # Formula variables are computed only by the v0.4 pipeline; the legacy
+  # dispatcher ignores mockFormula and would return unrelated random values,
+  # or drop a DerivedVar:: variable, without saying so. Checked before the
+  # derived exclusion below, which would otherwise hide DerivedVar:: rows.
+  formula_vars <- .legacy_formula_variables(enabled_vars, variable_details, databaseStart)
+  if (length(formula_vars) > 0) {
+    stop(
+      "Formula variable(s) ", paste(formula_vars, collapse = ", "),
+      " (mockFormula set) are computed only by the v0.4 pipeline, but the ",
+      "legacy generator was selected. ", .legacy_route_reasons(),
+      call. = FALSE
+    )
+  }
+
   # Exclude derived variables (identified by DerivedVar:: and Func:: patterns)
   if (!is.null(variable_details)) {
     derived_vars <- identify_derived_vars(enabled_vars, variable_details)
@@ -298,6 +430,24 @@ create_mock_data <- function(databaseStart,
 
       # Filter out derived variables
       enabled_vars <- enabled_vars[!enabled_vars$variable %in% derived_vars, ]
+    }
+  }
+
+  # ADR v05-survival-dates D10: the legacy dispatcher cannot build survival
+  # dates from anchors (it would warn and drop them), so stop rather than
+  # return plausible-looking partial survival data.
+  if ("anchor" %in% names(enabled_vars)) {
+    anchor_values <- as.character(enabled_vars$anchor)
+    anchored <- enabled_vars$variable[
+      !is.na(anchor_values) & trimws(anchor_values) != ""
+    ]
+    if (length(anchored) > 0) {
+      stop(
+        "Survival date variable(s) ", paste(anchored, collapse = ", "),
+        " (anchor set) are generated only by the v0.4 pipeline, but the ",
+        "legacy generator was selected. ", .legacy_route_reasons(),
+        call. = FALSE
+      )
     }
   }
 
@@ -320,13 +470,6 @@ create_mock_data <- function(databaseStart,
             paste(enabled_vars$variable, collapse = ", "))
   }
 
-  # ========== SET GLOBAL SEED ==========
-
-  if (!is.null(seed)) {
-    if (verbose) message("Setting random seed: ", seed)
-    set.seed(seed)
-  }
-
   # ========== GENERATE VARIABLES ==========
 
   if (verbose) message("Generating ", n, " observations...")
@@ -347,6 +490,8 @@ create_mock_data <- function(databaseStart,
   )
 
   # Generate variables in order
+  .with_mock_seed(seed, stage = "baseline", {
+  if (!is.null(seed) && verbose) message("Setting random seed: ", seed)
   for (i in seq_len(nrow(enabled_vars))) {
     var_row <- enabled_vars[i, ]
     var_name <- var_row$variable
@@ -423,6 +568,24 @@ create_mock_data <- function(databaseStart,
       # check keeps legitimate already-exists skips out of the summary.
       skipped_vars <- c(skipped_vars, var_name)
     }
+  }
+  })
+
+  # An empty result is legitimate when every enabled variable was explicitly
+  # tracked as skipped (e.g. validate = FALSE + an unsupported rType, warned
+  # and recorded above). It is NOT legitimate when variables were enabled and
+  # none were recorded as skipped - that combination can only happen if the
+  # seed-scoping block above failed to propagate its assignments back to this
+  # frame. Guard against the latter, not the former.
+  if (ncol(df_mock) == 0L && nrow(enabled_vars) > 0L &&
+      length(unique(skipped_vars)) < nrow(enabled_vars)) {
+    stop(
+      "Internal error: no variables were generated despite ", nrow(enabled_vars),
+      " enabled variable(s), and not all were recorded as skipped. The ",
+      "seed-scoping wrapper may have failed to propagate results to the ",
+      "caller frame - please file a bug report.",
+      call. = FALSE
+    )
   }
 
   # ========== RETURN RESULT ==========

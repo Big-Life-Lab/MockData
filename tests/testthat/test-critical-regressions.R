@@ -581,12 +581,12 @@ test_that("generators warn when duplicate variables rows match", {
 })
 
 test_that("create_mock_data reports skipped variables when a generator returns NULL under validate = TRUE", {
-  # A survival-style date variable (followup_min/max/event_prop set) requires
-  # an anchor_date column in df_mock. create_mock_data never supplies one, so
-  # create_date_var warns and returns NULL without erroring — the column is
-  # silently absent. The end-of-run summary must report it even in strict mode.
-  # (distribution = "gompertz" keeps the v0.4 pipeline from claiming the run,
-  # so this exercises the legacy dispatch path.)
+  # A survival-style date without an anchor makes create_date_var() warn and
+  # return NULL on the legacy path. Since #40 the v0.4 adapter rejects that
+  # metadata outright, so the legacy path is reached here through
+  # detail-level-only databaseStart filtering, which the v0.4 pipeline
+  # declines. The end-of-run summary must still report the absent column in
+  # strict mode.
   variables <- data.frame(
     variable = c("age", "event_date"),
     variableType = c("Continuous", "Date"),
@@ -600,6 +600,7 @@ test_that("create_mock_data reports skipped variables when a generator returns N
   )
   details <- data.frame(
     variable = c("age", "event_date"),
+    databaseStart = c("study", "study"),
     recStart = c("[18,85]", "[2001-01-01,2005-12-31]"),
     recEnd = c("copy", "copy"),
     proportion = c(1, 1),

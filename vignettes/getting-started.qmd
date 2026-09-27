@@ -262,7 +262,7 @@ knitr::kable(details_display)
 - `catLabel`: Category label or range description
 - `proportion`: Probability of each category (categorical variables only)
 
-See [inst/extdata/minimal-example/](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example) for the complete files and v0.2.1 schema documentation.
+See [inst/extdata/minimal-example/](https://github.com/Big-Life-Lab/MockData/tree/main/inst/extdata/minimal-example) for the complete files and v0.2.1 schema documentation.
 
 ## Working with the generated data
 

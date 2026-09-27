@@ -557,7 +557,7 @@ old_dates_sample <- head(sort(diag_data$diagnosis_date[diag_data$diagnosis_date 
 -   **Training analysts:** Show examples of real-world data quality issues
 -   **Data cleaning scripts:** Test date range checks and filtering logic
 
-**Note:** For complete examples of garbage date generation integrated into metadata files, see the [minimal-example configuration files](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example).
+**Note:** For complete examples of garbage date generation integrated into metadata files, see the [minimal-example configuration files](https://github.com/Big-Life-Lab/MockData/tree/main/inst/extdata/minimal-example).
 
 ## Checking generated dates
 

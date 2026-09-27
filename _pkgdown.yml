@@ -22,9 +22,12 @@ reference:
   - mock_continuous
   - mock_categorical
   - mock_date
+  - mock_formula
   - mock_spec_continuous
   - mock_spec_categorical
   - mock_spec_date
+  - mock_spec_formula
+  - mock_spec_survival
   - is_mock_spec
   - validate_mock_spec
   - mock_spec_model_hints
@@ -37,6 +40,8 @@ reference:
   - mock_spec_from_recodeflow
   - generate_mock_data_native
   - generate_mock_data_simstudy
+  - generate_survival_dates
+  - evaluate_mock_formulas
   - postprocess_mock_data
 
 - title: Main generation functions
@@ -113,6 +118,7 @@ articles:
   navbar: How-to guides
   contents:
   - recodeflow-metadata-v04
+  - survival-dates-v05
   - diagnostics-and-garbage-v04
   - migrating-from-v03-v04
   - choosing-a-backend-v04
@@ -123,6 +129,7 @@ articles:
   navbar: Explanation
   contents:
   - design-philosophy-v04
+  - survival-design-v05
   - advanced-topics
 
 - title: Reference

@@ -114,6 +114,10 @@ NULL
     stop("mock_spec variable type must be a non-empty string.", call. = FALSE)
   }
 
+  if (!is.null(distribution)) {
+    distribution <- tolower(distribution)
+  }
+
   .validate_model_hint(model_hint)
 
   structure(
@@ -260,6 +264,7 @@ mock_spec <- function(...,
 #' @param mean,sd Optional distribution parameters. Required when
 #'   `distribution = "normal"`.
 #' @param rtype R output type. Defaults to `"double"`.
+#' @param rate Rate parameter; required when `distribution = "exponential"`.
 #' @param missing_codes Explicit missing-code values.
 #' @param missing_proportions Missing-code probabilities aligned to
 #'   `missing_codes`.
@@ -283,6 +288,14 @@ mock_spec <- function(...,
 #' )
 #' validate_mock_spec(age_spec)
 #'
+#' wait_spec <- mock_continuous(
+#'   "wait",
+#'   range = c(0, 100),
+#'   distribution = "exponential",
+#'   rate = 0.1
+#' )
+#' validate_mock_spec(wait_spec)
+#'
 #' @export
 mock_continuous <- function(name,
                             range,
@@ -290,6 +303,7 @@ mock_continuous <- function(name,
                             mean = NA_real_,
                             sd = NA_real_,
                             rtype = "double",
+                            rate = NA_real_,
                             missing_codes = numeric(0),
                             missing_proportions = numeric(0),
                             garbage_rules = list(),
@@ -305,6 +319,7 @@ mock_continuous <- function(name,
       distribution = distribution,
       mean = mean,
       sd = sd,
+      rate = rate,
       rtype = rtype,
       missing_codes = missing_codes,
       missing_proportions = missing_proportions,
@@ -448,6 +463,73 @@ mock_date <- function(name,
   )
 }
 
+#' Create a direct formula-derived mock-data specification
+#'
+#' `mock_formula()` is the simple direct API for formula-derived variables. It
+#' returns a validated `mock_spec`; it does not generate data. Formula
+#' variables have no `range`/`levels`/`distribution` of their own — their
+#' values come from evaluating `formula` over other variables in the same
+#' specification once those have been generated; see
+#' [evaluate_mock_formulas()].
+#'
+#' @details
+#' Use `mock_formula()` when specifying one formula variable directly in R
+#' code. Use [mock_spec_formula()] with [mock_spec()] when composing several
+#' variables or when writing an adapter from another metadata source.
+#'
+#' @param name Variable name.
+#' @param formula Character scalar. An algebraic expression over other
+#'   variable names, e.g. `"weight / (height^2)"`.
+#' @param rtype R output type for the computed column. Defaults to `"double"`.
+#' @param missing_codes Explicit missing-code values.
+#' @param missing_proportions Missing-code probabilities aligned to
+#'   `missing_codes`.
+#' @param garbage_rules List of intentional invalid-value rules.
+#' @param provenance Optional provenance metadata. Defaults to the direct API.
+#' @param model_hint Backend hint.
+#' @param spec_version Character version of the specification shape.
+#'
+#' @return A validated `mock_spec` object containing one formula variable.
+#' @family direct specification APIs
+#' @seealso [mock_spec()], [mock_spec_formula()], [evaluate_mock_formulas()]
+#'
+#' @examples
+#' bmi_spec <- mock_spec(
+#'   mock_spec_continuous("height", range = c(1.4, 2.1)),
+#'   mock_spec_continuous("weight", range = c(45, 150)),
+#'   mock_spec_formula("bmi", formula = "weight / (height^2)")
+#' )
+#' validate_mock_spec(bmi_spec)
+#'
+#' @export
+mock_formula <- function(name,
+                         formula,
+                         rtype = "double",
+                         missing_codes = numeric(0),
+                         missing_proportions = numeric(0),
+                         garbage_rules = list(),
+                         provenance = NULL,
+                         model_hint = "auto",
+                         spec_version = .mock_spec_version) {
+  provenance <- .direct_api_provenance("mock_formula", provenance)
+
+  mock_spec(
+    mock_spec_formula(
+      name = name,
+      formula = formula,
+      rtype = rtype,
+      missing_codes = missing_codes,
+      missing_proportions = missing_proportions,
+      garbage_rules = garbage_rules,
+      provenance = provenance,
+      model_hint = model_hint
+    ),
+    spec_version = spec_version,
+    provenance = provenance,
+    model_hint = model_hint
+  )
+}
+
 #' Create a continuous variable specification
 #'
 #' @param name Variable name.
@@ -455,6 +537,7 @@ mock_date <- function(name,
 #' @param distribution Distribution name. Defaults to `"uniform"`.
 #' @param mean,sd Optional distribution parameters.
 #' @param rtype R output type. Defaults to `"double"`.
+#' @param rate Rate parameter; required when `distribution = "exponential"`.
 #' @param missing_codes Explicit missing-code values.
 #' @param missing_proportions Missing-code probabilities aligned to
 #'   `missing_codes`.
@@ -476,6 +559,13 @@ mock_date <- function(name,
 #'   rtype = "integer"
 #' )
 #'
+#' wait_spec <- mock_spec_continuous(
+#'   "wait",
+#'   range = c(0, 100),
+#'   distribution = "exponential",
+#'   rate = 0.1
+#' )
+#'
 #' @export
 mock_spec_continuous <- function(name,
                                  range,
@@ -483,6 +573,7 @@ mock_spec_continuous <- function(name,
                                  mean = NA_real_,
                                  sd = NA_real_,
                                  rtype = "double",
+                                 rate = NA_real_,
                                  missing_codes = numeric(0),
                                  missing_proportions = numeric(0),
                                  garbage_rules = list(),
@@ -496,6 +587,7 @@ mock_spec_continuous <- function(name,
     range = range,
     mean = mean,
     sd = sd,
+    rate = rate,
     missing_codes = missing_codes,
     missing_proportions = missing_proportions,
     garbage_rules = garbage_rules,
@@ -600,6 +692,137 @@ mock_spec_date <- function(name,
     provenance = provenance,
     model_hint = model_hint
   )
+}
+
+#' Create a formula-derived variable specification
+#'
+#' `mock_spec_formula()` describes a variable computed from other generated
+#' variables by evaluating an algebraic expression (a `mockFormula`), rather
+#' than sampled from a distribution. Evaluation happens in a restricted
+#' environment exposing only the generated columns and a fixed allow-list of
+#' base functions; see [evaluate_mock_formulas()].
+#'
+#' @param name Variable name.
+#' @param formula Character scalar. An algebraic expression over other
+#'   variable names, e.g. `"weight / (height^2)"`.
+#' @param rtype R output type for the computed column. Defaults to `"double"`.
+#' @param missing_codes,missing_proportions,garbage_rules,provenance,model_hint
+#'   As for other variable specifications; applied by post-processing.
+#'
+#' @return A `mock_spec_variable` object of type `"formula"`.
+#' @family mock specification APIs
+#' @seealso [mock_formula()], [evaluate_mock_formulas()]
+#' @export
+mock_spec_formula <- function(name,
+                              formula,
+                              rtype = "double",
+                              missing_codes = numeric(0),
+                              missing_proportions = numeric(0),
+                              garbage_rules = list(),
+                              provenance = "direct",
+                              model_hint = "auto") {
+  variable <- .new_mock_spec_variable(
+    name = name,
+    type = "formula",
+    rtype = rtype,
+    formula = formula,
+    missing_codes = missing_codes,
+    missing_proportions = missing_proportions,
+    garbage_rules = garbage_rules,
+    provenance = provenance,
+    model_hint = model_hint
+  )
+  # Parse failures are reported by validate_mock_spec(), not the constructor,
+  # matching the sibling constructors' defer-all-validation contract.
+  # depends_on is computed once here at construction time; it is not
+  # re-synced if `formula` is mutated afterwards.
+  variable$depends_on <- tryCatch(
+    .formula_dependencies(variable),
+    error = function(e) character(0)
+  )
+  variable
+}
+
+#' Create a survival date variable specification
+#'
+#' `mock_spec_survival()` describes a date generated relative to an anchor
+#' (entry) date: `floor(n * event_prop)` rows receive a date a follow-up time
+#' after the anchor, drawn within `[followup_min, followup_max]` days, and the
+#' rest are `NA` (censored). Survival variables are computed after baseline
+#' generation by [generate_survival_dates()], so the anchor must be another
+#' variable in the same [mock_spec()].
+#'
+#' @param name Variable name.
+#' @param anchor Name of the date variable this date is generated relative to.
+#' @param followup_min,followup_max Follow-up window in days after the anchor.
+#' @param event_prop Share of rows that receive an event, in `[0, 1]`.
+#' @param distribution Follow-up time distribution: `"uniform"`,
+#'   `"exponential"`, or `"gompertz"`.
+#' @param censored_by Optional name of a competing survival variable with the
+#'   same anchor. Where that date is earlier than this one, this one becomes
+#'   `NA`.
+#' @param shape,rate Optional Gompertz parameters (defaults 0.1 and 0.0001).
+#'   The exponential distribution derives its rate from the follow-up window.
+#' @param source_format Output format. Only `"analysis"` (R `Date`) is
+#'   supported for survival dates.
+#' @param missing_codes,missing_proportions,garbage_rules,provenance,model_hint
+#'   As for other variable specifications; applied by post-processing after
+#'   the survival rules.
+#'
+#' @return A `mock_spec_variable` object of type `"survival"`.
+#' @family mock specification APIs
+#' @seealso [generate_survival_dates()], [mock_spec_date()]
+#'
+#' @examples
+#' spec <- mock_spec(
+#'   mock_spec_date("entry", range = as.Date(c("2001-01-01", "2005-12-31"))),
+#'   mock_spec_survival("death", anchor = "entry",
+#'     followup_min = 365, followup_max = 7300, event_prop = 0.2),
+#'   mock_spec_survival("event", anchor = "entry",
+#'     followup_min = 0, followup_max = 5475, event_prop = 0.3,
+#'     censored_by = "death")
+#' )
+#' validate_mock_spec(spec)
+#'
+#' @export
+mock_spec_survival <- function(name,
+                               anchor,
+                               followup_min,
+                               followup_max,
+                               event_prop,
+                               distribution = "uniform",
+                               censored_by = NULL,
+                               shape = NULL,
+                               rate = NULL,
+                               source_format = "analysis",
+                               missing_codes = character(0),
+                               missing_proportions = numeric(0),
+                               garbage_rules = list(),
+                               provenance = "direct",
+                               model_hint = "native-postprocess") {
+  variable <- .new_mock_spec_variable(
+    name = name,
+    type = "survival",
+    rtype = "date",
+    distribution = distribution,
+    source_format = source_format,
+    missing_codes = missing_codes,
+    missing_proportions = missing_proportions,
+    garbage_rules = garbage_rules,
+    provenance = provenance,
+    model_hint = model_hint,
+    anchor = anchor,
+    censored_by = censored_by,
+    followup_min = followup_min,
+    followup_max = followup_max,
+    event_prop = event_prop,
+    shape = shape,
+    rate = rate
+  )
+  # Computed once at construction, as for mock_spec_formula(); anchor and
+  # censored_by feed the shared dependency ordering (ADR D7).
+  variable$depends_on <- .survival_dependencies(variable)
+  variable
 }
 
 #' Check whether an object is a MockData specification
@@ -797,6 +1020,15 @@ print.mock_spec_validation_result <- function(x, ...) {
         errors <- c(errors, paste0("Variable '", variable$name, "' normal distribution requires sd > 0."))
       }
     }
+    if (identical(variable$distribution, "exponential")) {
+      if (is.null(variable$rate) || length(variable$rate) != 1 ||
+          is.na(variable$rate) || variable$rate <= 0) {
+        errors <- c(errors, paste0(
+          "Variable '", variable$name,
+          "' exponential distribution requires rate > 0."
+        ))
+      }
+    }
   } else if (variable$type == "categorical") {
     if (is.null(variable$levels) || length(variable$levels) == 0) {
       errors <- c(errors, paste0("Variable '", variable$name, "' must have at least one level."))
@@ -817,6 +1049,29 @@ print.mock_spec_validation_result <- function(x, ...) {
     }
   } else if (variable$type == "date") {
     errors <- c(errors, .validate_range(variable$range, variable$name, "Date"))
+  } else if (variable$type == "formula") {
+    f <- variable$formula
+    if (is.null(f) || !is.character(f) || length(f) != 1 || is.na(f) ||
+        trimws(f) == "") {
+      errors <- c(errors, paste0(
+        "Variable '", variable$name,
+        "' formula type requires a non-empty character formula."
+      ))
+    } else {
+      parse_error <- tryCatch({ str2lang(f); NULL }, error = function(e) conditionMessage(e))
+      if (!is.null(parse_error)) {
+        errors <- c(errors, paste0(
+          "Variable '", variable$name, "' formula could not be parsed: ", parse_error
+        ))
+      }
+    }
+    if (!variable$rtype %in% c("double", "numeric", "integer", "factor", "character", "logical")) {
+      errors <- c(errors, paste0(
+        "Variable '", variable$name, "' has unsupported formula rType '", variable$rtype, "'."
+      ))
+    }
+  } else if (variable$type == "survival") {
+    errors <- c(errors, .validate_survival_variable(variable))
   } else {
     errors <- c(errors, paste0("Variable '", variable$name, "' has unsupported type '", variable$type, "'."))
   }
@@ -874,11 +1129,30 @@ validate_mock_spec <- function(spec, n = NULL, strict = TRUE) {
       for (variable in spec$variables) {
         errors <- c(errors, .validate_mock_spec_variable(variable))
       }
+
+      formula_error <- tryCatch({
+        .validate_formula_referents(spec)
+        .order_formula_variables(spec)
+        NULL
+      }, error = function(e) conditionMessage(e))
+      if (!is.null(formula_error)) {
+        errors <- c(errors, formula_error)
+      }
+
+      errors <- c(errors, .validate_survival_referents(spec))
+      survival_error <- tryCatch({
+        .order_survival_variables(spec)
+        NULL
+      }, error = function(e) conditionMessage(e))
+      if (!is.null(survival_error)) {
+        errors <- c(errors, survival_error)
+      }
     }
   }
 
   if (!is.null(n)) {
-    if (!is.numeric(n) || length(n) != 1 || is.na(n) || n < 0 || n != floor(n)) {
+    if (!is.numeric(n) || length(n) != 1 || is.na(n) || !is.finite(n) ||
+        n < 0 || n != floor(n)) {
       errors <- c(errors, "n must be a non-negative whole number.")
     }
   }

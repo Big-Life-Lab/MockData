@@ -1,4 +1,12 @@
+# Session state for once-per-session notices (ADR v05-survival-dates D9).
+.mockdata_state <- new.env(parent = emptyenv())
+
 #' Create wide survival data for cohort studies
+#'
+#' **Deprecated as of MockData 0.5.0.** Add `anchor` (and `censored_by` for a
+#' competing risk) to the survival dates' rows in `variables.csv` and generate
+#' them with [create_mock_data()]; see `vignette("tutorial-survival-data")`.
+#' The function still works and warns once per session.
 #'
 #' Generates wide-format survival data (one row per individual) with up to 5 date
 #' variables (entry, event, death, loss-to-follow-up, administrative censoring).
@@ -175,6 +183,18 @@ create_wide_survival_data <- function(var_entry_date,
                                        n,
                                        seed = NULL,
                                        prop_garbage = NULL) {
+  if (!isTRUE(.mockdata_state$wide_survival_warned)) {
+    .mockdata_state$wide_survival_warned <- TRUE
+    warning(
+      "create_wide_survival_data() is deprecated as of MockData 0.5.0. Add ",
+      "`anchor` (and `censored_by` for competing risks) to the survival ",
+      "dates' rows in variables.csv and generate them with create_mock_data(); ",
+      "see vignette(\"tutorial-survival-data\", package = \"MockData\"). ",
+      "This warning is shown once per session.",
+      call. = FALSE
+    )
+  }
+
 
   # ========== VALIDATION ==========
 
