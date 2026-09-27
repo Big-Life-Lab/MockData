@@ -1,59 +1,6 @@
-# MockData (development version)
+# MockData 0.5.0 (2026-09-27)
 
-## Formula-derived variables (#39, Phase A)
-
-- Variables can now be generated from algebraic expressions over other
-  generated variables via a new `mockFormula` column in `variable_details`
-  (e.g. `weight / (height^2)`), or the new `mock_formula()` direct API.
-  Formulas are evaluated in dependency order by `evaluate_mock_formulas()`,
-  in a restricted environment exposing only the generated columns and a
-  fixed allow-list of base functions. `DerivedVar::`/`Func::` semantics are
-  unchanged: derived variables without a `mockFormula` remain excluded from
-  generation, and `Func::` dispatch is not yet supported.
-
-## Survival dates in create_mock_data() (#40)
-
-- `create_mock_data()` now generates survival dates from metadata. A date
-  whose `variables.csv` row sets `anchor` (its entry-date variable) is a
-  survival date: `floor(n * event_prop)` rows receive a date between
-  `followup_min` and `followup_max` days after the anchor, drawn from a
-  uniform, exponential or Gompertz distribution, and the rest are `NA`. An
-  optional `censored_by` column names a competing survival date, such as
-  death, that sets this date to `NA` where it comes first. The statistics and
-  rules are those of `create_wide_survival_data()`, ported exactly. New
-  functions: `mock_spec_survival()` and `generate_survival_dates()`. This
-  resolves the known issue, listed since v0.2.0, that survival data had to be
-  generated separately.
-- Migration: add `anchor` (and `censored_by` where a competing risk applies)
-  to each survival date's row. A date with `followup_min`, `followup_max` or
-  `event_prop` but no `anchor` now fails with a message naming the fix;
-  previously it was silently dropped or generated as a plain calendar date.
-- Missing codes and garbage are applied to survival dates after the survival
-  rules. Garbage that places a date before entry is therefore kept, whereas
-  the legacy engine set such dates to `NA`.
-- Derived columns, from `mockFormula` or survival dates, describe the clean
-  generated values; missing codes and garbage are then applied to each column
-  independently. `is.na` is added to the `mockFormula` allow-list so status
-  and follow-up time can be derived. Derive both from the same observation
-  window: `as.integer(!is.na(death_date))` only says a death date exists,
-  not that the death was observed before censoring.
-- A `censored_by` target may not itself have `censored_by`. Chained censoring
-  would report some events as observed after observation ended, so it is
-  rejected in this version with a message naming the fix.
-- The packaged minimal example now generates entirely through the v0.4
-  pipeline, because its Gompertz survival dates no longer force the legacy
-  generator. Its seeded output differs from v0.4.
-- If the legacy generator is selected (`validate = FALSE`,
-  `variable_details = NULL`, detail-level-only `databaseStart`, or another
-  unsupported variable) on metadata that sets `anchor`, `create_mock_data()`
-  stops and names the survival variables rather than dropping them.
-- `create_wide_survival_data()` is deprecated and warns once per session.
-- Known issues found while porting, reproduced unchanged: #54 (Gompertz
-  follow-up times are degenerate with the packaged parameters), #55
-  (administrative censoring is drawn per person), #56 (smaller legacy
-  discrepancies).
-
-## Reproducibility (breaking change)
+## Breaking changes
 
 - Seeded output changed once for the RNG-stream mechanism in this release.
   Within the `create_mock_data()` pipeline (`generate_mock_data_native()`,
@@ -68,16 +15,62 @@
   still seed a single Mersenne-Twister stream per call. For a given seed
   **and package version** pipeline output is reproducible and independent of
   the session's ambient `RNGkind()`; it is not comparable across the v0.4 →
-  v0.5 boundary. Pin your own expected values against the version you use.
-  For seeded calls, generation no longer alters the caller's RNG state
-  (previously the legacy `validate = FALSE` path reset it).
+  v0.5 boundary. For seeded calls, generation no longer alters the caller's
+  RNG state (previously the legacy `validate = FALSE` path reset it). (#38)
 
+  **Migrating:** if your tests pin values from seeded v0.4 runs of
+  `create_mock_data()` or the `mock_spec` pipeline, regenerate those expected
+  values once under v0.5 and pin them again. The same seed keeps giving
+  identical output within this version. Standalone `create_*` calls need no
+  change.
+
+- Migration: add `anchor` (and `censored_by` where a competing risk applies)
+  to each survival date's row. A date with `followup_min`, `followup_max` or
+  `event_prop` but no `anchor` now fails with a message naming the fix;
+  previously it was silently dropped or generated as a plain calendar date.
+- Missing codes and garbage are applied to survival dates after the survival
+  rules. Garbage that places a date before entry is therefore kept, whereas
+  the legacy engine set such dates to `NA`.
+- The packaged minimal example now generates entirely through the v0.4
+  pipeline, because its Gompertz survival dates no longer force the legacy
+  generator. Its seeded output differs from v0.4.
+- If the legacy generator is selected (`validate = FALSE`,
+  `variable_details = NULL`, detail-level-only `databaseStart`, or another
+  unsupported variable) on metadata that sets `anchor`, `create_mock_data()`
+  stops and names the survival variables rather than dropping them.
+
+## New features
+
+- Formula-derived variables (#39, Phase A). Variables can now be generated
+  from algebraic expressions over other generated variables via a new
+  `mockFormula` column in `variable_details` (e.g. `weight / (height^2)`),
+  or the new `mock_formula()` direct API. Formulas are evaluated in
+  dependency order by `evaluate_mock_formulas()`, in a restricted environment
+  exposing only the generated columns and a fixed allow-list of base
+  functions. `DerivedVar::`/`Func::` semantics are unchanged: derived
+  variables without a `mockFormula` remain excluded from generation, and
+  `Func::` dispatch is not yet supported.
+- `create_mock_data()` now generates survival dates from metadata. A date
+  whose `variables.csv` row sets `anchor` (its entry-date variable) is a
+  survival date: `floor(n * event_prop)` rows receive a date between
+  `followup_min` and `followup_max` days after the anchor, drawn from a
+  uniform, exponential or Gompertz distribution, and the rest are `NA`. An
+  optional `censored_by` column names a competing survival date, such as
+  death, that sets this date to `NA` where it comes first. The statistics and
+  rules are those of `create_wide_survival_data()`, ported exactly. New
+  functions: `mock_spec_survival()` and `generate_survival_dates()`. This
+  resolves the known issue, listed since v0.2.0, that survival data had to be
+  generated separately.
+- Derived columns, from `mockFormula` or survival dates, describe the clean
+  generated values; missing codes and garbage are then applied to each column
+  independently. `is.na` is added to the `mockFormula` allow-list so status
+  and follow-up time can be derived. Derive both from the same observation
+  window: `as.integer(!is.na(death_date))` only says a death date exists,
+  not that the death was observed before censoring.
 - `create_mock_data()` now accepts `n = 0`, returning a zero-row data frame
   with the full generated schema (useful for schema tests), and rejects
   fractional, negative, `NA`, and non-finite values of `n` with a clear
   message. The validation now matches `generate_mock_data_native()`.
-- Calling `create_mock_data()` without `databaseStart` now fails upfront with
-  a message naming the argument, instead of a raw missing-argument error.
 - The native backend now supports `distribution = "exponential"` (parity with
   the legacy generator), removing a forced legacy-fallback for exponential
   metadata. When the optional simstudy backend is selected, exponential
@@ -86,6 +79,23 @@
   their generation. Native exponential values are truncated to the declared
   `range` by inverse-CDF sampling, rather than clipped at the range maximum
   (with a point mass at the boundary) as the legacy `rexp()` path does.
+
+## Validation and error messages
+
+- Calling `create_mock_data()` without `databaseStart` now fails upfront with
+  a message naming the argument, instead of a raw missing-argument error.
+- With `validate = TRUE` (the default), invalid distribution parameters in
+  metadata — e.g. `distribution = "exponential"` without a positive `rate` —
+  now stop generation with a message naming the variable and how to fix it,
+  instead of warning and substituting a uniform draw. The legacy
+  warn-and-substitute behaviour remains available via `validate = FALSE`.
+
+- A `censored_by` target may not itself have `censored_by`. Chained censoring
+  would report some events as observed after observation ended, so it is
+  rejected in this version with a message naming the fix.
+
+## Bug fixes
+
 - The simstudy backend now returns a typed zero-row data frame for `n = 0`,
   identical to the native backend's output, instead of failing inside
   `simstudy::genData()` (whose `1:n` id table has two rows when `n = 0`).
@@ -103,11 +113,17 @@
   and #58, every variable in the example except its survival dates now
   generates through the v0.4 pipeline. Seeded output for the example
   changes.
-- With `validate = TRUE` (the default), invalid distribution parameters in
-  metadata — e.g. `distribution = "exponential"` without a positive `rate` —
-  now stop generation with a message naming the variable and how to fix it,
-  instead of warning and substituting a uniform draw. The legacy
-  warn-and-substitute behaviour remains available via `validate = FALSE`.
+
+## Deprecations
+
+- `create_wide_survival_data()` is deprecated and warns once per session.
+
+## Known issues
+
+- Known issues found while porting, reproduced unchanged: #54 (Gompertz
+  follow-up times are degenerate with the packaged parameters), #55
+  (administrative censoring is drawn per person), #56 (smaller legacy
+  discrepancies).
 
 # MockData 0.4.0 (2026-06-10)
 
