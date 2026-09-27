@@ -95,6 +95,17 @@ test_that("create_mock_data generates the minimal example (sanity anchor)", {
   expect_true(all(names(result) %in% fx$variables$variable))
 })
 
+test_that("the minimal example produces no NaN values (#60)", {
+  # height's high-garbage range had an infinite upper bound, (2.1;inf], and
+  # sampling from it produced NaN in the packaged example's default output.
+  fx <- minimal_example()
+  result <- suppressWarnings(suppressMessages(create_mock_data(
+    "minimal-example", fx$variables, fx$variable_details, n = 1000, seed = 1
+  )))
+  has_nan <- vapply(result, function(x) is.numeric(x) && any(is.nan(x)), logical(1))
+  expect_identical(names(result)[has_nan], character(0))
+})
+
 test_that("create_mock_data accepts n = 0 and returns a full-schema empty frame", {
   fx <- minimal_example()
   result <- suppressWarnings(suppressMessages(create_mock_data(

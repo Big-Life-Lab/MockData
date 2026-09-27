@@ -38,6 +38,11 @@
   `variable_details = NULL`, detail-level-only `databaseStart`, or another
   unsupported variable) on metadata that sets `anchor`, `create_mock_data()`
   stops and names the survival variables rather than dropping them.
+- The same applies to formula variables. If the legacy generator is
+  selected for metadata that sets `mockFormula` on an enabled variable,
+  `create_mock_data()` stops and names the formula variables. Previously the
+  legacy generator ignored the formula and returned unrelated random values,
+  or dropped a `DerivedVar::` variable, without saying so.
 
 ## New features
 
@@ -109,10 +114,11 @@
   an integer range now fails with a message naming the variable. (#58)
 - The packaged minimal example corrects two metadata errors: BMI's low
   garbage range had a stray parenthesis (`[-10;15])`), and height's
-  low-garbage proportion was 1.00 (every row) instead of 0.01. With these
-  and #58, every variable in the example except its survival dates now
-  generates through the v0.4 pipeline. Seeded output for the example
-  changes.
+  low-garbage proportion was 1.00 (every row) instead of 0.01; height's
+  high-garbage range had an infinite upper bound, `(2.1;inf]`, which
+  produced `NaN` values, and is now `(2.1;2.5]` (#60). With these, #58 and
+  the survival dates (#40), every variable in the example generates through
+  the v0.4 pipeline. Seeded output for the example changes.
 
 ## Deprecations
 

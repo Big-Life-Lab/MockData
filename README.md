@@ -193,15 +193,17 @@ mock_data <- create_mock_data(
   seed = 123
 )
 
-head(mock_data)
-#>  age smoking interview_date
-#> 1  42       2     2001-08-05
-#> 2  47       2     2002-11-27
-#> 3  73       3     2002-11-14
-#> 4  51       1     2005-01-14
-#> 5  52       1     2001-02-25
-#> 6  76       3     2004-07-25
+head(mock_data[, c("age", "smoking", "BMI", "interview_date", "death_date")])
+#>   age smoking       BMI interview_date death_date
+#> 1  35       3 996.00000     2004-10-20       <NA>
+#> 2 999       1  31.52719     2004-01-11       <NA>
+#> 3  72       1  21.02576     2002-01-21       <NA>
+#> 4 997       2  28.36755     2004-06-25       <NA>
+#> 5  55       1  29.52888     2001-02-22       <NA>
+#> 6 998       3  25.80269     2004-01-12 2005-01-11
 ```
+
+The minimal example generates all of its variables; this shows five of them. Values such as 996 and 999 are missing codes declared by the metadata's `NA::` rows.
 
 **What's in those CSV files?** See [inst/extdata/minimal-example/](inst/extdata/minimal-example/README.md) - just variable names, types, ranges, and optional mock-data parameters.
 
