@@ -16,8 +16,7 @@ CLAUDE.md
 # macOS
 .DS_Store
 
-# Generated documentation
-man/*.Rd
+# Generated documentation (man/*.Rd is committed so GitHub installs have help pages)
 docs/
 
 # Quarto/HTML output
