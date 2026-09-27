@@ -43,6 +43,13 @@
   `create_mock_data()` stops and names the formula variables. Previously the
   legacy generator ignored the formula and returned unrelated random values,
   or dropped a `DerivedVar::` variable, without saying so.
+- On the legacy path (`validate = FALSE` and the other legacy triggers),
+  `create_mock_data()` now generates only variables whose variable-level
+  `databaseStart` includes the requested database, as the v0.4 pipeline
+  does. Previously it chose variables from the detail rows alone, so a
+  variable listed only for another database was generated as random values,
+  and a formula or survival variable belonging to another database stopped
+  the run.
 
 ## New features
 

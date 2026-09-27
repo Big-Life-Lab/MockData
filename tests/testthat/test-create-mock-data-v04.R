@@ -277,3 +277,66 @@ test_that("create_mock_data v0.4 and legacy paths are distributionally aligned",
   expect_type(attr(v04, "mockdata_diagnostics"), "list")
   expect_null(attr(legacy, "mockdata_diagnostics"))
 })
+
+test_that("the legacy path generates only variables that belong to the requested database", {
+  # Release review of 0.5.0: the legacy path chose variables by detail rows
+  # and ignored variable-level databaseStart, which the v0.4 adapter honours.
+  # A variable listed only for "other" was generated for "study" (as random
+  # values), and the formula and survival guards stopped "study" on variables
+  # that do not belong to it.
+  run <- function(v, d) {
+    suppressWarnings(suppressMessages(
+      create_mock_data("study", v, d, n = 20, seed = 1, validate = FALSE)
+    ))
+  }
+  details_for <- function(variables, other_only) {
+    data.frame(
+      variable = variables$variable,
+      recStart = c("[0,1]", "[0,1]"),
+      recEnd = "copy",
+      proportion = 1,
+      databaseStart = c("study, other", other_only),
+      stringsAsFactors = FALSE
+    )
+  }
+  plain <- data.frame(
+    variable = c("x", "z"),
+    variableType = "Continuous",
+    rType = "double",
+    role = "enabled",
+    databaseStart = c("study, other", "other"),
+    distribution = "uniform",
+    stringsAsFactors = FALSE
+  )
+  # Shared detail rows and "other"-only detail rows behave the same.
+  for (z_rows in c("study, other", "other")) {
+    expect_identical(names(run(plain, details_for(plain, z_rows))), "x", info = z_rows)
+
+    formula_details <- details_for(plain, z_rows)
+    formula_details$mockFormula <- c("", "x * 2")
+    expect_identical(names(run(plain, formula_details)), "x", info = z_rows)
+  }
+
+  survival <- data.frame(
+    variable = c("entry", "death"),
+    variableType = "Date",
+    rType = "date",
+    role = "enabled",
+    databaseStart = c("study, other", "other"),
+    distribution = "uniform",
+    anchor = c("", "entry"),
+    followup_min = c(NA, 0),
+    followup_max = c(NA, 10),
+    event_prop = c(NA, 1),
+    stringsAsFactors = FALSE
+  )
+  survival_details <- data.frame(
+    variable = "entry",
+    recStart = "[2001-01-01,2001-12-31]",
+    recEnd = "copy",
+    proportion = 1,
+    databaseStart = "study, other",
+    stringsAsFactors = FALSE
+  )
+  expect_identical(names(run(survival, survival_details)), "entry")
+})

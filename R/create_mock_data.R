@@ -395,6 +395,15 @@ create_mock_data <- function(databaseStart,
     enabled_vars <- variables
   }
 
+  # Variable-level databaseStart lists the databases a variable belongs to.
+  # The v0.4 adapter honours it; the legacy path used only detail rows, so a
+  # variable listed only for another database was generated here as random
+  # values, and the formula and survival guards below stopped on it. Same
+  # matcher and empty-means-all rule as the adapter.
+  if ("databaseStart" %in% names(enabled_vars)) {
+    enabled_vars <- .filter_recodeflow_by_database(enabled_vars, databaseStart, allow_empty = TRUE)
+  }
+
   # Formula variables are computed only by the v0.4 pipeline; the legacy
   # dispatcher ignores mockFormula and would return unrelated random values,
   # or drop a DerivedVar:: variable, without saying so. Checked before the
