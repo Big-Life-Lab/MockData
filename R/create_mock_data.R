@@ -18,6 +18,11 @@
     if (variable$type == "formula") {
       return(FALSE)
     }
+    # type = "survival" is supported end-to-end (#40): both backends skip it,
+    # generate_survival_dates() computes it, postprocess treats it as a date.
+    if (variable$type == "survival") {
+      return(FALSE)
+    }
 
     formula <- variable$formula
     has_formula <- !is.null(formula) &&
@@ -41,6 +46,23 @@
   }, logical(1))
 
   names(spec$variables)[unsupported]
+}
+
+#' @noRd
+.has_survival_metadata <- function(variables) {
+  # A row sets anchor, or carries survival parameters (followup_min,
+  # followup_max, event_prop): the metadata describes survival dates.
+  if ("anchor" %in% names(variables)) {
+    anchors <- as.character(variables$anchor)
+    if (any(!is.na(anchors) & trimws(anchors) != "")) {
+      return(TRUE)
+    }
+  }
+  survival_fields <- intersect(c("followup_min", "followup_max", "event_prop"), names(variables))
+  any(vapply(survival_fields, function(field) {
+    values <- as.character(variables[[field]])
+    any(!is.na(values) & trimws(values) != "")
+  }, logical(1)))
 }
 
 #' @noRd
@@ -76,13 +98,27 @@
       role = "enabled"
     ),
     error = function(e) {
+      # Survival dates are generated only by the v0.4 pipeline (ADR
+      # v05-survival-dates D10): validate = FALSE would stop on anchored
+      # metadata or silently drop survival dates, so it is not offered then.
+      advice <- if (.has_survival_metadata(variables)) {
+        paste0(
+          "Fix the metadata as the message above describes. Survival dates ",
+          "are generated only by the v0.4 pipeline, so validate = FALSE is ",
+          "not a workaround for survival dates."
+        )
+      } else {
+        paste0(
+          "Fix the metadata (for exponential variables, supply a positive ",
+          "'rate'), or call create_mock_data() with validate = FALSE to use ",
+          "the legacy generator, which warns and substitutes a uniform draw ",
+          "for invalid distribution parameters."
+        )
+      }
       stop(
         conditionMessage(e), "\n",
         "Metadata validation failed while building the v0.4 specification. ",
-        "Fix the metadata (for exponential variables, supply a positive 'rate'), ",
-        "or call create_mock_data() with validate = FALSE to use the legacy ",
-        "generator, which warns and substitutes a uniform draw for invalid ",
-        "distribution parameters.",
+        advice,
         call. = FALSE
       )
     }
@@ -105,11 +141,14 @@
   }
 
   baseline <- generate_mock_data_native(spec, n = n, seed = seed)
-  staged <- evaluate_mock_formulas(baseline, spec, seed = seed)
-  # Baseline generation, formula evaluation, and post-processing use distinct
-  # L'Ecuyer-CMRG sub-streams derived from the single public seed (see
-  # .with_mock_seed / ADR v05-seed-contract), so all three stages pass the
-  # same seed and select their own stage internally.
+  dated <- generate_survival_dates(baseline, spec, seed = seed)
+  staged <- evaluate_mock_formulas(dated, spec, seed = seed)
+  # Baseline generation, survival dates, formula evaluation, and
+  # post-processing use distinct L'Ecuyer-CMRG sub-streams derived from the
+  # single public seed (see .with_mock_seed / ADR v05-seed-contract), so all
+  # four stages pass the same seed and select their own stage internally.
+  # Survival precedes formulas so a mockFormula can use survival dates
+  # (ADR v05-survival-dates D6).
   postprocess_mock_data(staged, spec, seed = seed)
 }
 
@@ -169,7 +208,10 @@
 #' when `variable_details = NULL`, when detail-level `databaseStart` filtering is
 #' needed but the variables metadata has no `databaseStart` column, or when a
 #' variable uses a feature not yet supported by the v0.4 native backend. Set
-#' `verbose = TRUE` to see which path was chosen.
+#' `verbose = TRUE` to see which path was chosen. Survival dates (rows that
+#' set `anchor`) are generated only by the v0.4 pipeline: if the legacy path
+#' is selected for metadata that sets `anchor`, `create_mock_data()` stops and
+#' names the survival variables.
 #'
 #' In the v0.4 path, baseline generation and post-processing draw from distinct,
 #' independent sub-streams derived from a single `seed`; output is reproducible
@@ -206,9 +248,9 @@
 #' see \code{vignette("reference-config", package = "MockData")}.
 #'
 #' @examples
-#' # The packaged minimal example includes deliberately messy metadata
-#' # (auto-normalized proportions, survival dates without an anchor): the
-#' # warnings it generates are expected and demonstrate MockData's diagnostics.
+#' # The packaged minimal example covers every variable type, including
+#' # survival dates anchored on interview_date. It auto-normalizes some
+#' # proportions, so warnings about that are expected.
 #' mock_data <- create_mock_data(
 #'   databaseStart = "minimal-example",
 #'   variables = system.file("extdata/minimal-example/variables.csv",
@@ -225,12 +267,16 @@
 #' # Columns with straightforward metadata generate cleanly:
 #' head(mock_data[, c("age", "smoking", "interview_date")])
 #'
-#' # Fallback mode: no variable_details, simple default generators
+#' # Fallback mode: no variable_details, simple default generators. Survival
+#' # dates need the v0.4 pipeline, so drop the rows that set an anchor first.
+#' fallback_variables <- read.csv(
+#'   system.file("extdata/minimal-example/variables.csv", package = "MockData"),
+#'   stringsAsFactors = FALSE,
+#'   check.names = FALSE
+#' )
 #' mock_data <- create_mock_data(
 #'   databaseStart = "minimal-example",
-#'   variables = system.file("extdata/minimal-example/variables.csv",
-#'     package = "MockData"
-#'   ),
+#'   variables = fallback_variables[fallback_variables$anchor == "", ],
 #'   variable_details = NULL,
 #'   n = 500
 #' )
@@ -337,6 +383,27 @@ create_mock_data <- function(databaseStart,
 
       # Filter out derived variables
       enabled_vars <- enabled_vars[!enabled_vars$variable %in% derived_vars, ]
+    }
+  }
+
+  # ADR v05-survival-dates D10: the legacy dispatcher cannot build survival
+  # dates from anchors (it would warn and drop them), so stop rather than
+  # return plausible-looking partial survival data.
+  if ("anchor" %in% names(enabled_vars)) {
+    anchor_values <- as.character(enabled_vars$anchor)
+    anchored <- enabled_vars$variable[
+      !is.na(anchor_values) & trimws(anchor_values) != ""
+    ]
+    if (length(anchored) > 0) {
+      stop(
+        "Survival date variable(s) ", paste(anchored, collapse = ", "),
+        " (anchor set) are generated only by the v0.4 pipeline, but the ",
+        "legacy generator was selected. It is used when validate = FALSE, ",
+        "when variable_details is NULL, when only variable_details has a ",
+        "databaseStart column, or when another variable uses a feature the ",
+        "v0.4 pipeline does not support. Run with verbose = TRUE to see which.",
+        call. = FALSE
+      )
     }
   }
 

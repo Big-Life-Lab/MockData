@@ -15,7 +15,8 @@ MockData is a work-in-progress R package for generating mock testing data from
 small metadata specifications. Version 0.4 introduced the
 `mock_spec` architecture: direct specification helpers, a recodeflow metadata
 adapter, native generation, optional `simstudy` generation, and post-processing
-diagnostics. Version 0.5 adds formula-derived variables (`mockFormula`) and a
+diagnostics. Version 0.5 adds formula-derived variables (`mockFormula`),
+survival dates generated from metadata (`anchor`, `censored_by`), and a
 per-stage seed contract. It is useful today for development and documentation workflows,
 especially when paired with recodeflow-style metadata (see below), but it should
 be treated as experimental infrastructure rather than a stable released package.
@@ -44,7 +45,7 @@ feedback is welcome in
 - Use inline metadata for small examples, without creating separate CSV files
 - Create categorical, continuous, and date-like fields from simple specifications
 - Add intentional invalid or out-of-range "garbage" values for QA testing
-- Generate basic time-to-event style mock dates for survival-analysis workflows
+- Generate survival dates (entry, events, competing risks, censoring) from metadata
 - Support examples and tutorials without exposing real person-level data
 
 **Current development limitations:**

@@ -567,9 +567,9 @@ Tasks 5 and 6 **must land in the same minor release**: both change seeded output
 
 **Deliverable:** short design note (may be a section in the implementation plan rather than a full ADR), then implementation.
 
-- [ ] **Step 1: Decide the pairing convention** — recommendation: an explicit `anchor` extension column on the event variable's metadata row naming its entry-date variable. Metadata fields `followup_min`/`followup_max`/`event_prop` already flow (`R/mock_spec_recodeflow.R:367-369`).
-- [ ] **Step 2: Define the multi-column generator contract** — a spec variable of type `survival` returns a 2-column data frame; the assembly loop accepts multi-column returns; `validate_mock_spec()` checks the anchor exists, is a date variable, and ordering constraints hold.
-- [ ] **Step 3: Implementation plan + execution.** Required tests: event/censoring proportions with two-sided bounds (#23's direction); diagnostics attribute both columns to one spec entry; NEWS removes the standing known-issue entry.
+- [x] **Step 1: Decide the pairing convention** — recommendation: an explicit `anchor` extension column on the event variable's metadata row naming its entry-date variable. Metadata fields `followup_min`/`followup_max`/`event_prop` already flow (`R/mock_spec_recodeflow.R:367-369`).
+- [x] **Step 2: Define the multi-column generator contract** — a spec variable of type `survival` returns a 2-column data frame; the assembly loop accepts multi-column returns; `validate_mock_spec()` checks the anchor exists, is a date variable, and ordering constraints hold.
+- [x] **Step 3: Implementation plan + execution.** Required tests: event/censoring proportions with two-sided bounds (#23's direction); diagnostics attribute both columns to one spec entry; NEWS removes the standing known-issue entry.
 
 ### Task 8: v0.5 release assembly
 

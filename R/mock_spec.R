@@ -743,6 +743,88 @@ mock_spec_formula <- function(name,
   variable
 }
 
+#' Create a survival date variable specification
+#'
+#' `mock_spec_survival()` describes a date generated relative to an anchor
+#' (entry) date: `floor(n * event_prop)` rows receive a date a follow-up time
+#' after the anchor, drawn within `[followup_min, followup_max]` days, and the
+#' rest are `NA` (censored). Survival variables are computed after baseline
+#' generation by [generate_survival_dates()], so the anchor must be another
+#' variable in the same [mock_spec()].
+#'
+#' @param name Variable name.
+#' @param anchor Name of the date variable this date is generated relative to.
+#' @param followup_min,followup_max Follow-up window in days after the anchor.
+#' @param event_prop Share of rows that receive an event, in `[0, 1]`.
+#' @param distribution Follow-up time distribution: `"uniform"`,
+#'   `"exponential"`, or `"gompertz"`.
+#' @param censored_by Optional name of a competing survival variable with the
+#'   same anchor. Where that date is earlier than this one, this one becomes
+#'   `NA`.
+#' @param shape,rate Optional Gompertz parameters (defaults 0.1 and 0.0001).
+#'   The exponential distribution derives its rate from the follow-up window.
+#' @param source_format Output format. Only `"analysis"` (R `Date`) is
+#'   supported for survival dates.
+#' @param missing_codes,missing_proportions,garbage_rules,provenance,model_hint
+#'   As for other variable specifications; applied by post-processing after
+#'   the survival rules.
+#'
+#' @return A `mock_spec_variable` object of type `"survival"`.
+#' @family mock specification APIs
+#' @seealso [generate_survival_dates()], [mock_spec_date()]
+#'
+#' @examples
+#' spec <- mock_spec(
+#'   mock_spec_date("entry", range = as.Date(c("2001-01-01", "2005-12-31"))),
+#'   mock_spec_survival("death", anchor = "entry",
+#'     followup_min = 365, followup_max = 7300, event_prop = 0.2),
+#'   mock_spec_survival("event", anchor = "entry",
+#'     followup_min = 0, followup_max = 5475, event_prop = 0.3,
+#'     censored_by = "death")
+#' )
+#' validate_mock_spec(spec)
+#'
+#' @export
+mock_spec_survival <- function(name,
+                               anchor,
+                               followup_min,
+                               followup_max,
+                               event_prop,
+                               distribution = "uniform",
+                               censored_by = NULL,
+                               shape = NULL,
+                               rate = NULL,
+                               source_format = "analysis",
+                               missing_codes = character(0),
+                               missing_proportions = numeric(0),
+                               garbage_rules = list(),
+                               provenance = "direct",
+                               model_hint = "native-postprocess") {
+  variable <- .new_mock_spec_variable(
+    name = name,
+    type = "survival",
+    rtype = "date",
+    distribution = distribution,
+    source_format = source_format,
+    missing_codes = missing_codes,
+    missing_proportions = missing_proportions,
+    garbage_rules = garbage_rules,
+    provenance = provenance,
+    model_hint = model_hint,
+    anchor = anchor,
+    censored_by = censored_by,
+    followup_min = followup_min,
+    followup_max = followup_max,
+    event_prop = event_prop,
+    shape = shape,
+    rate = rate
+  )
+  # Computed once at construction, as for mock_spec_formula(); anchor and
+  # censored_by feed the shared dependency ordering (ADR D7).
+  variable$depends_on <- .survival_dependencies(variable)
+  variable
+}
+
 #' Check whether an object is a MockData specification
 #'
 #' @param x Object to check.
@@ -988,6 +1070,8 @@ print.mock_spec_validation_result <- function(x, ...) {
         "Variable '", variable$name, "' has unsupported formula rType '", variable$rtype, "'."
       ))
     }
+  } else if (variable$type == "survival") {
+    errors <- c(errors, .validate_survival_variable(variable))
   } else {
     errors <- c(errors, paste0("Variable '", variable$name, "' has unsupported type '", variable$type, "'."))
   }
@@ -1053,6 +1137,15 @@ validate_mock_spec <- function(spec, n = NULL, strict = TRUE) {
       }, error = function(e) conditionMessage(e))
       if (!is.null(formula_error)) {
         errors <- c(errors, formula_error)
+      }
+
+      errors <- c(errors, .validate_survival_referents(spec))
+      survival_error <- tryCatch({
+        .order_survival_variables(spec)
+        NULL
+      }, error = function(e) conditionMessage(e))
+      if (!is.null(survival_error)) {
+        errors <- c(errors, survival_error)
       }
     }
   }

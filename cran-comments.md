@@ -5,24 +5,30 @@
 Checked with:
 
 - R 4.4.2
-- macOS 26.0, aarch64-apple-darwin20
+- macOS 27.0, aarch64-apple-darwin20
 - `R CMD check --as-cran --no-manual` on the built tarball
-- Suggests installed, including `simstudy` 0.9.2, so the optional backend's
-  tests ran rather than skipped
+- `_R_CHECK_FORCE_SUGGESTS_=false`, because the local check library does not
+  include the suggested package `simstudy`
 
 Result:
 
 - 0 errors
 - 0 warnings
-- 2 notes
+- 3 notes
 
 Notes:
 
 - New submission.
+- `simstudy` (suggested) not available for checking locally. It is installed
+  in continuous integration, where its tests run.
 - The local check reported `unable to verify current time`.
 
-Continuous integration runs the same check on Ubuntu (`R-CMD-check`
-workflow) for every push to `main`/`dev` and every pull request into them.
+## Continuous integration
+
+The `R-CMD-check` workflow runs the same check on Ubuntu 24.04 with
+R 4.6.1, with all suggested packages installed, for every push to
+`main`/`dev` and every pull request into them. Latest result: `Status: OK`
+(0 errors, 0 warnings, 0 notes).
 
 ## Release notes
 
