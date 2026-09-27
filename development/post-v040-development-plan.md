@@ -573,10 +573,10 @@ Tasks 5 and 6 **must land in the same minor release**: both change seeded output
 
 ### Task 8: v0.5 release assembly
 
-- [ ] Tasks 5 + 6 merged together; one NEWS migration section covering the seeded-output break with before/after guidance.
-- [ ] Pinned-value seed regression tests in place (#22 closed).
-- [ ] `devtools::check()` clean; `roxygen2::roxygenize()` then `pkgdown::build_site()` clean; `renv::snapshot()` if dependencies moved.
-- [ ] Version bump to 0.5.0; downstream heads-up to cchsflow/chmsflow maintainers if any metadata-extension columns were added.
+- [x] Tasks 5 + 6 merged together; one NEWS migration section covering the seeded-output break with before/after guidance. (#38, #39 and #40 all ship in 0.5.0; NEWS "Breaking changes" carries the migrating paragraph.)
+- [x] Pinned-value seed regression tests in place (#22 closed). (`tests/testthat/test-seed-contract.R`; #22 closed by the release PR.)
+- [x] `devtools::check()` clean; `roxygen2::roxygenize()` then `pkgdown::build_site()` clean; `renv::snapshot()` if dependencies moved. (2026-09-27: `R CMD check --as-cran` on the 0.5.0 tarball, 0 errors, 0 warnings, 3 documented notes; `devtools::check()` is blocked by the local toolchain. pkgdown builds; the lockfile was updated in #51.)
+- [x] Version bump to 0.5.0; downstream heads-up to cchsflow/chmsflow maintainers if any metadata-extension columns were added. (Maintainer decision 2026-09-22: the extension columns `mockFormula`, `anchor` and `censored_by` are documented in MockData, in `reference-config.qmd`'s placement rule, rather than in a separate notice. They are optional and change nothing for those packages.)
 
 ---
 
