@@ -61,11 +61,15 @@ A validated `mock_spec` object.
 This adapter preserves recodeflow semantics instead of treating metadata
 as a generic table. It uses exact role and `databaseStart` token
 matching, parses valid ranges from `recStart`, classifies missing codes
-from `recEnd` values that begin with `NA::`, preserves categorical
-levels and proportions, carries `garbage_*` settings into
-`garbage_rules`, and stores survival/date fields such as `rate`,
-`shape`, `followup_min`, `followup_max`, and `event_prop` on date
-variables for later backend milestones.
+from `recEnd` values that begin with `NA::` (expanding an integer range
+such as `[997,999]` into its individual codes, with the row's proportion
+split equally), preserves categorical levels and proportions, carries
+`garbage_*` settings into `garbage_rules`, and builds a survival date
+([`mock_spec_survival()`](https://big-life-lab.github.io/MockData/reference/mock_spec_survival.md))
+from any date row that sets `anchor`, reading `censored_by`,
+`followup_min`, `followup_max`, `event_prop`, `distribution`, `shape`
+and `rate`. A date row with survival parameters but no `anchor` is an
+error.
 
 By default, variables identified by `DerivedVar::` or `Func::` rows are
 excluded because they should be evaluated after raw mock variables are
@@ -92,7 +96,9 @@ Other mock specification APIs:
 [`mock_spec()`](https://big-life-lab.github.io/MockData/reference/mock_spec.md),
 [`mock_spec_categorical()`](https://big-life-lab.github.io/MockData/reference/mock_spec_categorical.md),
 [`mock_spec_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_spec_continuous.md),
-[`mock_spec_date()`](https://big-life-lab.github.io/MockData/reference/mock_spec_date.md)
+[`mock_spec_date()`](https://big-life-lab.github.io/MockData/reference/mock_spec_date.md),
+[`mock_spec_formula()`](https://big-life-lab.github.io/MockData/reference/mock_spec_formula.md),
+[`mock_spec_survival()`](https://big-life-lab.github.io/MockData/reference/mock_spec_survival.md)
 
 ## Examples
 

@@ -26,12 +26,12 @@ head(native_data)
 ```
 
       age smoking
-    1  43   never
-    2  21   never
-    3  66   never
-    4  62 current
-    5  35  former
-    6  38   never
+    1  84 current
+    2  79   never
+    3  36   never
+    4  56  former
+    5  58   never
+    6  57   never
 
 The native backend is always available, stays within MockData’s
 MIT-licensed code, and is the backend used by
@@ -89,12 +89,12 @@ if (simstudy_available) {
 ```
 
       age smoking
-    1  27   never
-    2  63  former
-    3  40   never
-    4  32   never
-    5  43  former
-    6  70   never
+    1  26  former
+    2  84  former
+    3  49   never
+    4  66   never
+    5  59   never
+    6  41 current
 
 When `simstudy` is installed, compare broad properties rather than
 expecting row-for-row equality. The engines use different internals.
@@ -110,7 +110,7 @@ if (simstudy_available) {
 ```
 
       native_mean_age simstudy_mean_age
-               51.329            51.329 
+              51.7055           51.7055 
 
 ``` r
 
@@ -128,9 +128,9 @@ if (simstudy_available) {
 }
 ```
 
-              never former current
-    native   0.5085 0.3015   0.190
-    simstudy 0.4870 0.3150   0.198
+             never former current
+    native   0.504 0.2920  0.2040
+    simstudy 0.487 0.2985  0.2145
 
 ## Mixed specs are allowed
 
@@ -166,12 +166,12 @@ head(mixed_native)
 ```
 
       smoking      bmi interview_date
-    1   never 24.02969     2020-08-31
-    2 current 28.02806     2020-07-10
-    3  former 22.39650     2020-06-28
-    4  former 26.56285     2020-12-13
-    5  former 23.08798     2020-09-17
-    6 current 18.23093     2020-10-12
+    1   never 26.91380     2020-09-06
+    2   never 24.94866     2020-02-12
+    3  former 28.24664     2020-08-21
+    4 current 26.31296     2020-01-20
+    5  former 26.70605     2020-06-26
+    6   never 32.25927     2020-08-06
 
 ``` r
 
@@ -182,12 +182,12 @@ if (simstudy_available) {
 ```
 
       smoking      bmi interview_date
-    1 current 27.12785     2020-10-17
-    2   never 32.49747     2020-06-12
-    3   never 23.46380     2020-01-27
-    4   never 20.19506     2020-01-01
-    5   never 29.56013     2020-02-24
-    6   never 31.40743     2020-11-08
+    1  former 29.44966     2020-02-17
+    2   never 27.36393     2020-08-22
+    3   never 32.97241     2020-12-29
+    4   never 27.23012     2020-05-10
+    5  former 16.88193     2020-07-19
+    6  former 23.62353     2020-04-14
 
 In this example, `smoking` can be generated through `simstudy`; `bmi`
 and `interview_date` stay native because MockData owns the truncated
@@ -252,16 +252,16 @@ generate_mock_data_native(spec, n = 10, seed = 1)
 ```
 
        age smoking
-    1   36   never
-    2   43   never
-    3   56  former
-    4   79   never
-    5   32  former
-    6   78   never
-    7   81  former
-    8   62 current
-    9   60   never
-    10  22  former
+    1   63 current
+    2   47 current
+    3   79   never
+    4   82  former
+    5   74   never
+    6   41   never
+    7   42   never
+    8   47  former
+    9   48 current
+    10  45  former
 
 If your workflow explicitly wants to test the optional backend and
 `simstudy` is installed, use:
@@ -274,16 +274,16 @@ if (simstudy_available) {
 ```
 
        age smoking
-    1   36  former
-    2   43   never
-    3   56 current
-    4   79 current
-    5   32   never
-    6   78 current
-    7   81   never
-    8   62 current
-    9   60  former
-    10  22  former
+    1   63   never
+    2   47   never
+    3   79 current
+    4   82  former
+    5   74 current
+    6   41   never
+    7   42   never
+    8   47   never
+    9   48  former
+    10  45   never
 
 ## Decision guide
 

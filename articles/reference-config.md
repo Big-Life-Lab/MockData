@@ -24,7 +24,7 @@ Essential columns for getting started:
 | `variable` | variables.csv | Yes | Output column name | `"age"` |
 | `variableType` | variables.csv | Yes | Categorical or Continuous (from recodeflow) | `"Continuous"` |
 | `rType` | variables.csv | No | R output type (integer, double, character, date, factor) | `"integer"` |
-| `distribution` | variables.csv | Continuous/Date | normal, uniform, gompertz | `"normal"` |
+| `distribution` | variables.csv | Continuous/Date | normal, uniform, exponential, gompertz | `"normal"` |
 | `mean`, `sd` | variables.csv | Normal dist | Distribution parameters | `50`, `15` |
 | `garbage_low_prop` | variables.csv | No | QA testing (low values) | `0.01` |
 | `garbage_high_prop` | variables.csv | No | QA testing (high values) | `0.03` |
@@ -42,8 +42,8 @@ For complete column documentation, see sections below.
 > from the actual example data. Column counts, CSV examples, and dataset
 > summaries are calculated dynamically from:
 >
-> - [inst/extdata/minimal-example/variables.csv](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example/variables.csv)
-> - [inst/extdata/minimal-example/variable_details.csv](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example/variable_details.csv)
+> - [inst/extdata/minimal-example/variables.csv](https://github.com/Big-Life-Lab/MockData/blob/main/inst/extdata/minimal-example/variables.csv)
+> - [inst/extdata/minimal-example/variable_details.csv](https://github.com/Big-Life-Lab/MockData/blob/main/inst/extdata/minimal-example/variable_details.csv)
 >
 > This approach ensures the documentation stays synchronized with the
 > package and serves as integration testing during package builds.
@@ -55,7 +55,7 @@ For complete column documentation, see sections below.
 MockData uses a two-file configuration system to define mock datasets:
 
 1.  **variables.csv** - Variable-level metadata and generation
-    parameters (24 columns total: 4 core + 20 extensions)
+    parameters (26 columns total: 4 core + 22 extensions)
 2.  **variable_details.csv** - Detail-level specifications for
     categories and ranges (7 columns: 4 core + 3 extensions)
 
@@ -81,6 +81,22 @@ extension columns, interval notation, and validation rules.
 `v001`, `v002`, `v010`)
 
 ### Extension columns (MockData-specific)
+
+MockData reads its generation settings from extension columns added to
+the recodeflow files; recodeflow and its consuming packages (cchsflow,
+chmsflow) ignore them. The placement rule:
+
+- On `variables.csv`, extension columns are unprefixed and sit beside
+  the recodeflow columns (`rType`, `distribution`, `garbage_*`,
+  `followup_min`, `anchor` and so on).
+- On `variable_details.csv`, where MockData columns sit among
+  recodeflow’s own semantic columns (`recStart`, `recEnd`, `catLabel`),
+  they carry a `mock` prefix, as `mockFormula` does.
+
+Other packages can extend recodeflow metadata the same way. A
+MockData-owned sidecar file that keeps recodeflow files free of
+extension columns is planned
+([\#57](https://github.com/Big-Life-Lab/MockData/issues/57)).
 
 #### Type and generation control
 
@@ -171,14 +187,23 @@ ranges.
 
 - `"normal"` - Normal (Gaussian) distribution (requires `mean`, `sd`)
 - `"uniform"` - Uniform distribution over valid range
+- `"exponential"` - Exponential distribution, truncated to the valid
+  range (requires `rate`)
 
 **For date variables:**
 
-- `"uniform"` - Equal probability for all dates
-- `"gompertz"` - Age-related hazard (requires `rate`, `shape`,
-  `followup_min`, `followup_max`, `event_prop`)
-- `"exponential"` - Constant hazard (requires `rate`, `followup_min`,
-  `followup_max`, `event_prop`)
+- `"uniform"` - Equal probability for all dates, or follow-up times
+  spread evenly across the window for survival dates
+- `"gompertz"` - Survival dates only: a hazard rising over time, with
+  `shape` and `rate` (defaults 0.1 and 0.0001)
+- `"exponential"` - Survival dates only: follow-up times concentrated
+  early in the window. The rate is derived from the window; the `rate`
+  column is not used for survival dates
+  ([\#56](https://github.com/Big-Life-Lab/MockData/issues/56))
+
+Survival dates also need `anchor`, `followup_min`, `followup_max` and
+`event_prop` (see below). For continuous variables, `exponential`
+requires only `rate`.
 
 **For categorical variables:** Set to `NA` (categories defined by
 proportions in variable_details.csv)
@@ -210,27 +235,31 @@ v005,primary_event_date,gompertz,NA,NA,0.0001,0.1
 | `followup_min` | integer | Minimum follow-up days | Positive integer | `365` |
 | `followup_max` | integer | Maximum follow-up days | Positive integer | `5475` |
 | `event_prop` | numeric | Proportion experiencing event | 0 to 1 | `0.1` |
+| `anchor` | character | Entry-date variable this date is generated relative to; a non-blank value makes the variable a survival date | Name of a date variable | `interview_date` |
+| `censored_by` | character | Optional competing survival date with the same anchor; where it is earlier, this date becomes `NA`. The target may not itself have `censored_by` | Name of a survival variable | `death_date` |
 
 **When to use:**
 
 - Date variables representing events (death_date, disease_diagnosis,
   etc.)
-- NOT for index dates (interview_date) - those are the time origin
+- NOT for index dates (interview_date) - those are the anchor
+- Every survival date needs `anchor`; a date with `followup_min`,
+  `followup_max` or `event_prop` but no `anchor` fails validation
 
 **Example:**
 
 ``` csv
-# Primary event date: 10% experience dementia diagnosis within 1-15 years
-uid,variable,distribution,followup_min,followup_max,event_prop
-v005,primary_event_date,gompertz,365,5475,0.1
+# Primary event date: 10% experience dementia diagnosis within 1-15 years; death censors it
+uid,variable,distribution,anchor,censored_by,followup_min,followup_max,event_prop
+v005,primary_event_date,gompertz,interview_date,death_date,365,5475,0.1
 
 # Death date: 20% die within 1-20 years (competing risk)
-uid,variable,distribution,followup_min,followup_max,event_prop
-v006,death_date,gompertz,365,7300,0.2
+uid,variable,distribution,anchor,censored_by,followup_min,followup_max,event_prop
+v006,death_date,gompertz,interview_date,,365,7300,0.2
 
 # Loss to follow-up: 10% lost within 1-20 years (censoring)
-uid,variable,distribution,followup_min,followup_max,event_prop
-v_007,ltfu_date,uniform,365,7300,0.1
+uid,variable,distribution,anchor,censored_by,followup_min,followup_max,event_prop
+v_007,ltfu_date,uniform,interview_date,,365,7300,0.1
 ```
 
 #### Versioning
@@ -250,18 +279,18 @@ v_007,ltfu_date,uniform,365,7300,0.1
 ### Complete example
 
 ``` csv
-"uid","variable","label","variableType","rType","role","position","seed","garbage_low_prop","garbage_low_range","garbage_high_prop","garbage_high_range","distribution","mean","sd","rate","shape","followup_min","followup_max","event_prop","sourceFormat","mockDataVersion","mockDataLastUpdated","mockDataVersionNotes"
-"cchsflow_v0001","age","Age in years","Continuous","integer","enabled,predictor,table1",10,10,NA,"[;]",NA,"[;]","normal",50,15,NA,NA,NA,NA,NA,"","1.0.0","2025-11-09","Normal distribution (mean=50, sd=15)"
-"cchsflow_v0002","smoking","Smoking status","Categorical","factor","enabled,predictor,table1",20,20,NA,"",NA,"","",NA,NA,NA,NA,NA,NA,NA,"","1.0.0","2025-11-09","Categorical variable with proportions"
-"cchsflow_v0003","BMI","Body mass index","Continuous","double","enabled,outcome,table1",30,30,0.02,"[-10;15])",0.01,"[60;150]","normal",27.5,5.2,NA,NA,NA,NA,NA,"","1.0.0","2025-11-09","Normal distribution with two-sided contamination"
-"cchsflow_v0004","height","Height in meters","Continuous","double","enabled,predictor",40,40,1,"[0;1.4)",0.01,"(2.1;inf]","normal",1.7,0.1,NA,NA,NA,NA,NA,"","1.0.0","2025-11-13","Height for BMI calculation"
-"cchsflow_v0005","weight","Weight in kilograms","Continuous","double","enabled,predictor",50,50,NA,"[;]",NA,"[;]","normal",75,15,NA,NA,NA,NA,NA,"","1.0.0","2025-11-13","Weight for BMI calculation"
-"cchsflow_v0006","BMI_derived","BMI calculated from height and weight","Continuous","double","enabled,outcome,table1",60,60,NA,"[;]",NA,"[;]","",NA,NA,NA,NA,NA,NA,NA,"","1.0.0","2025-11-13","Derived variable: BMI = weight / (height^2)"
-"ices_v01","interview_date","Interview date (cohort entry)","Continuous","date","enabled,outcome",70,70,0,"[;]",0,"[;]","uniform",NA,NA,NA,NA,NA,NA,NA,"analysis","1.0.0","2025-11-09","Uniform date range (cohort entry)"
-"ices_v02","primary_event_date","Primary event date (dementia diagnosis)","Continuous","date","enabled,outcome,table1",80,80,0,"[;]",0.03,"[2021-01-01;2099-12-31]","gompertz",NA,NA,1e-04,0.1,0,5475,0.3,"analysis","1.0.0","2025-11-09","Gompertz survival with temporal violations (3%)"
-"ices_v03","death_date","Death date (competing risk)","Continuous","date","enabled,outcome, table1",90,90,0,"[;]",0.03,"[2025-01-01;2099-12-31]","gompertz",NA,NA,1e-04,0.1,365,7300,0.2,"analysis","1.0.0","2025-11-09","Gompertz survival with auto-generated date corruption"
-"ices_v04","ltfu_date","Loss to follow-up date","Continuous","date","enabled,outcome",100,100,0,"[;]",0.03,"[2025-01-01;2099-12-31]","uniform",NA,NA,NA,NA,365,7300,0.1,"analysis","1.0.0","2025-11-09","Uniform censoring (10% occurrence)"
-"ices_v05","admin_censor_date","admin_censor_date","Continuous","date","enabled,outcome",110,110,0,"[;]",0,"[;]","",NA,NA,NA,NA,365,7300,1,"analysis","1.0.0","2025-11-09",""
+"uid","variable","label","variableType","rType","role","position","seed","garbage_low_prop","garbage_low_range","garbage_high_prop","garbage_high_range","distribution","mean","sd","rate","shape","followup_min","followup_max","event_prop","anchor","censored_by","sourceFormat","mockDataVersion","mockDataLastUpdated","mockDataVersionNotes"
+"cchsflow_v0001","age","Age in years","Continuous","integer","enabled,predictor,table1",10,10,NA,"[;]",NA,"[;]","normal",50,15,NA,NA,NA,NA,NA,"","","","1.0.0","2025-11-09","Normal distribution (mean=50, sd=15)"
+"cchsflow_v0002","smoking","Smoking status","Categorical","factor","enabled,predictor,table1",20,20,NA,"",NA,"","",NA,NA,NA,NA,NA,NA,NA,"","","","1.0.0","2025-11-09","Categorical variable with proportions"
+"cchsflow_v0003","BMI","Body mass index","Continuous","double","enabled,outcome,table1",30,30,0.02,"[-10;15]",0.01,"[60;150]","normal",27.5,5.2,NA,NA,NA,NA,NA,"","","","1.0.0","2025-11-09","Normal distribution with two-sided contamination"
+"cchsflow_v0004","height","Height in meters","Continuous","double","enabled,predictor",40,40,0.01,"[0;1.4)",0.01,"(2.1;2.5]","normal",1.7,0.1,NA,NA,NA,NA,NA,"","","","1.0.0","2025-11-13","Height for BMI calculation"
+"cchsflow_v0005","weight","Weight in kilograms","Continuous","double","enabled,predictor",50,50,NA,"[;]",NA,"[;]","normal",75,15,NA,NA,NA,NA,NA,"","","","1.0.0","2025-11-13","Weight for BMI calculation"
+"cchsflow_v0006","BMI_derived","BMI calculated from height and weight","Continuous","double","enabled,outcome,table1",60,60,NA,"[;]",NA,"[;]","",NA,NA,NA,NA,NA,NA,NA,"","","","1.0.0","2025-11-13","Derived variable: BMI = weight / (height^2)"
+"ices_v01","interview_date","Interview date (cohort entry)","Continuous","date","enabled,outcome",70,70,0,"[;]",0,"[;]","uniform",NA,NA,NA,NA,NA,NA,NA,"","","analysis","1.0.0","2025-11-09","Uniform date range (cohort entry)"
+"ices_v02","primary_event_date","Primary event date (dementia diagnosis)","Continuous","date","enabled,outcome,table1",80,80,0,"[;]",0.03,"[2021-01-01;2099-12-31]","gompertz",NA,NA,1e-04,0.1,0,5475,0.3,"interview_date","death_date","analysis","1.0.0","2025-11-09","Gompertz survival with temporal violations (3%)"
+"ices_v03","death_date","Death date (competing risk)","Continuous","date","enabled,outcome, table1",90,90,0,"[;]",0.03,"[2025-01-01;2099-12-31]","gompertz",NA,NA,1e-04,0.1,365,7300,0.2,"interview_date","","analysis","1.0.0","2025-11-09","Gompertz survival with auto-generated date corruption"
+"ices_v04","ltfu_date","Loss to follow-up date","Continuous","date","enabled,outcome",100,100,0,"[;]",0.03,"[2025-01-01;2099-12-31]","uniform",NA,NA,NA,NA,365,7300,0.1,"interview_date","","analysis","1.0.0","2025-11-09","Uniform censoring (10% occurrence)"
+"ices_v05","admin_censor_date","admin_censor_date","Continuous","date","enabled,outcome",110,110,0,"[;]",0,"[;]","",NA,NA,NA,NA,365,7300,1,"interview_date","","analysis","1.0.0","2025-11-09",""
 ```
 
 ------------------------------------------------------------------------
@@ -830,6 +859,7 @@ proportions in variable_details.csv)
 |----|----|----|----|
 | `normal` | `mean`, `sd` | Age, BMI, normally-distributed measurements | Age: mean=50, sd=15 |
 | `uniform` | None (uses recStart range) | Equal probability across range | Income brackets, uniform codes |
+| `exponential` | `rate` | Exponential distribution, truncated to the valid range | Wait times, time-to-event measurements |
 
 **For date variables:**
 
@@ -838,6 +868,10 @@ proportions in variable_details.csv)
 | `uniform` | None | Index dates, enrollment dates | Interview date |
 | `gompertz` | `rate`, `shape`, `followup_min`, `followup_max`, `event_prop` | Age-related events (death, dementia) | Mortality with increasing hazard by age |
 | `exponential` | `rate`, `followup_min`, `followup_max`, `event_prop` | Constant hazard events | Loss to follow-up |
+
+Note: the `followup_min`, `followup_max`, and `event_prop` parameters
+above apply only to the date/survival use of `exponential`. The
+continuous-variable `exponential` distribution requires only `rate`.
 
 **Complete examples:**
 
@@ -858,9 +892,9 @@ v002,smoking,Categorical,
 uid,variable,variableType,distribution
 v004,interview_date,Date,uniform
 
-# Date: gompertz survival (event date)
-uid,variable,variableType,distribution,rate,shape,followup_min,followup_max,event_prop
-v005,death_date,Date,gompertz,0.0001,0.1,365,7300,0.2
+# Date: gompertz survival (event date), anchored on the index date
+uid,variable,variableType,distribution,rate,shape,anchor,followup_min,followup_max,event_prop
+v005,death_date,Date,gompertz,0.0001,0.1,interview_date,365,7300,0.2
 ```
 
 **Common errors:**
@@ -1580,8 +1614,8 @@ and temporal garbage data
 
 ``` csv
 # variables.csv
-uid,variable,label,variableType,rType,role,position,seed,garbage_high_prop,garbage_high_range,distribution,rate,shape,followup_min,followup_max,event_prop
-v005,primary_event_date,Primary event date (dementia),Date,date,"enabled,outcome,table1",50,500,0.03,"[2021-01-01,2099-12-31]",gompertz,0.0001,0.1,0,5475,0.1
+uid,variable,label,variableType,rType,role,position,seed,garbage_high_prop,garbage_high_range,distribution,rate,shape,anchor,followup_min,followup_max,event_prop
+v005,primary_event_date,Primary event date (dementia),Date,date,"enabled,outcome,table1",50,500,0.03,"[2021-01-01,2099-12-31]",gompertz,0.0001,0.1,interview_date,0,5475,0.1
 
 # variable_details.csv
 uid,uid_detail,variable,recStart,recEnd,catLabel,proportion
@@ -1592,6 +1626,8 @@ v005,d_010,primary_event_date,else,NA::b,Missing event date,0
 **Interpretation:**
 
 - 10% experience dementia diagnosis within 0-15 years after interview
+- The date is anchored on `interview_date`, which must be another
+  enabled date variable
 - Event times follow gompertz distribution (increasing hazard with age)
 - 3% have impossible future dates (2021-2099) for QA testing
 - 90% censored (no event)
@@ -1676,7 +1712,9 @@ bmi_fun <- function(height, weight) {
 mock_data$BMI_derived <- bmi_fun(mock_data$height, mock_data$weight)
 ```
 
-**Note:** Derived variables are NOT generated by create_mock_data(). See
+**Note:** Derived variables are NOT generated by create_mock_data()
+unless they also carry a `mockFormula` expression (v0.5+); the example
+above has no `mockFormula`, so `BMI_derived` is excluded as shown. See
 [Advanced topics: Derived
 variables](https://big-life-lab.github.io/MockData/articles/advanced-topics.html#derived-variables)
 for details.
@@ -1689,12 +1727,12 @@ for details.
 
 ``` csv
 # variables.csv
-uid,variable,label,variableType,rType,role,position,seed,distribution,rate,shape,followup_min,followup_max,event_prop
-v004,interview_date,Interview date,Date,date,"enabled,metadata",40,400,uniform,,,,,,
-v005,primary_event_date,Dementia diagnosis,Date,date,"enabled,outcome",50,500,gompertz,0.0001,0.1,0,5475,0.1
-v006,death_date,Death date,Date,date,"enabled,outcome",60,600,gompertz,0.0001,0.1,365,7300,0.2
-v_007,ltfu_date,Loss to follow-up,Date,date,"enabled,outcome",70,700,uniform,,,365,7300,0.1
-v_008,admin_censor_date,Administrative censoring,Date,date,"enabled,metadata",80,800,,,,365,7300,1
+uid,variable,label,variableType,rType,role,position,seed,distribution,rate,shape,anchor,censored_by,followup_min,followup_max,event_prop
+v004,interview_date,Interview date,Date,date,"enabled,metadata",40,400,uniform,,,,,,,
+v005,primary_event_date,Dementia diagnosis,Date,date,"enabled,outcome",50,500,gompertz,0.0001,0.1,interview_date,death_date,0,5475,0.1
+v006,death_date,Death date,Date,date,"enabled,outcome",60,600,gompertz,0.0001,0.1,interview_date,,365,7300,0.2
+v_007,ltfu_date,Loss to follow-up,Date,date,"enabled,outcome",70,700,uniform,,,interview_date,,365,7300,0.1
+v_008,admin_censor_date,Administrative censoring,Date,date,"enabled,metadata",80,800,,,,interview_date,,365,7300,1
 
 # variable_details.csv
 uid,uid_detail,variable,recStart,recEnd,proportion
@@ -1712,14 +1750,21 @@ v_008,d_015,admin_censor_date,2024-12-31,copy,1
   hazard)
 - **Competing risk:** 20% die within 1-20 years (gompertz hazard)
 - **Censoring:** 10% lost to follow-up within 1-20 years (uniform)
-- **Administrative:** All censored at 2024-12-31
+- **Administrative:** a date between one and 20 years after entry for
+  everyone. It is drawn per person; the fixed `2024-12-31` in
+  `variable_details.csv` is not used
+  ([\#55](https://github.com/Big-Life-Lab/MockData/issues/55))
 
-**Result:** Realistic competing risks dataset with:
+**Result:** a competing risks dataset in which:
 
-- Some experience primary event before death/censoring
-- Some die before primary event
-- Some censored (lost to follow-up or administrative)
-- No individual can have more than one terminal event
+- A primary event later than death is removed
+  (`censored_by = death_date`)
+- Everyone has an interview and an administrative date; some also have a
+  primary event, death or loss-to-follow-up date
+- Loss to follow-up and administrative censoring apply when you derive
+  status and follow-up time from the dates (see the tutorial)
+- With these Gompertz parameters every death falls 365 days after entry
+  ([\#54](https://github.com/Big-Life-Lab/MockData/issues/54))
 
 See [Tutorial: Generating survival data with competing
 risks](https://big-life-lab.github.io/MockData/articles/tutorial-survival-data.md)
@@ -2133,11 +2178,11 @@ combined <- do.call(rbind, lapply(all_files, read.csv))
 ## Reference implementation
 
 See
-[inst/extdata/minimal-example/](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example)
+[inst/extdata/minimal-example/](https://github.com/Big-Life-Lab/MockData/tree/main/inst/extdata/minimal-example)
 for a complete working example with 11 variables (Categorical : 1,
 Continuous : 10) and 26 detail rows demonstrating:
 
-- All 20 variable-level extension columns (plus 4 core recodeflow
+- All 22 variable-level extension columns (plus 4 core recodeflow
   columns)
 - All 3 detail-level extension columns (plus 4 core recodeflow columns)
 - All variable types (integer, factor, double, date)

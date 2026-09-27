@@ -1,9 +1,12 @@
 # Create wide survival data for cohort studies
 
-Generates wide-format survival data (one row per individual) with up to
-5 date variables (entry, event, death, loss-to-follow-up, administrative
-censoring). Applies temporal ordering constraints and supports garbage
-data generation for QA testing.
+**Deprecated as of MockData 0.5.0.** Add `anchor` (and `censored_by` for
+a competing risk) to the survival dates' rows in `variables.csv` and
+generate them with
+[`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md);
+see
+[`vignette("tutorial-survival-data")`](https://big-life-lab.github.io/MockData/articles/tutorial-survival-data.md).
+The function still works and warns once per session.
 
 ## Usage
 
@@ -94,6 +97,11 @@ data.frame with 1-5 date columns (depending on which variables are
 specified), or NULL if variables already exist in df_mock.
 
 ## Details
+
+Generates wide-format survival data (one row per individual) with up to
+5 date variables (entry, event, death, loss-to-follow-up, administrative
+censoring). Applies temporal ordering constraints and supports garbage
+data generation for QA testing.
 
 This function implements v0.3.0 "recodeflow pattern" API:
 

@@ -1,29 +1,31 @@
 # MockData
 
-**Status: Experimental v0.4.0 release**
+**Status: Experimental v0.5.0 release**
 
 MockData is a work-in-progress R package for generating mock testing
-data from small metadata specifications. Version 0.4 introduces the
+data from small metadata specifications. Version 0.4 introduced the
 `mock_spec` architecture: direct specification helpers, a recodeflow
 metadata adapter, native generation, optional `simstudy` generation, and
-post-processing diagnostics. It is useful today for development and
-documentation workflows, especially when paired with recodeflow-style
-metadata (see below), but it should be treated as experimental
-infrastructure rather than a stable released package.
+post-processing diagnostics. Version 0.5 adds formula-derived variables
+(`mockFormula`), survival dates generated from metadata (`anchor`,
+`censored_by`), and a per-stage seed contract. It is useful today for
+development and documentation workflows, especially when paired with
+recodeflow-style metadata (see below), but it should be treated as
+experimental infrastructure rather than a stable released package.
 
 People are using MockData and reporting that it is helpful. We take that
 as an encouraging signal, not as evidence that the package is mature.
 Please review the generated data before using it in any workflow that
 matters.
 
-v0.4 keeps the existing v0.3 public functions available. Several larger
-ideas were deliberately deferred rather than rushed into this release:
-formula-derived variables, multi-variable correlation, Table 1
-bootstrap, LinkML/schema-first integration, and advanced survival
-simulation. MockData also remains framed as mock data for development
-and QA, not synthetic data for privacy release or inference.
+v0.5 keeps the existing v0.3 public functions available. Several larger
+ideas remain deliberately deferred rather than rushed into a release:
+`Func::` dispatch for derived variables, multi-variable correlation,
+Table 1 bootstrap, LinkML/schema-first integration, and advanced
+survival simulation. MockData also remains framed as mock data for
+development and QA, not synthetic data for privacy release or inference.
 
-Please try v0.4 with representative `variables.csv` and
+Please try v0.5 with representative `variables.csv` and
 `variable_details.csv` files and report bugs, surprising output,
 confusing diagnostics, or migration issues in [GitHub
 Issues](https://github.com/Big-Life-Lab/MockData/issues). Broader design
@@ -39,8 +41,8 @@ feedback is welcome in [GitHub Discussion
   specifications
 - Add intentional invalid or out-of-range “garbage” values for QA
   testing
-- Generate basic time-to-event style mock dates for survival-analysis
-  workflows
+- Generate survival dates (entry, events, competing risks, censoring)
+  from metadata
 - Support examples and tutorials without exposing real person-level data
 
 **Current development limitations:**
@@ -196,15 +198,19 @@ mock_data <- create_mock_data(
   seed = 123
 )
 
-head(mock_data)
-#>  age smoking interview_date
-#> 1  42       2     2001-08-05
-#> 2  47       2     2002-11-27
-#> 3  73       3     2002-11-14
-#> 4  51       1     2005-01-14
-#> 5  52       1     2001-02-25
-#> 6  76       3     2004-07-25
+head(mock_data[, c("age", "smoking", "BMI", "interview_date", "death_date")])
+#>   age smoking       BMI interview_date death_date
+#> 1  35       3 996.00000     2004-10-20       <NA>
+#> 2 999       1  31.52719     2004-01-11       <NA>
+#> 3  72       1  21.02576     2002-01-21       <NA>
+#> 4 997       2  28.36755     2004-06-25       <NA>
+#> 5  55       1  29.52888     2001-02-22       <NA>
+#> 6 998       3  25.80269     2004-01-12 2005-01-11
 ```
+
+The minimal example generates all of its variables; this shows five of
+them. Values such as 996 and 999 are missing codes declared by the
+metadata’s `NA::` rows.
 
 **What’s in those CSV files?** See
 [inst/extdata/minimal-example/](https://big-life-lab.github.io/MockData/inst/extdata/minimal-example/README.md) -

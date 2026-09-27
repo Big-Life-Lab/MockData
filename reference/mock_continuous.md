@@ -15,6 +15,7 @@ mock_continuous(
   mean = NA_real_,
   sd = NA_real_,
   rtype = "double",
+  rate = NA_real_,
   missing_codes = numeric(0),
   missing_proportions = numeric(0),
   garbage_rules = list(),
@@ -46,6 +47,10 @@ mock_continuous(
 - rtype:
 
   R output type. Defaults to `"double"`.
+
+- rate:
+
+  Rate parameter; required when `distribution = "exponential"`.
 
 - missing_codes:
 
@@ -92,7 +97,8 @@ metadata source.
 
 Other direct specification APIs:
 [`mock_categorical()`](https://big-life-lab.github.io/MockData/reference/mock_categorical.md),
-[`mock_date()`](https://big-life-lab.github.io/MockData/reference/mock_date.md)
+[`mock_date()`](https://big-life-lab.github.io/MockData/reference/mock_date.md),
+[`mock_formula()`](https://big-life-lab.github.io/MockData/reference/mock_formula.md)
 
 ## Examples
 
@@ -106,5 +112,14 @@ age_spec <- mock_continuous(
   rtype = "integer"
 )
 validate_mock_spec(age_spec)
+#> MockData mock_spec validation result: valid
+
+wait_spec <- mock_continuous(
+  "wait",
+  range = c(0, 100),
+  distribution = "exponential",
+  rate = 0.1
+)
+validate_mock_spec(wait_spec)
 #> MockData mock_spec validation result: valid
 ```

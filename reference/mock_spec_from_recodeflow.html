@@ -11,7 +11,7 @@ returns a validated specification; it does not generate data."><link rel="styles
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -34,6 +34,7 @@ returns a validated specification; it does not generate data."><link rel="styles
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -41,6 +42,7 @@ returns a validated specification; it does not generate data."><link rel="styles
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -128,10 +130,14 @@ exact comma-separated <code>databaseStart</code> values.</p></dd>
     <p>This adapter preserves recodeflow semantics instead of treating metadata as a
 generic table. It uses exact role and <code>databaseStart</code> token matching, parses
 valid ranges from <code>recStart</code>, classifies missing codes from <code>recEnd</code> values
-that begin with <code>NA::</code>, preserves categorical levels and proportions, carries
-<code>garbage_*</code> settings into <code>garbage_rules</code>, and stores survival/date fields
-such as <code>rate</code>, <code>shape</code>, <code>followup_min</code>, <code>followup_max</code>, and <code>event_prop</code> on
-date variables for later backend milestones.</p>
+that begin with <code>NA::</code> (expanding an integer range such as <code>[997,999]</code> into
+its individual codes, with the row's proportion split equally), preserves
+categorical levels and proportions, carries
+<code>garbage_*</code> settings into <code>garbage_rules</code>, and builds a survival date
+(<code><a href="mock_spec_survival.html">mock_spec_survival()</a></code>) from any date row that sets <code>anchor</code>, reading
+<code>censored_by</code>, <code>followup_min</code>, <code>followup_max</code>, <code>event_prop</code>, <code>distribution</code>,
+<code>shape</code> and <code>rate</code>. A date row with survival parameters but no <code>anchor</code> is
+an error.</p>
 <p>By default, variables identified by <code>DerivedVar::</code> or <code>Func::</code> rows are
 excluded because they should be evaluated after raw mock variables are
 generated. Set <code>exclude_derived = FALSE</code> only when you want those rows to
@@ -150,7 +156,9 @@ the v0.4 <code>mock_spec</code> type vocabulary.</p>
 <code><a href="mock_spec.html">mock_spec()</a></code>,
 <code><a href="mock_spec_categorical.html">mock_spec_categorical()</a></code>,
 <code><a href="mock_spec_continuous.html">mock_spec_continuous()</a></code>,
-<code><a href="mock_spec_date.html">mock_spec_date()</a></code></p></div>
+<code><a href="mock_spec_date.html">mock_spec_date()</a></code>,
+<code><a href="mock_spec_formula.html">mock_spec_formula()</a></code>,
+<code><a href="mock_spec_survival.html">mock_spec_survival()</a></code></p></div>
     </div>
 
     <div class="section level2">
@@ -191,7 +199,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

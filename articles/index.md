@@ -25,6 +25,8 @@ Task-oriented practical examples
 
 - [Use recodeflow metadata with MockData
   v0.4](https://big-life-lab.github.io/MockData/articles/recodeflow-metadata-v04.md):
+- [Add survival dates to your
+  metadata](https://big-life-lab.github.io/MockData/articles/survival-dates-v05.md):
 - [Inspect diagnostics and garbage rules in MockData
   v0.4](https://big-life-lab.github.io/MockData/articles/diagnostics-and-garbage-v04.md):
 - [Migrate from MockData v0.3 to
@@ -40,6 +42,8 @@ Understanding concepts and design decisions
 
 - [MockData v0.4 design
   philosophy](https://big-life-lab.github.io/MockData/articles/design-philosophy-v04.md):
+- [How survival dates are
+  generated](https://big-life-lab.github.io/MockData/articles/survival-design-v05.md):
 - [Advanced
   topics](https://big-life-lab.github.io/MockData/articles/advanced-topics.md):
 

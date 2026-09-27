@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,6 +49,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -56,6 +57,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -295,19 +297,19 @@
 <span><span class="co"># View structure</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Generated"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">mock_data</span><span class="op">)</span>, <span class="st">"observations across"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">mock_data</span><span class="op">)</span>, <span class="st">"variables\n\n"</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Generated 100 observations across 6 variables</code></pre>
+<pre><code>Generated 100 observations across 10 variables</code></pre>
 </div>
 </div>
 <p><strong>View sample data:</strong></p>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
-<pre><code>  age smoking BMI    height   weight
-1  30       1 999 0.3282324 88.18044
-2  59       1 996 1.3347087 82.91051
-3  62       2 998 0.2090464 72.49773
-4  29       1 996 0.2649483 76.03257
-5  39       2 996 0.9694859 75.15056
-6  45       1 996 0.9768913 74.86336</code></pre>
+<pre><code>  age smoking       BMI   height   weight
+1  50       2  38.55459 1.664381 65.10945
+2  30       7 996.00000 1.654630 85.75149
+3  56       3 999.00000 1.836670 75.43411
+4  54       1 996.00000 1.735727 72.32489
+5  71       1 999.00000 1.840389 67.48102
+6 998       2 996.00000 1.686958 94.72430</code></pre>
 </div>
 </div>
 </section><section class="level2"><h2 id="common-workflows">Common workflows<a class="anchor" aria-label="anchor" href="#common-workflows"></a>
@@ -404,6 +406,10 @@ smoking,3,3,Current,0.20</code></pre>
 <p><strong>Survival data parameters:</strong></p>
 <ul>
 <li>
+<code>anchor</code>: the entry-date variable a survival date is generated from (required)</li>
+<li>
+<code>censored_by</code>: an optional competing survival date that removes this one where it comes first</li>
+<li>
 <code>event_prop</code>: Probability event occurs (0-1)</li>
 <li>
 <code>followup_min</code>, <code>followup_max</code>: Follow-up time range in days</li>
@@ -413,9 +419,10 @@ smoking,3,3,Current,0.20</code></pre>
 <code>rate</code>, <code>shape</code>: Distribution parameters</li>
 </ul>
 <p><strong>Example:</strong></p>
-<pre class="csv"><code>uid,variable,rType,role,distribution,rate,shape,event_prop,followup_min,followup_max
-ices_v02,primary_event_date,date,enabled,gompertz,0.0001,0.1,0.10,0,5475
-ices_v03,death_date,date,enabled,gompertz,0.0001,0.1,0.20,365,7300</code></pre>
+<pre class="csv"><code>uid,variable,rType,role,distribution,rate,shape,anchor,censored_by,event_prop,followup_min,followup_max
+ices_v01,interview_date,date,enabled,uniform,,,,,,,
+ices_v02,primary_event_date,date,enabled,gompertz,0.0001,0.1,interview_date,death_date,0.10,0,5475
+ices_v03,death_date,date,enabled,gompertz,0.0001,0.1,interview_date,,0.20,365,7300</code></pre>
 <p>See <a href="tutorial-survival-data.html">Generating survival data with competing risks</a> for details.</p>
 </section><section class="level3"><h3 id="data-quality-testing">Data quality testing<a class="anchor" aria-label="anchor" href="#data-quality-testing"></a>
 </h3>
@@ -568,7 +575,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

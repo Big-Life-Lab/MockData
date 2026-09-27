@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,6 +49,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -56,6 +57,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -82,18 +84,18 @@
 <!-- badges: start -->
 
 <!-- badges: end -->
-<p><strong>Status: Experimental v0.4.0 release</strong></p>
-<p>MockData is a work-in-progress R package for generating mock testing data from small metadata specifications. Version 0.4 introduces the <code>mock_spec</code> architecture: direct specification helpers, a recodeflow metadata adapter, native generation, optional <code>simstudy</code> generation, and post-processing diagnostics. It is useful today for development and documentation workflows, especially when paired with recodeflow-style metadata (see below), but it should be treated as experimental infrastructure rather than a stable released package.</p>
+<p><strong>Status: Experimental v0.5.0 release</strong></p>
+<p>MockData is a work-in-progress R package for generating mock testing data from small metadata specifications. Version 0.4 introduced the <code>mock_spec</code> architecture: direct specification helpers, a recodeflow metadata adapter, native generation, optional <code>simstudy</code> generation, and post-processing diagnostics. Version 0.5 adds formula-derived variables (<code>mockFormula</code>), survival dates generated from metadata (<code>anchor</code>, <code>censored_by</code>), and a per-stage seed contract. It is useful today for development and documentation workflows, especially when paired with recodeflow-style metadata (see below), but it should be treated as experimental infrastructure rather than a stable released package.</p>
 <p>People are using MockData and reporting that it is helpful. We take that as an encouraging signal, not as evidence that the package is mature. Please review the generated data before using it in any workflow that matters.</p>
-<p>v0.4 keeps the existing v0.3 public functions available. Several larger ideas were deliberately deferred rather than rushed into this release: formula-derived variables, multi-variable correlation, Table 1 bootstrap, LinkML/schema-first integration, and advanced survival simulation. MockData also remains framed as mock data for development and QA, not synthetic data for privacy release or inference.</p>
-<p>Please try v0.4 with representative <code>variables.csv</code> and <code>variable_details.csv</code> files and report bugs, surprising output, confusing diagnostics, or migration issues in <a href="https://github.com/Big-Life-Lab/MockData/issues" class="external-link">GitHub Issues</a>. Broader design feedback is welcome in <a href="https://github.com/Big-Life-Lab/MockData/discussions/31" class="external-link">GitHub Discussion #31</a>.</p>
+<p>v0.5 keeps the existing v0.3 public functions available. Several larger ideas remain deliberately deferred rather than rushed into a release: <code>Func::</code> dispatch for derived variables, multi-variable correlation, Table 1 bootstrap, LinkML/schema-first integration, and advanced survival simulation. MockData also remains framed as mock data for development and QA, not synthetic data for privacy release or inference.</p>
+<p>Please try v0.5 with representative <code>variables.csv</code> and <code>variable_details.csv</code> files and report bugs, surprising output, confusing diagnostics, or migration issues in <a href="https://github.com/Big-Life-Lab/MockData/issues" class="external-link">GitHub Issues</a>. Broader design feedback is welcome in <a href="https://github.com/Big-Life-Lab/MockData/discussions/31" class="external-link">GitHub Discussion #31</a>.</p>
 <p><strong>What MockData can currently help with:</strong></p>
 <ul>
 <li>Generate metadata-driven mock variables for development and testing</li>
 <li>Use inline metadata for small examples, without creating separate CSV files</li>
 <li>Create categorical, continuous, and date-like fields from simple specifications</li>
 <li>Add intentional invalid or out-of-range “garbage” values for QA testing</li>
-<li>Generate basic time-to-event style mock dates for survival-analysis workflows</li>
+<li>Generate survival dates (entry, events, competing risks, censoring) from metadata</li>
 <li>Support examples and tutorials without exposing real person-level data</li>
 </ul>
 <p><strong>Current development limitations:</strong></p>
@@ -228,14 +230,15 @@
 <span>  seed <span class="op">=</span> <span class="fl">123</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">mock_data</span><span class="op">)</span></span>
-<span><span class="co">#&gt;  age smoking interview_date</span></span>
-<span><span class="co">#&gt; 1  42       2     2001-08-05</span></span>
-<span><span class="co">#&gt; 2  47       2     2002-11-27</span></span>
-<span><span class="co">#&gt; 3  73       3     2002-11-14</span></span>
-<span><span class="co">#&gt; 4  51       1     2005-01-14</span></span>
-<span><span class="co">#&gt; 5  52       1     2001-02-25</span></span>
-<span><span class="co">#&gt; 6  76       3     2004-07-25</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">mock_data</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"smoking"</span>, <span class="st">"BMI"</span>, <span class="st">"interview_date"</span>, <span class="st">"death_date"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   age smoking       BMI interview_date death_date</span></span>
+<span><span class="co">#&gt; 1  35       3 996.00000     2004-10-20       &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 2 999       1  31.52719     2004-01-11       &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 3  72       1  21.02576     2002-01-21       &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 4 997       2  28.36755     2004-06-25       &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 5  55       1  29.52888     2001-02-22       &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 6 998       3  25.80269     2004-01-12 2005-01-11</span></span></code></pre></div>
+<p>The minimal example generates all of its variables; this shows five of them. Values such as 996 and 999 are missing codes declared by the metadata’s <code>NA::</code> rows.</p>
 <p><strong>What’s in those CSV files?</strong> See <a href="inst/extdata/minimal-example/README.html">inst/extdata/minimal-example/</a> - just variable names, types, ranges, and optional mock-data parameters.</p>
 <p><strong>When should you use metadata files?</strong></p>
 <p>Two common paths:</p>
@@ -550,7 +553,7 @@
 <h2 data-toc-skip>Dev status</h2>
 <ul class="list-unstyled">
 <li><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a></li>
-<li><a href="https://github.com/Big-Life-Lab/MockData" class="external-link"><img src="https://img.shields.io/badge/version-0.4.0-blue.svg" alt="Version: 0.4.0"></a></li>
+<li><a href="https://github.com/Big-Life-Lab/MockData" class="external-link"><img src="https://img.shields.io/badge/version-0.5.0-blue.svg" alt="Version: 0.5.0"></a></li>
 <li><a href="https://github.com/Big-Life-Lab/MockData/actions/workflows/pkgdown.yaml" class="external-link"><img src="https://github.com/Big-Life-Lab/MockData/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"></a></li>
 <li><a href="https://opensource.org/licenses/MIT" class="external-link"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a></li>
 </ul>
@@ -567,7 +570,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

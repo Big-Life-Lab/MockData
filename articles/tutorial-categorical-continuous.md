@@ -374,21 +374,23 @@ mock_data <- create_mock_data(
 names(mock_data)
 ```
 
-    [1] "age"            "smoking"        "BMI"            "height"
-    [5] "weight"         "interview_date"
+     [1] "age"                "smoking"            "BMI"
+     [4] "height"             "weight"             "interview_date"
+     [7] "death_date"         "ltfu_date"          "admin_censor_date"
+    [10] "primary_event_date"
 
 ``` r
 
 head(mock_data[, c("smoking", "age", "weight")])
 ```
 
-      smoking age    weight
-    1       1  42  79.34026
-    2       1  52  56.45727
-    3       1  49  78.34651
-    4       2  63  97.54244
-    5       1  52  85.74665
-    6       2  55 100.46887
+      smoking age   weight
+    1       1  60 75.58059
+    2       2  61 84.61841
+    3       3  37 58.15265
+    4       1  50 73.31043
+    5       3  55 66.41540
+    6       2  40 74.01672
 
 **Result:** All enabled variables generated in a single call,
 maintaining consistent sample size and relationships.

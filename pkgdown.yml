@@ -1,5 +1,5 @@
 pandoc: 3.8.3
-pkgdown: 2.2.0
+pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   advanced-topics: advanced-topics.html
@@ -12,12 +12,14 @@ articles:
   migrating-from-v03-v04: migrating-from-v03-v04.html
   recodeflow-metadata-v04: recodeflow-metadata-v04.html
   reference-config: reference-config.html
+  survival-dates-v05: survival-dates-v05.html
+  survival-design-v05: survival-design-v05.html
   tutorial-categorical-continuous: tutorial-categorical-continuous.html
   tutorial-dates: tutorial-dates.html
   tutorial-garbage-data: tutorial-garbage-data.html
   tutorial-missing-data: tutorial-missing-data.html
   tutorial-survival-data: tutorial-survival-data.html
-last_built: 2026-06-10T15:48Z
+last_built: 2026-09-27T21:40Z
 urls:
   reference: https://big-life-lab.github.io/MockData/reference
   article: https://big-life-lab.github.io/MockData/articles

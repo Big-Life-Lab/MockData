@@ -470,14 +470,14 @@ recorded
 
 ### Generating survival data with temporal violations
 
-The `prop_garbage` parameter in
-[`create_wide_survival_data()`](https://big-life-lab.github.io/MockData/reference/create_wide_survival_data.md)
-is deprecated. Instead, add garbage to individual date variables using
-these functions:
+Add garbage to individual survival date variables with
+[`add_garbage()`](https://big-life-lab.github.io/MockData/reference/add_garbage.md),
+then generate them with
+[`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md):
 
 ``` r
 
-# Define metadata (pass full data frames)
+# Define metadata: death_date is a survival date anchored on study_entry
 surv_variables <- data.frame(
   variable = c("study_entry", "death_date"),
   variableType = c("Date", "Date"),
@@ -486,6 +486,7 @@ surv_variables <- data.frame(
   distribution = c("uniform", "gompertz"),
   rate = c(NA, 0.0001),
   shape = c(NA, 0.1),
+  anchor = c("", "study_entry"),
   followup_min = c(NA, 30),
   followup_max = c(NA, 3650),
   event_prop = c(NA, 1.0),
@@ -494,8 +495,10 @@ surv_variables <- data.frame(
 )
 
 surv_variable_details <- data.frame(
-  variable = c("study_entry", "death_date"),
-  recStart = c("[2010-01-01,2015-12-31]", "[30,3650]"),
+  variable = "study_entry",
+  recStart = "[2010-01-01,2015-12-31]",
+  recEnd = "copy",
+  proportion = 1,
   stringsAsFactors = FALSE
 )
 
@@ -503,15 +506,10 @@ surv_variable_details <- data.frame(
 surv_vars_with_garbage <- add_garbage(surv_variables, "death_date",
   garbage_high_prop = 0.03, garbage_high_range = "[2030-01-01, 2099-12-31]")
 
-# Generate survival dates (create_date_var applies garbage automatically)
-survival_dates <- create_wide_survival_data(
-  var_entry_date = "study_entry",
-  var_event_date = "death_date",
-  var_death_date = NULL,
-  var_ltfu = NULL,
-  var_admin_censor = NULL,
+# Generate survival dates; garbage is applied after the temporal rules
+survival_dates <- create_mock_data(
   databaseStart = "test",
-  variables = surv_vars_with_garbage,  # Uses modified variables with garbage
+  variables = surv_vars_with_garbage,
   variable_details = surv_variable_details,
   n = 2000,
   seed = 400
@@ -528,17 +526,16 @@ our 3% garbage specification.
 
 **Key points about survival garbage:**
 
-- [`create_wide_survival_data()`](https://big-life-lab.github.io/MockData/reference/create_wide_survival_data.md)
-  creates clean, temporally-ordered survival data
-- Add garbage to individual date variables using
+- Survival dates come from
+  [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md):
+  set `anchor` on each survival date’s row
+- Add garbage to individual date variables with the
   [`add_garbage()`](https://big-life-lab.github.io/MockData/reference/add_garbage.md)
   helper
-- [`create_date_var()`](https://big-life-lab.github.io/MockData/reference/create_date_var.md)
-  (called internally) applies garbage automatically
-- Test temporal validation by checking for impossible dates (e.g.,
-  far-future death dates)
-- This approach separates concerns: date-level garbage vs. survival data
-  generation
+- MockData applies garbage after the survival rules, so violations such
+  as dates before entry stay in the output
+- Test temporal validation by checking for impossible dates (for
+  example, far-future death dates)
 
 ### Testing follow-up time calculations
 
@@ -639,9 +636,7 @@ In this tutorial, you learned how to:
 - **Test date validation logic** by generating out-of-period dates using
   garbage parameters
 - **Add temporal violations in survival data** by adding garbage to
-  individual date variables (not via
-  [`create_wide_survival_data()`](https://big-life-lab.github.io/MockData/reference/create_wide_survival_data.md)
-  function parameter)
+  individual survival date variables
 - **Build comprehensive validation pipelines** that test multiple
   quality checks systematically
 - **Verify validator accuracy** by comparing detected rates to known

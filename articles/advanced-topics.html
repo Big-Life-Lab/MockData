@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,6 +49,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -56,6 +57,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -108,7 +110,9 @@
 <p><strong>Prerequisites:</strong> Read the <a href="getting-started.html">Getting started</a> guide before this document.</p>
 </section><section class="level2"><h2 id="derived-variables">Derived variables<a class="anchor" aria-label="anchor" href="#derived-variables"></a>
 </h2>
-<p>Derived variables are calculated from other variables using custom functions. MockData identifies and skips derived variables during generation, leaving them for post-generation calculation.</p>
+<p>Derived variables are calculated from other variables using custom functions. MockData identifies and skips derived variables during generation, leaving them for post-generation calculation — unless the variable also carries a <code>mockFormula</code> expression (v0.5+), in which case it is generated natively from that formula. See <code><a href="../articles/design-philosophy-v04.html">vignette("design-philosophy-v04")</a></code> and <code>NEWS.md</code> for the formula-derived variables feature; the pattern below still applies to <code>DerivedVar::</code>/<code>Func::</code> variables without a <code>mockFormula</code>.</p>
+<p>Survival dates are derived too: a date whose <code>variables.csv</code> row sets <code>anchor</code> is computed from that entry date (see <code><a href="../articles/tutorial-survival-data.html">vignette("tutorial-survival-data")</a></code>).</p>
+<p>Generation produces three layers. <strong>Clean truth</strong> is the generated data before contamination: run <code><a href="../reference/generate_mock_data_native.html">generate_mock_data_native()</a></code>, <code><a href="../reference/generate_survival_dates.html">generate_survival_dates()</a></code> and <code><a href="../reference/evaluate_mock_formulas.html">evaluate_mock_formulas()</a></code> yourself and keep the result. <strong>Observed data</strong> is what <code><a href="../reference/postprocess_mock_data.html">postprocess_mock_data()</a></code> and <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> return, after missing codes and garbage. <strong>Analysis variables</strong>, such as status and follow-up time, are what a downstream analysis recalculates from the observed data. Formula columns belong to the clean-truth layer, so a derived status can disagree with a source column that postprocess later shows as missing. When they must agree, derive them from the observed data after generation.</p>
 <section class="level3"><h3 id="identifying-derived-variables">Identifying derived variables<a class="anchor" aria-label="anchor" href="#identifying-derived-variables"></a>
 </h3>
 <p>Derived variables use special patterns in <code>variable_details.csv</code>:</p>
@@ -667,7 +671,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

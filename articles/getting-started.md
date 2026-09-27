@@ -209,13 +209,121 @@ mock_data <- create_mock_data(
 str(mock_data)
 ```
 
-    'data.frame':   100 obs. of  6 variables:
-     $ age           : int  58 18 50 53 45 43 40 47 35 61 ...
-     $ smoking       : Factor w/ 4 levels "1","2","3","7": 3 1 2 2 1 1 2 1 3 1 ...
-     $ BMI           : num  996 998 996 996 999 996 999 996 996 997 ...
-     $ height        : num  0.529 0.637 0.336 1.293 1.356 ...
-     $ weight        : num  87.1 104.1 51.1 82.8 86.1 ...
-     $ interview_date: Date, format: "2005-10-09" "2004-04-16" ...
+    'data.frame':   100 obs. of  10 variables:
+     $ age               : int  53 49 55 54 27 35 48 38 57 33 ...
+     $ smoking           : Factor w/ 4 levels "1","2","3","7": 1 1 2 1 3 1 1 1 1 1 ...
+     $ BMI               : num  37.3 26.8 998 31.9 996 ...
+     $ height            : num  1.69 1.82 1.83 1.72 1.79 ...
+     $ weight            : num  65.9 83.2 93.9 69.4 73.4 ...
+     $ interview_date    : Date, format: "2005-12-22" "2004-03-09" ...
+     $ death_date        : Date, format: "2006-12-22" NA ...
+     $ ltfu_date         : Date, format: NA NA ...
+     $ admin_censor_date : Date, format: "2007-01-27" "2014-02-10" ...
+     $ primary_event_date: Date, format: "2006-03-08" NA ...
+     - attr(*, "mockdata_diagnostics")=List of 2
+      ..$ spec_version: chr "0.4.0"
+      ..$ variables   :List of 10
+      .. ..$ age               :List of 6
+      .. .. ..$ n                               : int 100
+      .. .. ..$ preexisting_missing_code_indices: int(0)
+      .. .. ..$ assigned_missing_indices        : int [1:10] 38 33 87 57 96 36 27 50 41 19
+      .. .. ..$ assigned_missing_codes          : chr [1:10] "997" "997" "997" "997" ...
+      .. .. ..$ assigned_garbage_indices        : Named list()
+      .. .. ..$ assigned_garbage_values         : Named list()
+      .. ..$ smoking           :List of 6
+      .. .. ..$ n                               : int 100
+      .. .. ..$ preexisting_missing_code_indices: int(0)
+      .. .. ..$ assigned_missing_indices        : int [1:3] 16 72 78
+      .. .. ..$ assigned_missing_codes          : chr [1:3] "7" "7" "7"
+      .. .. ..$ assigned_garbage_indices        : Named list()
+      .. .. ..$ assigned_garbage_values         : Named list()
+      .. ..$ BMI               :List of 6
+      .. .. ..$ n                               : int 100
+      .. .. ..$ preexisting_missing_code_indices: int(0)
+      .. .. ..$ assigned_missing_indices        : int [1:39] 5 91 57 54 88 76 65 67 49 90 ...
+      .. .. ..$ assigned_missing_codes          : chr [1:39] "996" "996" "996" "996" ...
+      .. .. ..$ assigned_garbage_indices        :List of 2
+      .. .. .. ..$ low : int 39
+      .. .. .. ..$ high: int 32
+      .. .. ..$ assigned_garbage_values         :List of 2
+      .. .. .. ..$ low : num 12
+      .. .. .. ..$ high: num 114
+      .. ..$ height            :List of 6
+      .. .. ..$ n                               : int 100
+      .. .. ..$ preexisting_missing_code_indices: int(0)
+      .. .. ..$ assigned_missing_indices        : int(0)
+      .. .. ..$ assigned_missing_codes          : chr(0)
+      .. .. ..$ assigned_garbage_indices        :List of 2
+      .. .. .. ..$ low : int 93
+      .. .. .. ..$ high: int 6
+      .. .. ..$ assigned_garbage_values         :List of 2
+      .. .. .. ..$ low : num 0.643
+      .. .. .. ..$ high: num 2.42
+      .. ..$ weight            :List of 6
+      .. .. ..$ n                               : int 100
+      .. .. ..$ preexisting_missing_code_indices: int(0)
+      .. .. ..$ assigned_missing_indices        : int(0)
+      .. .. ..$ assigned_missing_codes          : chr(0)
+      .. .. ..$ assigned_garbage_indices        : Named list()
+      .. .. ..$ assigned_garbage_values         : Named list()
+      .. ..$ interview_date    :List of 6
+      .. .. ..$ n                               : int 100
+      .. .. ..$ preexisting_missing_code_indices: int(0)
+      .. .. ..$ assigned_missing_indices        : int(0)
+      .. .. ..$ assigned_missing_codes          : chr(0)
+      .. .. ..$ assigned_garbage_indices        : Named list()
+      .. .. ..$ assigned_garbage_values         : Named list()
+      .. ..$ primary_event_date:List of 11
+      .. .. ..$ n                               : int 100
+      .. .. ..$ preexisting_missing_code_indices: int(0)
+      .. .. ..$ assigned_missing_indices        : int(0)
+      .. .. ..$ assigned_missing_codes          : chr(0)
+      .. .. ..$ assigned_garbage_indices        :List of 1
+      .. .. .. ..$ high: int 71
+      .. .. ..$ assigned_garbage_values         :List of 1
+      .. .. .. ..$ high: Date[1:1], format: "2095-12-02"
+      .. .. ..$ derived                         : logi TRUE
+      .. .. ..$ anchor                          : chr "interview_date"
+      .. .. ..$ censored_by                     : chr "death_date"
+      .. .. ..$ depends_on                      : chr [1:2] "interview_date" "death_date"
+      .. .. ..$ n_events                        : int 30
+      .. ..$ death_date        :List of 10
+      .. .. ..$ n                               : int 100
+      .. .. ..$ preexisting_missing_code_indices: int(0)
+      .. .. ..$ assigned_missing_indices        : int(0)
+      .. .. ..$ assigned_missing_codes          : chr(0)
+      .. .. ..$ assigned_garbage_indices        :List of 1
+      .. .. .. ..$ high: int 81
+      .. .. ..$ assigned_garbage_values         :List of 1
+      .. .. .. ..$ high: Date[1:1], format: "2094-03-14"
+      .. .. ..$ derived                         : logi TRUE
+      .. .. ..$ anchor                          : chr "interview_date"
+      .. .. ..$ depends_on                      : chr "interview_date"
+      .. .. ..$ n_events                        : int 20
+      .. ..$ ltfu_date         :List of 10
+      .. .. ..$ n                               : int 100
+      .. .. ..$ preexisting_missing_code_indices: int(0)
+      .. .. ..$ assigned_missing_indices        : int(0)
+      .. .. ..$ assigned_missing_codes          : chr(0)
+      .. .. ..$ assigned_garbage_indices        :List of 1
+      .. .. .. ..$ high: int(0)
+      .. .. ..$ assigned_garbage_values         :List of 1
+      .. .. .. ..$ high: chr(0)
+      .. .. ..$ derived                         : logi TRUE
+      .. .. ..$ anchor                          : chr "interview_date"
+      .. .. ..$ depends_on                      : chr "interview_date"
+      .. .. ..$ n_events                        : int 10
+      .. ..$ admin_censor_date :List of 10
+      .. .. ..$ n                               : int 100
+      .. .. ..$ preexisting_missing_code_indices: int(0)
+      .. .. ..$ assigned_missing_indices        : int(0)
+      .. .. ..$ assigned_missing_codes          : chr(0)
+      .. .. ..$ assigned_garbage_indices        : Named list()
+      .. .. ..$ assigned_garbage_values         : Named list()
+      .. .. ..$ derived                         : logi TRUE
+      .. .. ..$ anchor                          : chr "interview_date"
+      .. .. ..$ depends_on                      : chr "interview_date"
+      .. .. ..$ n_events                        : int 100
 
 **What’s garbage data?**
 
@@ -232,18 +340,18 @@ tutorial](https://big-life-lab.github.io/MockData/articles/tutorial-garbage-data
 Age distribution:
 
        Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
-      18.00   41.00   52.00  144.55   62.25  999.00 
+      21.00   45.00   53.00  145.69   62.25  999.00 
 
 Smoking status distribution:
 
 
      1  2  3  7
-    44 34 19  3 
+    50 27 20  3 
 
 Interview date range:
 
         Earliest       Latest
-    "2001-01-15" "2005-12-25" 
+    "2001-01-01" "2005-12-22" 
 
 **Why this approach is best:**
 
@@ -263,8 +371,8 @@ Let’s look at the minimal example metadata:
 |:---|:---|:---|---:|---:|---:|:---|---:|:---|
 | age | Continuous | normal | 50.0 | 15.0 | NA | \[;\] | NA | \[;\] |
 | smoking | Categorical |  | NA | NA | NA |  | NA |  |
-| BMI | Continuous | normal | 27.5 | 5.2 | 0.02 | \[-10;15\]) | 0.01 | \[60;150\] |
-| height | Continuous | normal | 1.7 | 0.1 | 1.00 | \[0;1.4) | 0.01 | (2.1;inf\] |
+| BMI | Continuous | normal | 27.5 | 5.2 | 0.02 | \[-10;15\] | 0.01 | \[60;150\] |
+| height | Continuous | normal | 1.7 | 0.1 | 0.01 | \[0;1.4) | 0.01 | (2.1;2.5\] |
 | weight | Continuous | normal | 75.0 | 15.0 | NA | \[;\] | NA | \[;\] |
 | BMI_derived | Continuous |  | NA | NA | NA | \[;\] | NA | \[;\] |
 | interview_date | Continuous | uniform | NA | NA | 0.00 | \[;\] | 0.00 | \[;\] |
@@ -323,7 +431,7 @@ Let’s look at the minimal example metadata:
   only)
 
 See
-[inst/extdata/minimal-example/](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example)
+[inst/extdata/minimal-example/](https://github.com/Big-Life-Lab/MockData/tree/main/inst/extdata/minimal-example)
 for the complete files and v0.2.1 schema documentation.
 
 ## Working with the generated data
@@ -345,16 +453,16 @@ mock_data %>%
 ```
 
        age age_group smoking smoking_binary interview_date
-    1   58     40-59       3           Ever     2005-10-09
-    2   18     18-39       1          Never     2004-04-16
-    3   50     40-59       2           Ever     2002-01-12
-    4   53     40-59       2           Ever     2002-09-21
-    5   45     40-59       1          Never     2005-08-19
-    6   43     40-59       1          Never     2002-07-29
-    7   40     18-39       2           Ever     2001-07-10
-    8   47     40-59       1          Never     2005-09-27
-    9   35     18-39       3           Ever     2003-04-18
-    10  61       60+       1          Never     2003-10-20
+    1   53     40-59       1          Never     2005-12-22
+    2   49     40-59       1          Never     2004-03-09
+    3   55     40-59       2           Ever     2003-01-28
+    4   54     40-59       1          Never     2004-08-16
+    5   27     18-39       3           Ever     2003-01-01
+    6   35     18-39       1          Never     2001-04-22
+    7   48     40-59       1          Never     2002-11-21
+    8   38     18-39       1          Never     2003-09-23
+    9   57     40-59       1          Never     2005-09-09
+    10  33     18-39       1          Never     2005-08-06
 
 **Common use cases:**
 

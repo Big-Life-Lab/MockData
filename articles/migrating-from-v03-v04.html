@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,6 +49,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -56,6 +57,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -133,12 +135,12 @@
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">mock_data</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  age smoking
-1  43       1
-2  47       2
-3  69       1
-4  51       1
-5 999       1
-6  71       7</code></pre>
+1  38       1
+2  58       7
+3  68       2
+4 999       1
+5  54       7
+6  36       2</code></pre>
 </div>
 </div>
 <p>For supported metadata, v0.4 routes this call through the new <code>mock_spec</code> pipeline.</p>
@@ -191,10 +193,10 @@
 <pre><code>Found 2 enabled variable(s) for database 'study': age, smoking</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Setting random seed: 456</code></pre>
+<pre><code>Generating 50 observations...</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Generating 50 observations...</code></pre>
+<pre><code>Setting random seed: 456</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
 <pre><code>  [1/2] Generating age (integer)</code></pre>
@@ -237,20 +239,20 @@
 <div class="cell-output cell-output-stdout">
 <pre><code>
  1  2  7
-23 25  2 </code></pre>
+28 20  2 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">legacy_data</span><span class="op">$</span><span class="va">smoking</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
  1  2  7
-23 24  3 </code></pre>
+26 21  3 </code></pre>
 </div>
 </div>
 </section><section class="level2"><h2 id="understand-seed-differences">Understand seed differences<a class="anchor" aria-label="anchor" href="#understand-seed-differences"></a>
 </h2>
-<p>In v0.3, the public seed controlled the legacy generators. In v0.4, the wrapper uses the public seed for baseline generation and <code>seed + 1L</code> for missing-code and garbage-value post-processing.</p>
-<p>That makes both stages reproducible, but it means exact values may differ from v0.3 even when you pass the same seed.</p>
+<p>In v0.3, the public seed controlled the legacy generators directly. In v0.4/v0.5, the wrapper passes the same public <code>seed</code> to both baseline generation and missing-code/garbage-value post-processing; internally, each stage draws from its own independent L’Ecuyer-CMRG sub-stream derived from that single seed (stage selection happens inside the package, not via <code>seed + 1L</code> as in earlier v0.4 releases - see <code>NEWS.md</code> for the v0.5 reproducibility change).</p>
+<p>That makes both stages reproducible from one seed, but it means exact values may differ from v0.3 even when you pass the same seed.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">strict_again</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_mock_data.html">create_mock_data</a></span><span class="op">(</span></span>
@@ -272,22 +274,22 @@
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="va">strict_data</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>'data.frame':   50 obs. of  2 variables:
- $ age    : int  34 57 60 33 41 46 58 999 62 57 ...
- $ smoking: chr  "1" "1" "1" "1" ...
+ $ age    : int  50 34 54 53 67 70 75 27 36 39 ...
+ $ smoking: chr  "1" "2" "2" "1" ...
  - attr(*, "mockdata_diagnostics")=List of 2
   ..$ spec_version: chr "0.4.0"
   ..$ variables   :List of 2
   .. ..$ age    :List of 6
   .. .. ..$ n                               : int 50
   .. .. ..$ preexisting_missing_code_indices: int(0)
-  .. .. ..$ assigned_missing_indices        : int [1:2] 8 13
+  .. .. ..$ assigned_missing_indices        : int [1:2] 17 50
   .. .. ..$ assigned_missing_codes          : chr [1:2] "999" "999"
   .. .. ..$ assigned_garbage_indices        : Named list()
   .. .. ..$ assigned_garbage_values         : Named list()
   .. ..$ smoking:List of 6
   .. .. ..$ n                               : int 50
   .. .. ..$ preexisting_missing_code_indices: int(0)
-  .. .. ..$ assigned_missing_indices        : int [1:2] 12 35
+  .. .. ..$ assigned_missing_indices        : int [1:2] 35 17
   .. .. ..$ assigned_missing_codes          : chr [1:2] "7" "7"
   .. .. ..$ assigned_garbage_indices        : Named list()
   .. .. ..$ assigned_garbage_values         : Named list()</code></pre>
@@ -297,7 +299,7 @@
 <div class="cell-output cell-output-stdout">
 <pre><code>
    1    2    7
-0.46 0.50 0.04 </code></pre>
+0.56 0.40 0.04 </code></pre>
 </div>
 </div>
 </section><section class="level2"><h2 id="know-the-fallback-conditions">Know the fallback conditions<a class="anchor" aria-label="anchor" href="#know-the-fallback-conditions"></a>
@@ -309,6 +311,7 @@
 <li>detail-level <code>databaseStart</code> filtering is needed but <code>variables</code> has no <code>databaseStart</code> column</li>
 <li>the requested metadata uses a feature not yet supported by the v0.4 native backend</li>
 </ul>
+<p>Survival dates (rows that set <code>anchor</code>, from v0.5) are generated only by the v0.4 pipeline. If one of these conditions selects the legacy path for metadata that sets <code>anchor</code>, <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> stops and names the survival variables rather than dropping them.</p>
 <p>For example, <code>variable_details = NULL</code> keeps the simple legacy fallback.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb35"><pre class="downlit sourceCode r">
@@ -333,10 +336,10 @@
 <pre><code>Found 1 enabled variable(s) for database 'study': age</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Setting random seed: 789</code></pre>
+<pre><code>Generating 20 observations...</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Generating 20 observations...</code></pre>
+<pre><code>Setting random seed: 789</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
 <pre><code>  [1/1] Generating age (integer)</code></pre>
@@ -358,12 +361,12 @@
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">fallback_data</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  age
-1  70
-2   9
-3   1
-4  59
-5  49
-6   2</code></pre>
+1  59
+2  86
+3   2
+4  20
+5   1
+6  12</code></pre>
 </div>
 </div>
 <div class="cell">
@@ -373,7 +376,7 @@
 <pre><code>[1] TRUE</code></pre>
 </div>
 </div>
-<p>Unsupported v0.4 backend features also route to legacy dispatch. This example uses an exponential continuous distribution, which remains available through the legacy generator.</p>
+<p>Unsupported v0.4 backend features also route to legacy dispatch. This example uses a lognormal continuous distribution, which is not yet supported by the v0.4 native backend and remains available through the legacy generator.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb51"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">exp_variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
@@ -381,8 +384,7 @@
 <span>  variableType <span class="op">=</span> <span class="st">"Continuous"</span>,</span>
 <span>  rType <span class="op">=</span> <span class="st">"double"</span>,</span>
 <span>  role <span class="op">=</span> <span class="st">"enabled"</span>,</span>
-<span>  distribution <span class="op">=</span> <span class="st">"exponential"</span>,</span>
-<span>  rate <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>  distribution <span class="op">=</span> <span class="st">"lognormal"</span>,</span>
 <span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -406,16 +408,19 @@
 <pre><code>v0.4 mock_spec pipeline does not yet support every requested variable; using legacy create_* dispatch. Unsupported variable(s): time_to_visit</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
+<pre><code>Falling back to the legacy generator for an unsupported v0.4 feature; for a given seed this produces different values than the v0.4 pipeline.</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
 <pre><code>Filtering for enabled variables...</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Found 1 enabled variable(s) for database 'study': time_to_visit</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Setting random seed: 321</code></pre>
+<pre><code>Generating 20 observations...</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Generating 20 observations...</code></pre>
+<pre><code>Setting random seed: 321</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
 <pre><code>  [1/1] Generating time_to_visit (double)</code></pre>
@@ -429,23 +434,23 @@
 <div class="cell-output cell-output-stderr">
 <pre><code><span>  <span class="va">Variables</span><span class="op">:</span> <span class="fl">1</span></span></code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb61"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb62"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">exp_data</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  time_to_visit
-1     0.3302437
-2     1.4268834
-3     2.5103901
-4     2.1157332
-5     1.7882266
-6     1.2263829</code></pre>
+1      7.307983
+2      5.771020
+3      3.948886
+4      8.270476
+5      4.940814
+6      4.521372</code></pre>
 </div>
 </div>
 </section><section class="level2"><h2 id="inspect-the-v0-4-path-directly">Inspect the v0.4 path directly<a class="anchor" aria-label="anchor" href="#inspect-the-v0-4-path-directly"></a>
 </h2>
 <p>When debugging a migration, split the wrapper into its three v0.4 steps:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb63"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb64"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">spec</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mock_spec_from_recodeflow.html">mock_spec_from_recodeflow</a></span><span class="op">(</span><span class="va">variables</span>, <span class="va">variable_details</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/validate_mock_spec.html">validate_mock_spec</a></span><span class="op">(</span><span class="va">spec</span>, strict <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -453,9 +458,9 @@
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb65"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb66"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">baseline</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/generate_mock_data_native.html">generate_mock_data_native</a></span><span class="op">(</span><span class="va">spec</span>, n <span class="op">=</span> <span class="fl">50</span>, seed <span class="op">=</span> <span class="fl">456</span><span class="op">)</span></span>
-<span><span class="va">postprocessed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/postprocess_mock_data.html">postprocess_mock_data</a></span><span class="op">(</span><span class="va">baseline</span>, <span class="va">spec</span>, seed <span class="op">=</span> <span class="fl">457</span><span class="op">)</span></span>
+<span><span class="va">postprocessed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/postprocess_mock_data.html">postprocess_mock_data</a></span><span class="op">(</span><span class="va">baseline</span>, <span class="va">spec</span>, seed <span class="op">=</span> <span class="fl">456</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">strict_data</span>, <span class="va">postprocessed</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -467,7 +472,7 @@
 </h2>
 <p>For cchsflow, chmsflow, and recodeflow workflows, test representative <code>variables.csv</code> and <code>variable_details.csv</code> files with:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb67"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb68"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mock</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_mock_data.html">create_mock_data</a></span><span class="op">(</span></span>
 <span>  databaseStart <span class="op">=</span> <span class="st">"your-cycle"</span>,</span>
 <span>  variables <span class="op">=</span> <span class="st">"variables.csv"</span>,</span>
@@ -577,7 +582,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

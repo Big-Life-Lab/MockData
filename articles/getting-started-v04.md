@@ -56,12 +56,12 @@ head(baseline)
 ```
 
       age smoking
-    1  46  former
-    2  57  former
-    3  42   never
-    4  53   never
-    5  54 current
-    6  64   never
+    1  76  former
+    2  43  former
+    3  53  former
+    4  45   never
+    5  48  former
+    6  41   never
 
 Then apply missing-code and garbage-value rules. This step adds
 diagnostics as an attribute on the returned data frame.
@@ -73,12 +73,12 @@ head(mock_data)
 ```
 
       age smoking
-    1  46  former
-    2  57  former
-    3  42   never
-    4  53   never
-    5  54 current
-    6  64   never
+    1  76 unknown
+    2  43  former
+    3  53  former
+    4  45 unknown
+    5  48  former
+    6  41   never
 
 ``` r
 
@@ -93,7 +93,7 @@ diagnostics$variables$smoking
     integer(0)
 
     $assigned_missing_indices
-    [1] 87 46 33 84  8
+    [1] 71  1 94 95  4
 
     $assigned_missing_codes
     [1] "unknown" "unknown" "unknown" "unknown" "unknown"
@@ -157,12 +157,12 @@ head(metadata_mock)
 ```
 
       age smoking
-    1  59       1
-    2  29       1
-    3  42       1
-    4  21       1
-    5  60       1
-    6  27       2
+    1  62       1
+    2  73       2
+    3  70      97
+    4  37      97
+    5  19       1
+    6  76       1
 
 ``` r
 
@@ -170,7 +170,7 @@ metadata_diag <- attr(metadata_mock, "mockdata_diagnostics")
 metadata_diag$variables$smoking$assigned_missing_indices[1:5]
 ```
 
-    [1] 16 40 72 70 80
+    [1] 96 70 58 40 20
 
 ## Use the compatibility wrapper
 
@@ -194,12 +194,12 @@ head(wrapped)
 ```
 
       age smoking
-    1  58       2
-    2  27       2
-    3  18      97
-    4  69       1
-    5  59       1
-    6  47       2
+    1  55       1
+    2  44       1
+    3  46       1
+    4  49      97
+    5  47       2
+    6  62      97
 
 ``` r
 

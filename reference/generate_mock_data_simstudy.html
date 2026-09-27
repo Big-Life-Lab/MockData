@@ -15,7 +15,7 @@ through postprocess_mock_data()."><link rel="stylesheet" href="extra.css"></head
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,7 @@ through postprocess_mock_data()."><link rel="stylesheet" href="extra.css"></head
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -45,6 +46,7 @@ through postprocess_mock_data()."><link rel="stylesheet" href="extra.css"></head
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -93,13 +95,17 @@ through <code><a href="postprocess_mock_data.html">postprocess_mock_data()</a></
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>Optional whole-number random seed. The previous R random state is
-restored after generation.</p></dd>
+<dd><p>Optional whole-number seed. Generation uses an isolated
+L'Ecuyer-CMRG sub-stream and restores the caller's RNG state and kind on
+exit, so output is reproducible for a given seed and package version
+without perturbing the caller's RNG.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data frame with one column per <code>mock_spec</code> variable and <code>n</code> rows.</p>
+    <p>A data frame with <code>n</code> rows and one column per non-formula
+<code>mock_spec</code> variable (<code>type = "formula"</code> variables are appended
+afterwards by <code><a href="evaluate_mock_formulas.html">evaluate_mock_formulas()</a></code>).</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -116,14 +122,19 @@ MockData's native backend so that a single specification can mix capabilities.</
 <p>Missing-code assignment, garbage values, and diagnostics are not delegated to
 <code>simstudy</code>. They remain MockData-owned post-processing so both backends share
 the same auditability contract.</p>
+<p>Like <code><a href="generate_mock_data_native.html">generate_mock_data_native()</a></code>, this backend skips <code>type = "formula"</code>
+variables — they carry no distribution to sample from. They are computed
+post-baseline by <code><a href="evaluate_mock_formulas.html">evaluate_mock_formulas()</a></code>, which works over either
+backend's output.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="generate_mock_data_native.html">generate_mock_data_native()</a></code>, <code><a href="postprocess_mock_data.html">postprocess_mock_data()</a></code>,
-<code><a href="mock_spec.html">mock_spec()</a></code></p>
+<code><a href="mock_spec.html">mock_spec()</a></code>, <code><a href="evaluate_mock_formulas.html">evaluate_mock_formulas()</a></code></p>
 <p>Other mock generation APIs:
 <code><a href="create_mock_data.html">create_mock_data()</a></code>,
 <code><a href="generate_mock_data_native.html">generate_mock_data_native()</a></code>,
+<code><a href="generate_survival_dates.html">generate_survival_dates()</a></code>,
 <code><a href="postprocess_mock_data.html">postprocess_mock_data()</a></code></p></div>
     </div>
 
@@ -135,12 +146,12 @@ the same auditability contract.</p>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">data</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   age</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1  36</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2  43</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3  56</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4  79</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5  32</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6  78</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1  63</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2  47</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3  79</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4  82</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5  74</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6  41</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
@@ -155,7 +166,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

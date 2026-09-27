@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,6 +49,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -56,6 +57,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -232,10 +234,10 @@ $low$range
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Reading variables file: /tmp/Rtmplp9zuM/mockdata-recodeflow-72ad434aa0c8/variables.csv</code></pre>
+<pre><code>Reading variables file: /tmp/RtmpAVTsbk/mockdata-recodeflow-63bf248d5737/variables.csv</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Reading variable_details file: /tmp/Rtmplp9zuM/mockdata-recodeflow-72ad434aa0c8/variable_details.csv</code></pre>
+<pre><code>Reading variable_details file: /tmp/RtmpAVTsbk/mockdata-recodeflow-63bf248d5737/variable_details.csv</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Generating via v0.4 mock_spec pipeline.</code></pre>
@@ -244,12 +246,12 @@ $low$range
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">mock_data</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  age smoking interview_date
-1  43       3     2020-05-18
-2  47       2     2020-10-25
-3  69       1     2020-06-06
-4  51       1     2020-07-07
-5 999       2     2020-11-06
-6  71       1     2020-07-07</code></pre>
+1  38       1     2020-06-17
+2  58       1     2020-03-22
+3  68       2     2020-11-15
+4  28       2     2020-03-18
+5 999       1     2020-12-17
+6  36       2     2020-03-08</code></pre>
 </div>
 </div>
 <p>The output is a regular data frame.</p>
@@ -258,25 +260,25 @@ $low$range
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="va">mock_data</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>'data.frame':   200 obs. of  3 variables:
- $ age           : int  43 47 69 51 999 71 56 35 42 45 ...
- $ smoking       : Factor w/ 4 levels "1","2","3","7": 3 2 1 1 2 1 1 2 1 3 ...
- $ interview_date: Date, format: "2020-05-18" "2020-10-25" ...
+ $ age           : int  38 58 68 28 999 36 52 25 45 50 ...
+ $ smoking       : Factor w/ 4 levels "1","2","3","7": 1 1 2 2 1 2 1 2 2 1 ...
+ $ interview_date: Date, format: "2020-06-17" "2020-03-22" ...
  - attr(*, "mockdata_diagnostics")=List of 2
   ..$ spec_version: chr "0.4.0"
   ..$ variables   :List of 3
   .. ..$ age           :List of 6
   .. .. ..$ n                               : int 200
   .. .. ..$ preexisting_missing_code_indices: int(0)
-  .. .. ..$ assigned_missing_indices        : int [1:10] 65 167 155 5 134 173 74 161 143 91
+  .. .. ..$ assigned_missing_indices        : int [1:10] 83 166 68 132 5 175 199 119 130 159
   .. .. ..$ assigned_missing_codes          : chr [1:10] "999" "999" "999" "999" ...
   .. .. ..$ assigned_garbage_indices        :List of 1
-  .. .. .. ..$ low: int [1:4] 21 184 23 135
+  .. .. .. ..$ low: int [1:4] 46 129 187 51
   .. .. ..$ assigned_garbage_values         :List of 1
-  .. .. .. ..$ low: int [1:4] 6 17 4 7
+  .. .. .. ..$ low: int [1:4] 15 17 5 16
   .. ..$ smoking       :List of 6
   .. .. ..$ n                               : int 200
   .. .. ..$ preexisting_missing_code_indices: int(0)
-  .. .. ..$ assigned_missing_indices        : int [1:6] 123 27 164 140 84 81
+  .. .. ..$ assigned_missing_indices        : int [1:6] 72 44 186 127 81 62
   .. .. ..$ assigned_missing_codes          : chr [1:6] "7" "7" "7" "7" ...
   .. .. ..$ assigned_garbage_indices        : Named list()
   .. .. ..$ assigned_garbage_values         : Named list()
@@ -310,7 +312,7 @@ $low$range
 <div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">diagnostics</span><span class="op">$</span><span class="va">variables</span><span class="op">$</span><span class="va">smoking</span><span class="op">$</span><span class="va">assigned_missing_indices</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">6</span><span class="op">]</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 123  27 164 140  84  81</code></pre>
+<pre><code>[1]  72  44 186 127  81  62</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">variables</span><span class="op">$</span><span class="va">age</span><span class="op">$</span><span class="va">assigned_garbage_indices</span><span class="op">$</span><span class="va">low</span><span class="op">)</span></span></code></pre></div>
@@ -320,7 +322,7 @@ $low$range
 <div class="sourceCode cell-code" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">diagnostics</span><span class="op">$</span><span class="va">variables</span><span class="op">$</span><span class="va">age</span><span class="op">$</span><span class="va">assigned_garbage_indices</span><span class="op">$</span><span class="va">low</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1]  21 184  23 135</code></pre>
+<pre><code>[1]  46 129 187  51</code></pre>
 </div>
 </div>
 <p>Use the diagnostics as an audit trail, not as columns in the mock dataset. Some base R operations and downstream tools can drop attributes, so inspect or save diagnostics before heavy reshaping.</p>
@@ -333,29 +335,29 @@ $low$range
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">baseline</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  age smoking interview_date
-1  43       3     2020-05-18
-2  47       2     2020-10-25
-3  69       1     2020-06-06
-4  51       1     2020-07-07
-5  52       2     2020-11-06
-6  71       1     2020-07-07</code></pre>
+1  38       1     2020-06-17
+2  58       1     2020-03-22
+3  68       2     2020-11-15
+4  28       2     2020-03-18
+5  54       1     2020-12-17
+6  36       2     2020-03-08</code></pre>
 </div>
 </div>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb33"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">postprocessed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/postprocess_mock_data.html">postprocess_mock_data</a></span><span class="op">(</span><span class="va">baseline</span>, <span class="va">spec</span>, seed <span class="op">=</span> <span class="fl">124</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">postprocessed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/postprocess_mock_data.html">postprocess_mock_data</a></span><span class="op">(</span><span class="va">baseline</span>, <span class="va">spec</span>, seed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">postprocessed</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  age smoking interview_date
-1  43       3     2020-05-18
-2  47       2     2020-10-25
-3  69       1     2020-06-06
-4  51       1     2020-07-07
-5 999       2     2020-11-06
-6  71       1     2020-07-07</code></pre>
+1  38       1     2020-06-17
+2  58       1     2020-03-22
+3  68       2     2020-11-15
+4  28       2     2020-03-18
+5 999       1     2020-12-17
+6  36       2     2020-03-08</code></pre>
 </div>
 </div>
-<p>The wrapper uses the same idea: the public seed controls baseline generation, and <code>seed + 1L</code> controls post-processing.</p>
+<p>The wrapper uses the same idea: baseline generation and post-processing are both passed the same public <code>seed</code>, and each stage internally draws from its own independent L’Ecuyer-CMRG sub-stream derived from that seed (not <code>seed + 1L</code>, as in earlier v0.4 releases - see <code>NEWS.md</code> for the v0.5 reproducibility change).</p>
 </section><section class="level2"><h2 id="database-filtering">Database filtering<a class="anchor" aria-label="anchor" href="#database-filtering"></a>
 </h2>
 <p><code>databaseStart</code> filtering is exact token matching. A variable tagged for <code>cycle10</code> will not accidentally match <code>cycle1</code>.</p>
@@ -494,7 +496,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

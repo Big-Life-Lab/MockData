@@ -80,7 +80,8 @@ specification.
 
 Other direct specification APIs:
 [`mock_categorical()`](https://big-life-lab.github.io/MockData/reference/mock_categorical.md),
-[`mock_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_continuous.md)
+[`mock_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_continuous.md),
+[`mock_formula()`](https://big-life-lab.github.io/MockData/reference/mock_formula.md)
 
 ## Examples
 

@@ -24,7 +24,34 @@ guide before this document.
 
 Derived variables are calculated from other variables using custom
 functions. MockData identifies and skips derived variables during
-generation, leaving them for post-generation calculation.
+generation, leaving them for post-generation calculation — unless the
+variable also carries a `mockFormula` expression (v0.5+), in which case
+it is generated natively from that formula. See
+[`vignette("design-philosophy-v04")`](https://big-life-lab.github.io/MockData/articles/design-philosophy-v04.md)
+and `NEWS.md` for the formula-derived variables feature; the pattern
+below still applies to `DerivedVar::`/`Func::` variables without a
+`mockFormula`.
+
+Survival dates are derived too: a date whose `variables.csv` row sets
+`anchor` is computed from that entry date (see
+[`vignette("tutorial-survival-data")`](https://big-life-lab.github.io/MockData/articles/tutorial-survival-data.md)).
+
+Generation produces three layers. **Clean truth** is the generated data
+before contamination: run
+[`generate_mock_data_native()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_native.md),
+[`generate_survival_dates()`](https://big-life-lab.github.io/MockData/reference/generate_survival_dates.md)
+and
+[`evaluate_mock_formulas()`](https://big-life-lab.github.io/MockData/reference/evaluate_mock_formulas.md)
+yourself and keep the result. **Observed data** is what
+[`postprocess_mock_data()`](https://big-life-lab.github.io/MockData/reference/postprocess_mock_data.md)
+and
+[`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+return, after missing codes and garbage. **Analysis variables**, such as
+status and follow-up time, are what a downstream analysis recalculates
+from the observed data. Formula columns belong to the clean-truth layer,
+so a derived status can disagree with a source column that postprocess
+later shows as missing. When they must agree, derive them from the
+observed data after generation.
 
 ### Identifying derived variables
 

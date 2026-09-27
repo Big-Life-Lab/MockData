@@ -75,8 +75,8 @@ interview_data <- create_mock_data(
 head(interview_data$interview_date)
 ```
 
-    [1] "2005-07-01" "2005-09-11" "2003-09-25" "2005-08-09" "2004-07-13"
-    [6] "2002-12-14"
+    [1] "2004-10-20" "2004-01-11" "2002-01-21" "2004-06-25" "2001-02-22"
+    [6] "2004-01-12"
 
 ``` r
 
@@ -84,7 +84,7 @@ summary(as.Date(interview_data$interview_date))
 ```
 
             Min.      1st Qu.       Median         Mean      3rd Qu.         Max.
-    "2001-01-09" "2002-01-16" "2003-03-01" "2003-04-25" "2004-07-16" "2005-10-24" 
+    "2001-01-09" "2002-04-16" "2003-09-14" "2003-08-31" "2005-03-12" "2005-12-22" 
 
 **Result:** 100 interview dates uniformly distributed between 2001-01-01
 and 2005-12-31 (matching the minimal-example metadata).
@@ -566,7 +566,7 @@ future_dates_sample <- head(sort(birth_data$birth_date[birth_data$birth_date > f
 
 **Result:** 20 birth dates (2%) are in the future (after 2025-12-31),
 which is impossible for current data. Sample of future dates:
-2026-01-12, 2026-04-06, 2026-05-14, 2026-05-14, 2026-06-01.
+2026-03-13, 2026-08-06, 2026-11-01, 2026-11-19, 2026-12-10.
 
 **Key insight:** Garbage data is now specified at the **variable level**
 in variables.csv, not in variable_details.csv.
@@ -624,8 +624,8 @@ old_dates_sample <- head(sort(diag_data$diagnosis_date[diag_data$diagnosis_date 
 
 **Result:** 30 diagnosis dates (3%) are from before 1950-01-01
 (1850-1900 range), which is unrealistic for modern medical data. Sample
-of old dates: 1850-05-18, 1853-03-07, 1854-09-07, 1855-05-01,
-1860-06-13.
+of old dates: 1850-06-16, 1851-06-18, 1853-11-10, 1855-09-11,
+1855-11-15.
 
 ### Use cases for garbage dates
 
@@ -636,7 +636,7 @@ of old dates: 1850-05-18, 1853-03-07, 1854-09-07, 1855-05-01,
 
 **Note:** For complete examples of garbage date generation integrated
 into metadata files, see the [minimal-example configuration
-files](https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example).
+files](https://github.com/Big-Life-Lab/MockData/tree/main/inst/extdata/minimal-example).
 
 ## Checking generated dates
 
@@ -662,7 +662,7 @@ all_valid <- all(interview_dates >= expected_min &
 
 **Validation results:**
 
-- Date range: 2001-01-09 to 2005-10-24
+- Date range: 2001-01-09 to 2005-12-22
 - Missing dates: 0
 - All dates within expected range (2001-01-01 to 2005-12-31): TRUE
 

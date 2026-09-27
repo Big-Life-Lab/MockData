@@ -41,7 +41,7 @@ table(baseline$response)
 
 
       1  97
-    142  58 
+    127  73 
 
 The baseline already contains some `97` values because `97` is a valid
 level. Now apply post-processing.
@@ -54,7 +54,7 @@ table(processed$response)
 
 
       1  97
-    102  98 
+     87 113 
 
 ## Read the diagnostics
 
@@ -82,7 +82,7 @@ response_diag <- diagnostics$variables$response
 length(response_diag$preexisting_missing_code_indices)
 ```
 
-    [1] 58
+    [1] 73
 
 ``` r
 
@@ -181,7 +181,7 @@ length(low_idx)
 range(age_processed$age[low_idx])
 ```
 
-    [1]  0 16
+    [1]  0 17
 
 ``` r
 
@@ -195,7 +195,7 @@ length(high_idx)
 range(age_processed$age[high_idx])
 ```
 
-    [1] 127 148
+    [1] 126 148
 
 Missing-code rows are protected from garbage assignment.
 
@@ -259,7 +259,7 @@ data.frame(
 ```
 
              variable preexisting_missing assigned_missing assigned_garbage
-    response response                  73               40                0
+    response response                  69               40                0
     age           age                   0               10               14
 
 ## Preserve diagnostics before reshaping

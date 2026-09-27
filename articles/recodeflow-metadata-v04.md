@@ -170,9 +170,9 @@ mock_data <- create_mock_data(
 )
 ```
 
-    Reading variables file: /tmp/Rtmplp9zuM/mockdata-recodeflow-72ad434aa0c8/variables.csv
+    Reading variables file: /tmp/RtmpAVTsbk/mockdata-recodeflow-63bf248d5737/variables.csv
 
-    Reading variable_details file: /tmp/Rtmplp9zuM/mockdata-recodeflow-72ad434aa0c8/variable_details.csv
+    Reading variable_details file: /tmp/RtmpAVTsbk/mockdata-recodeflow-63bf248d5737/variable_details.csv
 
     Generating via v0.4 mock_spec pipeline.
 
@@ -182,12 +182,12 @@ head(mock_data)
 ```
 
       age smoking interview_date
-    1  43       3     2020-05-18
-    2  47       2     2020-10-25
-    3  69       1     2020-06-06
-    4  51       1     2020-07-07
-    5 999       2     2020-11-06
-    6  71       1     2020-07-07
+    1  38       1     2020-06-17
+    2  58       1     2020-03-22
+    3  68       2     2020-11-15
+    4  28       2     2020-03-18
+    5 999       1     2020-12-17
+    6  36       2     2020-03-08
 
 The output is a regular data frame.
 
@@ -197,25 +197,25 @@ str(mock_data)
 ```
 
     'data.frame':   200 obs. of  3 variables:
-     $ age           : int  43 47 69 51 999 71 56 35 42 45 ...
-     $ smoking       : Factor w/ 4 levels "1","2","3","7": 3 2 1 1 2 1 1 2 1 3 ...
-     $ interview_date: Date, format: "2020-05-18" "2020-10-25" ...
+     $ age           : int  38 58 68 28 999 36 52 25 45 50 ...
+     $ smoking       : Factor w/ 4 levels "1","2","3","7": 1 1 2 2 1 2 1 2 2 1 ...
+     $ interview_date: Date, format: "2020-06-17" "2020-03-22" ...
      - attr(*, "mockdata_diagnostics")=List of 2
       ..$ spec_version: chr "0.4.0"
       ..$ variables   :List of 3
       .. ..$ age           :List of 6
       .. .. ..$ n                               : int 200
       .. .. ..$ preexisting_missing_code_indices: int(0)
-      .. .. ..$ assigned_missing_indices        : int [1:10] 65 167 155 5 134 173 74 161 143 91
+      .. .. ..$ assigned_missing_indices        : int [1:10] 83 166 68 132 5 175 199 119 130 159
       .. .. ..$ assigned_missing_codes          : chr [1:10] "999" "999" "999" "999" ...
       .. .. ..$ assigned_garbage_indices        :List of 1
-      .. .. .. ..$ low: int [1:4] 21 184 23 135
+      .. .. .. ..$ low: int [1:4] 46 129 187 51
       .. .. ..$ assigned_garbage_values         :List of 1
-      .. .. .. ..$ low: int [1:4] 6 17 4 7
+      .. .. .. ..$ low: int [1:4] 15 17 5 16
       .. ..$ smoking       :List of 6
       .. .. ..$ n                               : int 200
       .. .. ..$ preexisting_missing_code_indices: int(0)
-      .. .. ..$ assigned_missing_indices        : int [1:6] 123 27 164 140 84 81
+      .. .. ..$ assigned_missing_indices        : int [1:6] 72 44 186 127 81 62
       .. .. ..$ assigned_missing_codes          : chr [1:6] "7" "7" "7" "7" ...
       .. .. ..$ assigned_garbage_indices        : Named list()
       .. .. ..$ assigned_garbage_values         : Named list()
@@ -258,7 +258,7 @@ length(diagnostics$variables$smoking$assigned_missing_indices)
 diagnostics$variables$smoking$assigned_missing_indices[1:6]
 ```
 
-    [1] 123  27 164 140  84  81
+    [1]  72  44 186 127  81  62
 
 ``` r
 
@@ -272,7 +272,7 @@ length(diagnostics$variables$age$assigned_garbage_indices$low)
 diagnostics$variables$age$assigned_garbage_indices$low
 ```
 
-    [1]  21 184  23 135
+    [1]  46 129 187  51
 
 Use the diagnostics as an audit trail, not as columns in the mock
 dataset. Some base R operations and downstream tools can drop
@@ -291,29 +291,32 @@ head(baseline)
 ```
 
       age smoking interview_date
-    1  43       3     2020-05-18
-    2  47       2     2020-10-25
-    3  69       1     2020-06-06
-    4  51       1     2020-07-07
-    5  52       2     2020-11-06
-    6  71       1     2020-07-07
+    1  38       1     2020-06-17
+    2  58       1     2020-03-22
+    3  68       2     2020-11-15
+    4  28       2     2020-03-18
+    5  54       1     2020-12-17
+    6  36       2     2020-03-08
 
 ``` r
 
-postprocessed <- postprocess_mock_data(baseline, spec, seed = 124)
+postprocessed <- postprocess_mock_data(baseline, spec, seed = 123)
 head(postprocessed)
 ```
 
       age smoking interview_date
-    1  43       3     2020-05-18
-    2  47       2     2020-10-25
-    3  69       1     2020-06-06
-    4  51       1     2020-07-07
-    5 999       2     2020-11-06
-    6  71       1     2020-07-07
+    1  38       1     2020-06-17
+    2  58       1     2020-03-22
+    3  68       2     2020-11-15
+    4  28       2     2020-03-18
+    5 999       1     2020-12-17
+    6  36       2     2020-03-08
 
-The wrapper uses the same idea: the public seed controls baseline
-generation, and `seed + 1L` controls post-processing.
+The wrapper uses the same idea: baseline generation and post-processing
+are both passed the same public `seed`, and each stage internally draws
+from its own independent L’Ecuyer-CMRG sub-stream derived from that seed
+(not `seed + 1L`, as in earlier v0.4 releases - see `NEWS.md` for the
+v0.5 reproducibility change).
 
 ## Database filtering
 

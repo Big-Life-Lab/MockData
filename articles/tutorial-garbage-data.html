@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,6 +49,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -56,6 +57,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -468,10 +470,10 @@
 <p><strong>Censoring inconsistencies</strong>: Status indicates death but no death date recorded</p>
 <section class="level3"><h3 id="generating-survival-data-with-temporal-violations">Generating survival data with temporal violations<a class="anchor" aria-label="anchor" href="#generating-survival-data-with-temporal-violations"></a>
 </h3>
-<p>The <code>prop_garbage</code> parameter in <code><a href="../reference/create_wide_survival_data.html">create_wide_survival_data()</a></code> is deprecated. Instead, add garbage to individual date variables using these functions:</p>
+<p>Add garbage to individual survival date variables with <code><a href="../reference/add_garbage.html">add_garbage()</a></code>, then generate them with <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code>:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Define metadata (pass full data frames)</span></span>
+<code class="sourceCode R"><span><span class="co"># Define metadata: death_date is a survival date anchored on study_entry</span></span>
 <span><span class="va">surv_variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  variable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"study_entry"</span>, <span class="st">"death_date"</span><span class="op">)</span>,</span>
 <span>  variableType <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Date"</span>, <span class="st">"Date"</span><span class="op">)</span>,</span>
@@ -480,6 +482,7 @@
 <span>  distribution <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"uniform"</span>, <span class="st">"gompertz"</span><span class="op">)</span>,</span>
 <span>  rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">0.0001</span><span class="op">)</span>,</span>
 <span>  shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">0.1</span><span class="op">)</span>,</span>
+<span>  anchor <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">""</span>, <span class="st">"study_entry"</span><span class="op">)</span>,</span>
 <span>  followup_min <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">30</span><span class="op">)</span>,</span>
 <span>  followup_max <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">3650</span><span class="op">)</span>,</span>
 <span>  event_prop <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">1.0</span><span class="op">)</span>,</span>
@@ -488,8 +491,10 @@
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">surv_variable_details</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  variable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"study_entry"</span>, <span class="st">"death_date"</span><span class="op">)</span>,</span>
-<span>  recStart <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"[2010-01-01,2015-12-31]"</span>, <span class="st">"[30,3650]"</span><span class="op">)</span>,</span>
+<span>  variable <span class="op">=</span> <span class="st">"study_entry"</span>,</span>
+<span>  recStart <span class="op">=</span> <span class="st">"[2010-01-01,2015-12-31]"</span>,</span>
+<span>  recEnd <span class="op">=</span> <span class="st">"copy"</span>,</span>
+<span>  proportion <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -497,15 +502,10 @@
 <span><span class="va">surv_vars_with_garbage</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/add_garbage.html">add_garbage</a></span><span class="op">(</span><span class="va">surv_variables</span>, <span class="st">"death_date"</span>,</span>
 <span>  garbage_high_prop <span class="op">=</span> <span class="fl">0.03</span>, garbage_high_range <span class="op">=</span> <span class="st">"[2030-01-01, 2099-12-31]"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Generate survival dates (create_date_var applies garbage automatically)</span></span>
-<span><span class="va">survival_dates</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_wide_survival_data.html">create_wide_survival_data</a></span><span class="op">(</span></span>
-<span>  var_entry_date <span class="op">=</span> <span class="st">"study_entry"</span>,</span>
-<span>  var_event_date <span class="op">=</span> <span class="st">"death_date"</span>,</span>
-<span>  var_death_date <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  var_ltfu <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  var_admin_censor <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span><span class="co"># Generate survival dates; garbage is applied after the temporal rules</span></span>
+<span><span class="va">survival_dates</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_mock_data.html">create_mock_data</a></span><span class="op">(</span></span>
 <span>  databaseStart <span class="op">=</span> <span class="st">"test"</span>,</span>
-<span>  variables <span class="op">=</span> <span class="va">surv_vars_with_garbage</span>,  <span class="co"># Uses modified variables with garbage</span></span>
+<span>  variables <span class="op">=</span> <span class="va">surv_vars_with_garbage</span>,</span>
 <span>  variable_details <span class="op">=</span> <span class="va">surv_variable_details</span>,</span>
 <span>  n <span class="op">=</span> <span class="fl">2000</span>,</span>
 <span>  seed <span class="op">=</span> <span class="fl">400</span></span>
@@ -519,13 +519,10 @@
 <p>Validation detects 60 future death dates (3%), approximately matching our 3% garbage specification.</p>
 <p><strong>Key points about survival garbage:</strong></p>
 <ul>
-<li>
-<code><a href="../reference/create_wide_survival_data.html">create_wide_survival_data()</a></code> creates clean, temporally-ordered survival data</li>
-<li>Add garbage to individual date variables using <code><a href="../reference/add_garbage.html">add_garbage()</a></code> helper</li>
-<li>
-<code><a href="../reference/create_date_var.html">create_date_var()</a></code> (called internally) applies garbage automatically</li>
-<li>Test temporal validation by checking for impossible dates (e.g., far-future death dates)</li>
-<li>This approach separates concerns: date-level garbage vs. survival data generation</li>
+<li>Survival dates come from <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code>: set <code>anchor</code> on each survival date’s row</li>
+<li>Add garbage to individual date variables with the <code><a href="../reference/add_garbage.html">add_garbage()</a></code> helper</li>
+<li>MockData applies garbage after the survival rules, so violations such as dates before entry stay in the output</li>
+<li>Test temporal validation by checking for impossible dates (for example, far-future death dates)</li>
 </ul></section><section class="level3"><h3 id="testing-follow-up-time-calculations">Testing follow-up time calculations<a class="anchor" aria-label="anchor" href="#testing-follow-up-time-calculations"></a>
 </h3>
 <p>Temporal violations also produce invalid derived variables like impossibly long follow-up times:</p>
@@ -613,7 +610,7 @@
 <li>
 <strong>Test date validation logic</strong> by generating out-of-period dates using garbage parameters</li>
 <li>
-<strong>Add temporal violations in survival data</strong> by adding garbage to individual date variables (not via <code><a href="../reference/create_wide_survival_data.html">create_wide_survival_data()</a></code> function parameter)</li>
+<strong>Add temporal violations in survival data</strong> by adding garbage to individual survival date variables</li>
 <li>
 <strong>Build comprehensive validation pipelines</strong> that test multiple quality checks systematically</li>
 <li>
@@ -735,7 +732,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

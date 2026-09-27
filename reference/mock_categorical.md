@@ -83,7 +83,8 @@ metadata source.
 
 Other direct specification APIs:
 [`mock_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_continuous.md),
-[`mock_date()`](https://big-life-lab.github.io/MockData/reference/mock_date.md)
+[`mock_date()`](https://big-life-lab.github.io/MockData/reference/mock_date.md),
+[`mock_formula()`](https://big-life-lab.github.io/MockData/reference/mock_formula.md)
 
 ## Examples
 

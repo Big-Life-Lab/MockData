@@ -1,5 +1,196 @@
 # Changelog
 
+## MockData 0.5.0 (2026-09-27)
+
+### Breaking changes
+
+- Seeded output changed once for the RNG-stream mechanism in this
+  release. Within the
+  [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+  pipeline
+  ([`generate_mock_data_native()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_native.md),
+  [`generate_mock_data_simstudy()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_simstudy.md),
+  [`postprocess_mock_data()`](https://big-life-lab.github.io/MockData/reference/postprocess_mock_data.md)),
+  MockData now derives all randomness from independent L’Ecuyer-CMRG
+  sub-streams (one per generation stage) seeded from the single public
+  `seed`, replacing the previous Mersenne-Twister `seed` / `seed + 1`
+  scheme. The standalone `create_*` helpers
+  ([`create_cat_var()`](https://big-life-lab.github.io/MockData/reference/create_cat_var.md),
+  [`create_con_var()`](https://big-life-lab.github.io/MockData/reference/create_con_var.md),
+  [`create_date_var()`](https://big-life-lab.github.io/MockData/reference/create_date_var.md),
+  [`create_survival_dates()`](https://big-life-lab.github.io/MockData/reference/create_survival_dates.md),
+  [`create_wide_survival_data()`](https://big-life-lab.github.io/MockData/reference/create_wide_survival_data.md),
+  [`sample_with_proportions()`](https://big-life-lab.github.io/MockData/reference/sample_with_proportions.md),
+  [`make_garbage()`](https://big-life-lab.github.io/MockData/reference/make_garbage.md),
+  [`apply_garbage()`](https://big-life-lab.github.io/MockData/reference/apply_garbage.md))
+  called directly are unaffected and still seed a single
+  Mersenne-Twister stream per call. For a given seed **and package
+  version** pipeline output is reproducible and independent of the
+  session’s ambient [`RNGkind()`](https://rdrr.io/r/base/Random.html);
+  it is not comparable across the v0.4 → v0.5 boundary. For seeded
+  calls, generation no longer alters the caller’s RNG state (previously
+  the legacy `validate = FALSE` path reset it).
+  ([\#38](https://github.com/Big-Life-Lab/MockData/issues/38))
+
+  **Migrating:** if your tests pin values from seeded v0.4 runs of
+  [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+  or the `mock_spec` pipeline, regenerate those expected values once
+  under v0.5 and pin them again. The same seed keeps giving identical
+  output within this version. Standalone `create_*` calls need no
+  change.
+
+- Migration: add `anchor` (and `censored_by` where a competing risk
+  applies) to each survival date’s row. A date with `followup_min`,
+  `followup_max` or `event_prop` but no `anchor` now fails with a
+  message naming the fix; previously it was silently dropped or
+  generated as a plain calendar date.
+
+- Missing codes and garbage are applied to survival dates after the
+  survival rules. Garbage that places a date before entry is therefore
+  kept, whereas the legacy engine set such dates to `NA`.
+
+- The packaged minimal example now generates entirely through the v0.4
+  pipeline, because its Gompertz survival dates no longer force the
+  legacy generator. Its seeded output differs from v0.4.
+
+- If the legacy generator is selected (`validate = FALSE`,
+  `variable_details = NULL`, detail-level-only `databaseStart`, or
+  another unsupported variable) on metadata that sets `anchor`,
+  [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+  stops and names the survival variables rather than dropping them.
+
+- The same applies to formula variables. If the legacy generator is
+  selected for metadata that sets `mockFormula` on an enabled variable,
+  [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+  stops and names the formula variables. Previously the legacy generator
+  ignored the formula and returned unrelated random values, or dropped a
+  `DerivedVar::` variable, without saying so.
+
+- On the legacy path (`validate = FALSE` and the other legacy triggers),
+  [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+  now generates only variables whose variable-level `databaseStart`
+  includes the requested database, as the v0.4 pipeline does. Previously
+  it chose variables from the detail rows alone, so a variable listed
+  only for another database was generated as random values, and a
+  formula or survival variable belonging to another database stopped the
+  run.
+
+### New features
+
+- Formula-derived variables
+  ([\#39](https://github.com/Big-Life-Lab/MockData/issues/39), Phase A).
+  Variables can now be generated from algebraic expressions over other
+  generated variables via a new `mockFormula` column in
+  `variable_details` (e.g. `weight / (height^2)`), or the new
+  [`mock_formula()`](https://big-life-lab.github.io/MockData/reference/mock_formula.md)
+  direct API. Formulas are evaluated in dependency order by
+  [`evaluate_mock_formulas()`](https://big-life-lab.github.io/MockData/reference/evaluate_mock_formulas.md),
+  in a restricted environment exposing only the generated columns and a
+  fixed allow-list of base functions. `DerivedVar::`/`Func::` semantics
+  are unchanged: derived variables without a `mockFormula` remain
+  excluded from generation, and `Func::` dispatch is not yet supported.
+- [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+  now generates survival dates from metadata. A date whose
+  `variables.csv` row sets `anchor` (its entry-date variable) is a
+  survival date: `floor(n * event_prop)` rows receive a date between
+  `followup_min` and `followup_max` days after the anchor, drawn from a
+  uniform, exponential or Gompertz distribution, and the rest are `NA`.
+  An optional `censored_by` column names a competing survival date, such
+  as death, that sets this date to `NA` where it comes first. The
+  statistics and rules are those of
+  [`create_wide_survival_data()`](https://big-life-lab.github.io/MockData/reference/create_wide_survival_data.md),
+  ported exactly. New functions:
+  [`mock_spec_survival()`](https://big-life-lab.github.io/MockData/reference/mock_spec_survival.md)
+  and
+  [`generate_survival_dates()`](https://big-life-lab.github.io/MockData/reference/generate_survival_dates.md).
+  This resolves the known issue, listed since v0.2.0, that survival data
+  had to be generated separately.
+- Derived columns, from `mockFormula` or survival dates, describe the
+  clean generated values; missing codes and garbage are then applied to
+  each column independently. `is.na` is added to the `mockFormula`
+  allow-list so status and follow-up time can be derived. Derive both
+  from the same observation window: `as.integer(!is.na(death_date))`
+  only says a death date exists, not that the death was observed before
+  censoring.
+- [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+  now accepts `n = 0`, returning a zero-row data frame with the full
+  generated schema (useful for schema tests), and rejects fractional,
+  negative, `NA`, and non-finite values of `n` with a clear message. The
+  validation now matches
+  [`generate_mock_data_native()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_native.md).
+- The native backend now supports `distribution = "exponential"` (parity
+  with the legacy generator), removing a forced legacy-fallback for
+  exponential metadata. When the optional simstudy backend is selected,
+  exponential variables are routed to the native generator (like all
+  non-uniform continuous distributions); the simstudy package itself is
+  not involved in their generation. Native exponential values are
+  truncated to the declared `range` by inverse-CDF sampling, rather than
+  clipped at the range maximum (with a point mass at the boundary) as
+  the legacy [`rexp()`](https://rdrr.io/r/stats/Exponential.html) path
+  does.
+
+### Validation and error messages
+
+- Calling
+  [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+  without `databaseStart` now fails upfront with a message naming the
+  argument, instead of a raw missing-argument error.
+
+- With `validate = TRUE` (the default), invalid distribution parameters
+  in metadata — e.g. `distribution = "exponential"` without a positive
+  `rate` — now stop generation with a message naming the variable and
+  how to fix it, instead of warning and substituting a uniform draw. The
+  legacy warn-and-substitute behaviour remains available via
+  `validate = FALSE`.
+
+- A `censored_by` target may not itself have `censored_by`. Chained
+  censoring would report some events as observed after observation
+  ended, so it is rejected in this version with a message naming the
+  fix.
+
+### Bug fixes
+
+- The simstudy backend now returns a typed zero-row data frame for
+  `n = 0`, identical to the native backend’s output, instead of failing
+  inside
+  [`simstudy::genData()`](https://kgoldfeld.github.io/simstudy/reference/genData.html)
+  (whose `1:n` id table has two rows when `n = 0`).
+  ([\#50](https://github.com/Big-Life-Lab/MockData/issues/50))
+- The v0.4 pipeline now expands range-notation missing codes such as
+  `[997,999]` (the usual CCHS and CHMS pattern for don’t know, refusal
+  and not stated) into their individual codes, splitting the row’s
+  proportion equally. Previously a continuous variable with such a code
+  failed in post-processing, and a categorical variable silently wrote
+  the literal string `"[997,999]"` into the data. A bracketed missing
+  code that is not an integer range now fails with a message naming the
+  variable. ([\#58](https://github.com/Big-Life-Lab/MockData/issues/58))
+- The packaged minimal example corrects two metadata errors: BMI’s low
+  garbage range had a stray parenthesis (`[-10;15])`), and height’s
+  low-garbage proportion was 1.00 (every row) instead of 0.01; height’s
+  high-garbage range had an infinite upper bound, `(2.1;inf]`, which
+  produced `NaN` values, and is now `(2.1;2.5]`
+  ([\#60](https://github.com/Big-Life-Lab/MockData/issues/60)). With
+  these, [\#58](https://github.com/Big-Life-Lab/MockData/issues/58) and
+  the survival dates
+  ([\#40](https://github.com/Big-Life-Lab/MockData/issues/40)), every
+  variable in the example generates through the v0.4 pipeline. Seeded
+  output for the example changes.
+
+### Deprecations
+
+- [`create_wide_survival_data()`](https://big-life-lab.github.io/MockData/reference/create_wide_survival_data.md)
+  is deprecated and warns once per session.
+
+### Known issues
+
+- Known issues found while porting, reproduced unchanged:
+  [\#54](https://github.com/Big-Life-Lab/MockData/issues/54) (Gompertz
+  follow-up times are degenerate with the packaged parameters),
+  [\#55](https://github.com/Big-Life-Lab/MockData/issues/55)
+  (administrative censoring is drawn per person),
+  [\#56](https://github.com/Big-Life-Lab/MockData/issues/56) (smaller
+  legacy discrepancies).
+
 ## MockData 0.4.0 (2026-06-10)
 
 ### Breaking changes
@@ -409,9 +600,12 @@ interface. Both formats work side-by-side.
 
 - Survival variable type must be generated manually with
   [`create_wide_survival_data()`](https://big-life-lab.github.io/MockData/reference/create_wide_survival_data.md)
+  (resolved in 0.5.0,
+  [\#40](https://github.com/Big-Life-Lab/MockData/issues/40))
 - Cannot be used in
   [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
-  batch generation (requires paired variables)
+  batch generation (requires paired variables) (resolved in 0.5.0,
+  [\#40](https://github.com/Big-Life-Lab/MockData/issues/40))
 
 ------------------------------------------------------------------------
 

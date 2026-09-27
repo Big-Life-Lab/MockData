@@ -69,7 +69,9 @@ Other mock specification APIs:
 [`mock_spec()`](https://big-life-lab.github.io/MockData/reference/mock_spec.md),
 [`mock_spec_categorical()`](https://big-life-lab.github.io/MockData/reference/mock_spec_categorical.md),
 [`mock_spec_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_spec_continuous.md),
-[`mock_spec_from_recodeflow()`](https://big-life-lab.github.io/MockData/reference/mock_spec_from_recodeflow.md)
+[`mock_spec_formula()`](https://big-life-lab.github.io/MockData/reference/mock_spec_formula.md),
+[`mock_spec_from_recodeflow()`](https://big-life-lab.github.io/MockData/reference/mock_spec_from_recodeflow.md),
+[`mock_spec_survival()`](https://big-life-lab.github.io/MockData/reference/mock_spec_survival.md)
 
 ## Examples
 

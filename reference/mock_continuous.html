@@ -11,7 +11,7 @@ backends will consume this specification in a later v0.4 milestone."><link rel="
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -34,6 +34,7 @@ backends will consume this specification in a later v0.4 milestone."><link rel="
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -41,6 +42,7 @@ backends will consume this specification in a later v0.4 milestone."><link rel="
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -78,6 +80,7 @@ backends will consume this specification in a later v0.4 milestone.</p>
 <span>  mean <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
 <span>  sd <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
 <span>  rtype <span class="op">=</span> <span class="st">"double"</span>,</span>
+<span>  rate <span class="op">=</span> <span class="cn">NA_real_</span>,</span>
 <span>  missing_codes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
 <span>  missing_proportions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
 <span>  garbage_rules <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
@@ -110,6 +113,10 @@ backends will consume this specification in a later v0.4 milestone.</p>
 
 <dt id="arg-rtype">rtype<a class="anchor" aria-label="anchor" href="#arg-rtype"></a></dt>
 <dd><p>R output type. Defaults to <code>"double"</code>.</p></dd>
+
+
+<dt id="arg-rate">rate<a class="anchor" aria-label="anchor" href="#arg-rate"></a></dt>
+<dd><p>Rate parameter; required when <code>distribution = "exponential"</code>.</p></dd>
 
 
 <dt id="arg-missing-codes">missing_codes<a class="anchor" aria-label="anchor" href="#arg-missing-codes"></a></dt>
@@ -152,7 +159,8 @@ or when writing an adapter from another metadata source.</p>
     <div class="dont-index"><p><code><a href="mock_spec.html">mock_spec()</a></code>, <code><a href="mock_spec_continuous.html">mock_spec_continuous()</a></code></p>
 <p>Other direct specification APIs:
 <code><a href="mock_categorical.html">mock_categorical()</a></code>,
-<code><a href="mock_date.html">mock_date()</a></code></p></div>
+<code><a href="mock_date.html">mock_date()</a></code>,
+<code><a href="mock_formula.html">mock_formula()</a></code></p></div>
     </div>
 
     <div class="section level2">
@@ -168,6 +176,15 @@ or when writing an adapter from another metadata source.</p>
 <span class="r-in"><span><span class="fu"><a href="validate_mock_spec.html">validate_mock_spec</a></span><span class="op">(</span><span class="va">age_spec</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> MockData mock_spec validation result: valid</span>
 <span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="va">wait_spec</span> <span class="op">&lt;-</span> <span class="fu">mock_continuous</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  <span class="st">"wait"</span>,</span></span>
+<span class="r-in"><span>  range <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  distribution <span class="op">=</span> <span class="st">"exponential"</span>,</span></span>
+<span class="r-in"><span>  rate <span class="op">=</span> <span class="fl">0.1</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="validate_mock_spec.html">validate_mock_spec</a></span><span class="op">(</span><span class="va">wait_spec</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> MockData mock_spec validation result: valid</span>
+<span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
@@ -181,7 +198,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

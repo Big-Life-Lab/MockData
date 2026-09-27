@@ -3,7 +3,7 @@
 `generate_mock_data_native()` consumes a validated `mock_spec` and
 generates baseline valid values using MockData's native R backend. This
 milestone does not yet apply missing-code injection, garbage values,
-diagnostics, formula evaluation, or optional `simstudy` features.
+diagnostics, or optional `simstudy` features.
 
 ## Usage
 
@@ -23,28 +23,39 @@ generate_mock_data_native(spec, n, seed = NULL)
 
 - seed:
 
-  Optional whole-number random seed. The previous R random state is
-  restored after generation.
+  Optional whole-number seed. Generation uses an isolated L'Ecuyer-CMRG
+  sub-stream and restores the caller's RNG state and kind on exit, so
+  output is reproducible for a given seed and package version without
+  perturbing the caller's RNG.
 
 ## Value
 
-A data frame with one column per `mock_spec` variable and `n` rows.
+A data frame with `n` rows and one column per non-derived `mock_spec`
+variable (`type = "survival"` and `type = "formula"` variables are
+appended afterwards by
+[`generate_survival_dates()`](https://big-life-lab.github.io/MockData/reference/generate_survival_dates.md)
+and
+[`evaluate_mock_formulas()`](https://big-life-lab.github.io/MockData/reference/evaluate_mock_formulas.md)).
 
 ## Details
 
 The native backend is the default MIT-licensed baseline engine. It
 currently supports uniform continuous variables, truncated-normal
-continuous variables, categorical variables, and uniform calendar dates.
-Missing codes, garbage values, and diagnostics are intentionally handled
-by
+continuous variables, truncated-exponential continuous variables,
+categorical variables, and uniform calendar dates. Missing codes,
+garbage values, and diagnostics are intentionally handled by
 [`postprocess_mock_data()`](https://big-life-lab.github.io/MockData/reference/postprocess_mock_data.md)
 so that all backends share the same audit trail.
 
-If `seed` is supplied, the previous R random state is restored after
-generation. This gives reproducible output without advancing the
-caller's RNG stream. Formula variables are rejected loudly until the
-formula/dependency milestone promotes the spike evaluator into
-production.
+`type = "formula"` variables are skipped by this backend — they carry no
+distribution to sample from. They are computed post-baseline by
+[`evaluate_mock_formulas()`](https://big-life-lab.github.io/MockData/reference/evaluate_mock_formulas.md),
+which evaluates each formula over this function's output columns in
+dependency order. A spec containing only formula variables still returns
+an `n`-row, zero-column data frame here (see
+[`evaluate_mock_formulas()`](https://big-life-lab.github.io/MockData/reference/evaluate_mock_formulas.md)
+for how columns are appended afterwards). A stray `formula` field on a
+variable of some other type remains an unsupported/fallback trigger.
 
 ## See also
 
@@ -52,11 +63,13 @@ production.
 [`mock_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_continuous.md),
 [`mock_spec_from_recodeflow()`](https://big-life-lab.github.io/MockData/reference/mock_spec_from_recodeflow.md),
 [`postprocess_mock_data()`](https://big-life-lab.github.io/MockData/reference/postprocess_mock_data.md),
-[`generate_mock_data_simstudy()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_simstudy.md)
+[`generate_mock_data_simstudy()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_simstudy.md),
+[`evaluate_mock_formulas()`](https://big-life-lab.github.io/MockData/reference/evaluate_mock_formulas.md)
 
 Other mock generation APIs:
 [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md),
 [`generate_mock_data_simstudy()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_simstudy.md),
+[`generate_survival_dates()`](https://big-life-lab.github.io/MockData/reference/generate_survival_dates.md),
 [`postprocess_mock_data()`](https://big-life-lab.github.io/MockData/reference/postprocess_mock_data.md)
 
 ## Examples
@@ -73,10 +86,10 @@ spec <- mock_spec(
 data <- generate_mock_data_native(spec, n = 10, seed = 1)
 head(data)
 #>   age smoking
-#> 1  36   never
-#> 2  43   never
-#> 3  56  former
-#> 4  79   never
-#> 5  32  former
-#> 6  78   never
+#> 1  63 current
+#> 2  47 current
+#> 3  79   never
+#> 4  82  former
+#> 5  74   never
+#> 6  41   never
 ```

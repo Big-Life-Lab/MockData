@@ -24,8 +24,10 @@ postprocess_mock_data(data, spec, seed = NULL, diagnostics = TRUE)
 
 - seed:
 
-  Optional whole-number random seed. The previous R random state is
-  restored after post-processing.
+  Optional whole-number seed. Generation uses an isolated L'Ecuyer-CMRG
+  sub-stream and restores the caller's RNG state and kind on exit, so
+  output is reproducible for a given seed and package version without
+  perturbing the caller's RNG.
 
 - diagnostics:
 
@@ -64,7 +66,8 @@ post-processed object when diagnostics are part of the audit trail.
 Other mock generation APIs:
 [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md),
 [`generate_mock_data_native()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_native.md),
-[`generate_mock_data_simstudy()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_simstudy.md)
+[`generate_mock_data_simstudy()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_simstudy.md),
+[`generate_survival_dates()`](https://big-life-lab.github.io/MockData/reference/generate_survival_dates.md)
 
 ## Examples
 
@@ -78,7 +81,7 @@ spec <- mock_categorical(
   missing_proportions = 0.05
 )
 baseline <- generate_mock_data_native(spec, n = 20, seed = 1)
-result <- postprocess_mock_data(baseline, spec, seed = 2)
+result <- postprocess_mock_data(baseline, spec, seed = 1)
 attr(result, "mockdata_diagnostics")$variables$smoking
 #> $n
 #> [1] 20

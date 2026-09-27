@@ -12,6 +12,7 @@ mock_spec_continuous(
   mean = NA_real_,
   sd = NA_real_,
   rtype = "double",
+  rate = NA_real_,
   missing_codes = numeric(0),
   missing_proportions = numeric(0),
   garbage_rules = list(),
@@ -41,6 +42,10 @@ mock_spec_continuous(
 - rtype:
 
   R output type. Defaults to `"double"`.
+
+- rate:
+
+  Rate parameter; required when `distribution = "exponential"`.
 
 - missing_codes:
 
@@ -75,7 +80,9 @@ Other mock specification APIs:
 [`mock_spec()`](https://big-life-lab.github.io/MockData/reference/mock_spec.md),
 [`mock_spec_categorical()`](https://big-life-lab.github.io/MockData/reference/mock_spec_categorical.md),
 [`mock_spec_date()`](https://big-life-lab.github.io/MockData/reference/mock_spec_date.md),
-[`mock_spec_from_recodeflow()`](https://big-life-lab.github.io/MockData/reference/mock_spec_from_recodeflow.md)
+[`mock_spec_formula()`](https://big-life-lab.github.io/MockData/reference/mock_spec_formula.md),
+[`mock_spec_from_recodeflow()`](https://big-life-lab.github.io/MockData/reference/mock_spec_from_recodeflow.md),
+[`mock_spec_survival()`](https://big-life-lab.github.io/MockData/reference/mock_spec_survival.md)
 
 ## Examples
 
@@ -87,5 +94,12 @@ age <- mock_spec_continuous(
   mean = 50,
   sd = 12,
   rtype = "integer"
+)
+
+wait_spec <- mock_spec_continuous(
+  "wait",
+  range = c(0, 100),
+  distribution = "exponential",
+  rate = 0.1
 )
 ```

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -30,6 +30,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -37,6 +38,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -58,6 +60,53 @@
       <small>Source: <a href="https://github.com/Big-Life-Lab/MockData/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.5.0" id="mockdata-050-2026-09-27">MockData 0.5.0 (2026-09-27)<a class="anchor" aria-label="anchor" href="#mockdata-050-2026-09-27"></a></h2>
+<div class="section level3">
+<h3 id="breaking-changes-0-5-0">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-0-5-0"></a></h3>
+<ul><li>
+<p>Seeded output changed once for the RNG-stream mechanism in this release. Within the <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> pipeline (<code><a href="../reference/generate_mock_data_native.html">generate_mock_data_native()</a></code>, <code><a href="../reference/generate_mock_data_simstudy.html">generate_mock_data_simstudy()</a></code>, <code><a href="../reference/postprocess_mock_data.html">postprocess_mock_data()</a></code>), MockData now derives all randomness from independent L’Ecuyer-CMRG sub-streams (one per generation stage) seeded from the single public <code>seed</code>, replacing the previous Mersenne-Twister <code>seed</code> / <code>seed + 1</code> scheme. The standalone <code>create_*</code> helpers (<code><a href="../reference/create_cat_var.html">create_cat_var()</a></code>, <code><a href="../reference/create_con_var.html">create_con_var()</a></code>, <code><a href="../reference/create_date_var.html">create_date_var()</a></code>, <code><a href="../reference/create_survival_dates.html">create_survival_dates()</a></code>, <code><a href="../reference/create_wide_survival_data.html">create_wide_survival_data()</a></code>, <code><a href="../reference/sample_with_proportions.html">sample_with_proportions()</a></code>, <code><a href="../reference/make_garbage.html">make_garbage()</a></code>, <code><a href="../reference/apply_garbage.html">apply_garbage()</a></code>) called directly are unaffected and still seed a single Mersenne-Twister stream per call. For a given seed <strong>and package version</strong> pipeline output is reproducible and independent of the session’s ambient <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">RNGkind()</a></code>; it is not comparable across the v0.4 → v0.5 boundary. For seeded calls, generation no longer alters the caller’s RNG state (previously the legacy <code>validate = FALSE</code> path reset it). (<a href="https://github.com/Big-Life-Lab/MockData/issues/38" class="external-link">#38</a>)</p>
+<p><strong>Migrating:</strong> if your tests pin values from seeded v0.4 runs of <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> or the <code>mock_spec</code> pipeline, regenerate those expected values once under v0.5 and pin them again. The same seed keeps giving identical output within this version. Standalone <code>create_*</code> calls need no change.</p>
+</li>
+<li><p>Migration: add <code>anchor</code> (and <code>censored_by</code> where a competing risk applies) to each survival date’s row. A date with <code>followup_min</code>, <code>followup_max</code> or <code>event_prop</code> but no <code>anchor</code> now fails with a message naming the fix; previously it was silently dropped or generated as a plain calendar date.</p></li>
+<li><p>Missing codes and garbage are applied to survival dates after the survival rules. Garbage that places a date before entry is therefore kept, whereas the legacy engine set such dates to <code>NA</code>.</p></li>
+<li><p>The packaged minimal example now generates entirely through the v0.4 pipeline, because its Gompertz survival dates no longer force the legacy generator. Its seeded output differs from v0.4.</p></li>
+<li><p>If the legacy generator is selected (<code>validate = FALSE</code>, <code>variable_details = NULL</code>, detail-level-only <code>databaseStart</code>, or another unsupported variable) on metadata that sets <code>anchor</code>, <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> stops and names the survival variables rather than dropping them.</p></li>
+<li><p>The same applies to formula variables. If the legacy generator is selected for metadata that sets <code>mockFormula</code> on an enabled variable, <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> stops and names the formula variables. Previously the legacy generator ignored the formula and returned unrelated random values, or dropped a <code>DerivedVar::</code> variable, without saying so.</p></li>
+<li><p>On the legacy path (<code>validate = FALSE</code> and the other legacy triggers), <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> now generates only variables whose variable-level <code>databaseStart</code> includes the requested database, as the v0.4 pipeline does. Previously it chose variables from the detail rows alone, so a variable listed only for another database was generated as random values, and a formula or survival variable belonging to another database stopped the run.</p></li>
+</ul></div>
+<div class="section level3">
+<h3 id="new-features-0-5-0">New features<a class="anchor" aria-label="anchor" href="#new-features-0-5-0"></a></h3>
+<ul><li>Formula-derived variables (<a href="https://github.com/Big-Life-Lab/MockData/issues/39" class="external-link">#39</a>, Phase A). Variables can now be generated from algebraic expressions over other generated variables via a new <code>mockFormula</code> column in <code>variable_details</code> (e.g. <code>weight / (height^2)</code>), or the new <code><a href="../reference/mock_formula.html">mock_formula()</a></code> direct API. Formulas are evaluated in dependency order by <code><a href="../reference/evaluate_mock_formulas.html">evaluate_mock_formulas()</a></code>, in a restricted environment exposing only the generated columns and a fixed allow-list of base functions. <code>DerivedVar::</code>/<code>Func::</code> semantics are unchanged: derived variables without a <code>mockFormula</code> remain excluded from generation, and <code>Func::</code> dispatch is not yet supported.</li>
+<li>
+<code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> now generates survival dates from metadata. A date whose <code>variables.csv</code> row sets <code>anchor</code> (its entry-date variable) is a survival date: <code>floor(n * event_prop)</code> rows receive a date between <code>followup_min</code> and <code>followup_max</code> days after the anchor, drawn from a uniform, exponential or Gompertz distribution, and the rest are <code>NA</code>. An optional <code>censored_by</code> column names a competing survival date, such as death, that sets this date to <code>NA</code> where it comes first. The statistics and rules are those of <code><a href="../reference/create_wide_survival_data.html">create_wide_survival_data()</a></code>, ported exactly. New functions: <code><a href="../reference/mock_spec_survival.html">mock_spec_survival()</a></code> and <code><a href="../reference/generate_survival_dates.html">generate_survival_dates()</a></code>. This resolves the known issue, listed since v0.2.0, that survival data had to be generated separately.</li>
+<li>Derived columns, from <code>mockFormula</code> or survival dates, describe the clean generated values; missing codes and garbage are then applied to each column independently. <code>is.na</code> is added to the <code>mockFormula</code> allow-list so status and follow-up time can be derived. Derive both from the same observation window: <code>as.integer(!is.na(death_date))</code> only says a death date exists, not that the death was observed before censoring.</li>
+<li>
+<code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> now accepts <code>n = 0</code>, returning a zero-row data frame with the full generated schema (useful for schema tests), and rejects fractional, negative, <code>NA</code>, and non-finite values of <code>n</code> with a clear message. The validation now matches <code><a href="../reference/generate_mock_data_native.html">generate_mock_data_native()</a></code>.</li>
+<li>The native backend now supports <code>distribution = "exponential"</code> (parity with the legacy generator), removing a forced legacy-fallback for exponential metadata. When the optional simstudy backend is selected, exponential variables are routed to the native generator (like all non-uniform continuous distributions); the simstudy package itself is not involved in their generation. Native exponential values are truncated to the declared <code>range</code> by inverse-CDF sampling, rather than clipped at the range maximum (with a point mass at the boundary) as the legacy <code><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp()</a></code> path does.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="validation-and-error-messages-0-5-0">Validation and error messages<a class="anchor" aria-label="anchor" href="#validation-and-error-messages-0-5-0"></a></h3>
+<ul><li><p>Calling <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> without <code>databaseStart</code> now fails upfront with a message naming the argument, instead of a raw missing-argument error.</p></li>
+<li><p>With <code>validate = TRUE</code> (the default), invalid distribution parameters in metadata — e.g. <code>distribution = "exponential"</code> without a positive <code>rate</code> — now stop generation with a message naming the variable and how to fix it, instead of warning and substituting a uniform draw. The legacy warn-and-substitute behaviour remains available via <code>validate = FALSE</code>.</p></li>
+<li><p>A <code>censored_by</code> target may not itself have <code>censored_by</code>. Chained censoring would report some events as observed after observation ended, so it is rejected in this version with a message naming the fix.</p></li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-0-5-0">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-5-0"></a></h3>
+<ul><li>The simstudy backend now returns a typed zero-row data frame for <code>n = 0</code>, identical to the native backend’s output, instead of failing inside <code><a href="https://kgoldfeld.github.io/simstudy/reference/genData.html" class="external-link">simstudy::genData()</a></code> (whose <code>1:n</code> id table has two rows when <code>n = 0</code>). (<a href="https://github.com/Big-Life-Lab/MockData/issues/50" class="external-link">#50</a>)</li>
+<li>The v0.4 pipeline now expands range-notation missing codes such as <code>[997,999]</code> (the usual CCHS and CHMS pattern for don’t know, refusal and not stated) into their individual codes, splitting the row’s proportion equally. Previously a continuous variable with such a code failed in post-processing, and a categorical variable silently wrote the literal string <code>"[997,999]"</code> into the data. A bracketed missing code that is not an integer range now fails with a message naming the variable. (<a href="https://github.com/Big-Life-Lab/MockData/issues/58" class="external-link">#58</a>)</li>
+<li>The packaged minimal example corrects two metadata errors: BMI’s low garbage range had a stray parenthesis (<code>[-10;15])</code>), and height’s low-garbage proportion was 1.00 (every row) instead of 0.01; height’s high-garbage range had an infinite upper bound, <code>(2.1;inf]</code>, which produced <code>NaN</code> values, and is now <code>(2.1;2.5]</code> (<a href="https://github.com/Big-Life-Lab/MockData/issues/60" class="external-link">#60</a>). With these, <a href="https://github.com/Big-Life-Lab/MockData/issues/58" class="external-link">#58</a> and the survival dates (<a href="https://github.com/Big-Life-Lab/MockData/issues/40" class="external-link">#40</a>), every variable in the example generates through the v0.4 pipeline. Seeded output for the example changes.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="deprecations-0-5-0">Deprecations<a class="anchor" aria-label="anchor" href="#deprecations-0-5-0"></a></h3>
+<ul><li>
+<code><a href="../reference/create_wide_survival_data.html">create_wide_survival_data()</a></code> is deprecated and warns once per session.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="known-issues-0-5-0">Known issues<a class="anchor" aria-label="anchor" href="#known-issues-0-5-0"></a></h3>
+<ul><li>Known issues found while porting, reproduced unchanged: <a href="https://github.com/Big-Life-Lab/MockData/issues/54" class="external-link">#54</a> (Gompertz follow-up times are degenerate with the packaged parameters), <a href="https://github.com/Big-Life-Lab/MockData/issues/55" class="external-link">#55</a> (administrative censoring is drawn per person), <a href="https://github.com/Big-Life-Lab/MockData/issues/56" class="external-link">#56</a> (smaller legacy discrepancies).</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.0" id="mockdata-040-2026-06-10">MockData 0.4.0 (2026-06-10)<a class="anchor" aria-label="anchor" href="#mockdata-040-2026-06-10"></a></h2>
 <div class="section level3">
@@ -336,9 +385,8 @@
 </ul></div>
 <div class="section level3">
 <h3 id="known-issues-0-2-0">Known issues<a class="anchor" aria-label="anchor" href="#known-issues-0-2-0"></a></h3>
-<ul><li>Survival variable type must be generated manually with <code><a href="../reference/create_wide_survival_data.html">create_wide_survival_data()</a></code>
-</li>
-<li>Cannot be used in <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> batch generation (requires paired variables)</li>
+<ul><li>Survival variable type must be generated manually with <code><a href="../reference/create_wide_survival_data.html">create_wide_survival_data()</a></code> (resolved in 0.5.0, <a href="https://github.com/Big-Life-Lab/MockData/issues/40" class="external-link">#40</a>)</li>
+<li>Cannot be used in <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> batch generation (requires paired variables) (resolved in 0.5.0, <a href="https://github.com/Big-Life-Lab/MockData/issues/40" class="external-link">#40</a>)</li>
 </ul><hr></div>
 </div>
     <div class="section level2">
@@ -356,7 +404,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

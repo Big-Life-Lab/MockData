@@ -48,12 +48,12 @@ head(mock_data)
 ```
 
       age smoking
-    1  43       1
-    2  47       2
-    3  69       1
-    4  51       1
-    5 999       1
-    6  71       7
+    1  38       1
+    2  58       7
+    3  68       2
+    4 999       1
+    5  54       7
+    6  36       2
 
 For supported metadata, v0.4 routes this call through the new
 `mock_spec` pipeline.
@@ -110,9 +110,9 @@ legacy_data <- create_mock_data(
 
     Found 2 enabled variable(s) for database 'study': age, smoking
 
-    Setting random seed: 456
-
     Generating 50 observations...
+
+    Setting random seed: 456
 
       [1/2] Generating age (integer)
 
@@ -158,7 +158,7 @@ table(strict_data$smoking)
 
 
      1  2  7
-    23 25  2 
+    28 20  2 
 
 ``` r
 
@@ -167,16 +167,20 @@ table(legacy_data$smoking)
 
 
      1  2  7
-    23 24  3 
+    26 21  3 
 
 ## Understand seed differences
 
-In v0.3, the public seed controlled the legacy generators. In v0.4, the
-wrapper uses the public seed for baseline generation and `seed + 1L` for
-missing-code and garbage-value post-processing.
+In v0.3, the public seed controlled the legacy generators directly. In
+v0.4/v0.5, the wrapper passes the same public `seed` to both baseline
+generation and missing-code/garbage-value post-processing; internally,
+each stage draws from its own independent L’Ecuyer-CMRG sub-stream
+derived from that single seed (stage selection happens inside the
+package, not via `seed + 1L` as in earlier v0.4 releases - see `NEWS.md`
+for the v0.5 reproducibility change).
 
-That makes both stages reproducible, but it means exact values may
-differ from v0.3 even when you pass the same seed.
+That makes both stages reproducible from one seed, but it means exact
+values may differ from v0.3 even when you pass the same seed.
 
 ``` r
 
@@ -202,22 +206,22 @@ str(strict_data)
 ```
 
     'data.frame':   50 obs. of  2 variables:
-     $ age    : int  34 57 60 33 41 46 58 999 62 57 ...
-     $ smoking: chr  "1" "1" "1" "1" ...
+     $ age    : int  50 34 54 53 67 70 75 27 36 39 ...
+     $ smoking: chr  "1" "2" "2" "1" ...
      - attr(*, "mockdata_diagnostics")=List of 2
       ..$ spec_version: chr "0.4.0"
       ..$ variables   :List of 2
       .. ..$ age    :List of 6
       .. .. ..$ n                               : int 50
       .. .. ..$ preexisting_missing_code_indices: int(0)
-      .. .. ..$ assigned_missing_indices        : int [1:2] 8 13
+      .. .. ..$ assigned_missing_indices        : int [1:2] 17 50
       .. .. ..$ assigned_missing_codes          : chr [1:2] "999" "999"
       .. .. ..$ assigned_garbage_indices        : Named list()
       .. .. ..$ assigned_garbage_values         : Named list()
       .. ..$ smoking:List of 6
       .. .. ..$ n                               : int 50
       .. .. ..$ preexisting_missing_code_indices: int(0)
-      .. .. ..$ assigned_missing_indices        : int [1:2] 12 35
+      .. .. ..$ assigned_missing_indices        : int [1:2] 35 17
       .. .. ..$ assigned_missing_codes          : chr [1:2] "7" "7"
       .. .. ..$ assigned_garbage_indices        : Named list()
       .. .. ..$ assigned_garbage_values         : Named list()
@@ -229,7 +233,7 @@ prop.table(table(strict_data$smoking))
 
 
        1    2    7
-    0.46 0.50 0.04 
+    0.56 0.40 0.04 
 
 ## Know the fallback conditions
 
@@ -242,6 +246,12 @@ deliberately uses the legacy path when:
   no `databaseStart` column
 - the requested metadata uses a feature not yet supported by the v0.4
   native backend
+
+Survival dates (rows that set `anchor`, from v0.5) are generated only by
+the v0.4 pipeline. If one of these conditions selects the legacy path
+for metadata that sets `anchor`,
+[`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md)
+stops and names the survival variables rather than dropping them.
 
 For example, `variable_details = NULL` keeps the simple legacy fallback.
 
@@ -265,9 +275,9 @@ fallback_data <- create_mock_data(
 
     Found 1 enabled variable(s) for database 'study': age
 
-    Setting random seed: 789
-
     Generating 20 observations...
+
+    Setting random seed: 789
 
       [1/1] Generating age (integer)
 
@@ -286,12 +296,12 @@ head(fallback_data)
 ```
 
       age
-    1  70
-    2   9
-    3   1
-    4  59
-    5  49
-    6   2
+    1  59
+    2  86
+    3   2
+    4  20
+    5   1
+    6  12
 
 ``` r
 
@@ -301,8 +311,9 @@ is.null(attr(fallback_data, "mockdata_diagnostics"))
     [1] TRUE
 
 Unsupported v0.4 backend features also route to legacy dispatch. This
-example uses an exponential continuous distribution, which remains
-available through the legacy generator.
+example uses a lognormal continuous distribution, which is not yet
+supported by the v0.4 native backend and remains available through the
+legacy generator.
 
 ``` r
 
@@ -311,8 +322,7 @@ exp_variables <- data.frame(
   variableType = "Continuous",
   rType = "double",
   role = "enabled",
-  distribution = "exponential",
-  rate = 0.5,
+  distribution = "lognormal",
   stringsAsFactors = FALSE
 )
 
@@ -336,13 +346,15 @@ exp_data <- create_mock_data(
 
     v0.4 mock_spec pipeline does not yet support every requested variable; using legacy create_* dispatch. Unsupported variable(s): time_to_visit
 
+    Falling back to the legacy generator for an unsupported v0.4 feature; for a given seed this produces different values than the v0.4 pipeline.
+
     Filtering for enabled variables...
 
     Found 1 enabled variable(s) for database 'study': time_to_visit
 
-    Setting random seed: 321
-
     Generating 20 observations...
+
+    Setting random seed: 321
 
       [1/1] Generating time_to_visit (double)
 
@@ -358,12 +370,12 @@ head(exp_data)
 ```
 
       time_to_visit
-    1     0.3302437
-    2     1.4268834
-    3     2.5103901
-    4     2.1157332
-    5     1.7882266
-    6     1.2263829
+    1      7.307983
+    2      5.771020
+    3      3.948886
+    4      8.270476
+    5      4.940814
+    6      4.521372
 
 ## Inspect the v0.4 path directly
 
@@ -380,7 +392,7 @@ validate_mock_spec(spec, strict = TRUE)
 ``` r
 
 baseline <- generate_mock_data_native(spec, n = 50, seed = 456)
-postprocessed <- postprocess_mock_data(baseline, spec, seed = 457)
+postprocessed <- postprocess_mock_data(baseline, spec, seed = 456)
 
 identical(strict_data, postprocessed)
 ```

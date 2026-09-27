@@ -13,12 +13,18 @@ or composable variable constructors.
   : Create a direct categorical mock-data specification
 - [`mock_date()`](https://big-life-lab.github.io/MockData/reference/mock_date.md)
   : Create a direct date mock-data specification
+- [`mock_formula()`](https://big-life-lab.github.io/MockData/reference/mock_formula.md)
+  : Create a direct formula-derived mock-data specification
 - [`mock_spec_continuous()`](https://big-life-lab.github.io/MockData/reference/mock_spec_continuous.md)
   : Create a continuous variable specification
 - [`mock_spec_categorical()`](https://big-life-lab.github.io/MockData/reference/mock_spec_categorical.md)
   : Create a categorical variable specification
 - [`mock_spec_date()`](https://big-life-lab.github.io/MockData/reference/mock_spec_date.md)
   : Create a date variable specification
+- [`mock_spec_formula()`](https://big-life-lab.github.io/MockData/reference/mock_spec_formula.md)
+  : Create a formula-derived variable specification
+- [`mock_spec_survival()`](https://big-life-lab.github.io/MockData/reference/mock_spec_survival.md)
+  : Create a survival date variable specification
 - [`is_mock_spec()`](https://big-life-lab.github.io/MockData/reference/is_mock_spec.md)
   : Check whether an object is a MockData specification
 - [`validate_mock_spec()`](https://big-life-lab.github.io/MockData/reference/validate_mock_spec.md)
@@ -37,6 +43,10 @@ data, and apply post-processing diagnostics.
   : Generate mock data with the native backend
 - [`generate_mock_data_simstudy()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_simstudy.md)
   : Generate mock data with the optional simstudy backend
+- [`generate_survival_dates()`](https://big-life-lab.github.io/MockData/reference/generate_survival_dates.md)
+  : Generate survival dates from their anchor dates
+- [`evaluate_mock_formulas()`](https://big-life-lab.github.io/MockData/reference/evaluate_mock_formulas.md)
+  : Evaluate formula-derived variables over generated data
 - [`postprocess_mock_data()`](https://big-life-lab.github.io/MockData/reference/postprocess_mock_data.md)
   : Apply mock_spec post-processing rules
 

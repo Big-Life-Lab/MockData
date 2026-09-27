@@ -139,17 +139,17 @@ mock_data <- create_mock_data(
 cat("Generated", nrow(mock_data), "observations across", ncol(mock_data), "variables\n\n")
 ```
 
-    Generated 100 observations across 6 variables
+    Generated 100 observations across 10 variables
 
 **View sample data:**
 
-      age smoking BMI    height   weight
-    1  30       1 999 0.3282324 88.18044
-    2  59       1 996 1.3347087 82.91051
-    3  62       2 998 0.2090464 72.49773
-    4  29       1 996 0.2649483 76.03257
-    5  39       2 996 0.9694859 75.15056
-    6  45       1 996 0.9768913 74.86336
+      age smoking       BMI   height   weight
+    1  50       2  38.55459 1.664381 65.10945
+    2  30       7 996.00000 1.654630 85.75149
+    3  56       3 999.00000 1.836670 75.43411
+    4  54       1 996.00000 1.735727 72.32489
+    5  71       1 999.00000 1.840389 67.48102
+    6 998       2 996.00000 1.686958 94.72430
 
 ## Common workflows
 
@@ -260,6 +260,10 @@ additional columns:
 
 **Survival data parameters:**
 
+- `anchor`: the entry-date variable a survival date is generated from
+  (required)
+- `censored_by`: an optional competing survival date that removes this
+  one where it comes first
 - `event_prop`: Probability event occurs (0-1)
 - `followup_min`, `followup_max`: Follow-up time range in days
 - `distribution`: Distribution type (uniform, gompertz, exponential)
@@ -268,9 +272,10 @@ additional columns:
 **Example:**
 
 ``` csv
-uid,variable,rType,role,distribution,rate,shape,event_prop,followup_min,followup_max
-ices_v02,primary_event_date,date,enabled,gompertz,0.0001,0.1,0.10,0,5475
-ices_v03,death_date,date,enabled,gompertz,0.0001,0.1,0.20,365,7300
+uid,variable,rType,role,distribution,rate,shape,anchor,censored_by,event_prop,followup_min,followup_max
+ices_v01,interview_date,date,enabled,uniform,,,,,,,
+ices_v02,primary_event_date,date,enabled,gompertz,0.0001,0.1,interview_date,death_date,0.10,0,5475
+ices_v03,death_date,date,enabled,gompertz,0.0001,0.1,interview_date,,0.20,365,7300
 ```
 
 See [Generating survival data with competing

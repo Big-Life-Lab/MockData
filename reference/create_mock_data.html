@@ -13,7 +13,7 @@ into a complete data frame."><link rel="stylesheet" href="extra.css"></head><bod
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,7 @@ into a complete data frame."><link rel="stylesheet" href="extra.css"></head><bod
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -43,6 +44,7 @@ into a complete data frame."><link rel="stylesheet" href="extra.css"></head><bod
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -114,7 +116,9 @@ If NULL, uses simple fallback generation.</p></dd>
 
 
 <dt id="arg-n">n<a class="anchor" aria-label="anchor" href="#arg-n"></a></dt>
-<dd><p>Integer. Number of observations to generate (default 1000).</p></dd>
+<dd><p>Integer. Number of observations to generate (default 1000).
+<code>n = 0</code> is supported and returns a zero-row data frame with the full
+generated schema.</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
@@ -151,16 +155,19 @@ gradually.</p>
 when <code>variable_details = NULL</code>, when detail-level <code>databaseStart</code> filtering is
 needed but the variables metadata has no <code>databaseStart</code> column, or when a
 variable uses a feature not yet supported by the v0.4 native backend. Set
-<code>verbose = TRUE</code> to see which path was chosen.</p>
-<p>In the v0.4 path, <code>seed</code> is used for baseline generation and <code>seed + 1</code> is
-used for post-processing. This makes both stages deterministic, but generated
-values may differ from v0.3.x output for the same seed.</p>
+<code>verbose = TRUE</code> to see which path was chosen. Survival dates (rows that
+set <code>anchor</code>) are generated only by the v0.4 pipeline: if the legacy path
+is selected for metadata that sets <code>anchor</code>, <code>create_mock_data()</code> stops and
+names the survival variables.</p>
+<p>In the v0.4 path, baseline generation and post-processing draw from distinct,
+independent sub-streams derived from a single <code>seed</code>; output is reproducible
+for a given seed and package version but changed in v0.5 (see NEWS).</p>
 <p><strong>v0.3.0 API</strong>: This function follows the "recodeflow pattern" where it passes
 full metadata data frames to create_* functions, which handle internal
 filtering.</p>
 <p><strong>Generation process</strong>:</p><ol><li><p>Load metadata from file paths or accept data frames</p></li>
 <li><p>Filter for enabled variables (role has an exact "enabled" token)</p></li>
-<li><p>Set global seed (if provided)</p></li>
+<li><p>Generate within an isolated RNG sub-stream (if seeded), leaving the caller's RNG state untouched</p></li>
 <li><p>Loop through variables in position order:
 - Dispatch to create_cat_var, create_con_var, or create_date_var
 - Pass full metadata data frames (functions filter internally)
@@ -188,14 +195,15 @@ see <code><a href="../articles/reference-config.html">vignette("reference-config
 <p>Other mock generation APIs:
 <code><a href="generate_mock_data_native.html">generate_mock_data_native()</a></code>,
 <code><a href="generate_mock_data_simstudy.html">generate_mock_data_simstudy()</a></code>,
+<code><a href="generate_survival_dates.html">generate_survival_dates()</a></code>,
 <code><a href="postprocess_mock_data.html">postprocess_mock_data()</a></code></p></div>
     </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># The packaged minimal example includes deliberately messy metadata</span></span></span>
-<span class="r-in"><span><span class="co"># (auto-normalized proportions, survival dates without an anchor): the</span></span></span>
-<span class="r-in"><span><span class="co"># warnings it generates are expected and demonstrate MockData's diagnostics.</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># The packaged minimal example covers every variable type, including</span></span></span>
+<span class="r-in"><span><span class="co"># survival dates anchored on interview_date. It auto-normalizes some</span></span></span>
+<span class="r-in"><span><span class="co"># proportions, so warnings about that are expected.</span></span></span>
 <span class="r-in"><span><span class="va">mock_data</span> <span class="op">&lt;-</span> <span class="fu">create_mock_data</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  databaseStart <span class="op">=</span> <span class="st">"minimal-example"</span>,</span></span>
 <span class="r-in"><span>  variables <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata/minimal-example/variables.csv"</span>,</span></span>
@@ -208,37 +216,143 @@ see <code><a href="../articles/reference-config.html">vignette("reference-config
 <span class="r-in"><span>  seed <span class="op">=</span> <span class="fl">123</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Excluding derived recodeflow variable(s): BMI_derived</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Proportions for variable 'BMI' sum to 0.4 (expected 1.0). Auto-normalizing.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Variable 'primary_event_date' is a survival variable (has followup_min/max/event_prop), but df_mock does not contain 'anchor_date' column. Cannot generate survival dates without anchor dates.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Variable 'death_date' is a survival variable (has followup_min/max/event_prop), but df_mock does not contain 'anchor_date' column. Cannot generate survival dates without anchor dates.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Variable 'ltfu_date' is a survival variable (has followup_min/max/event_prop), but df_mock does not contain 'anchor_date' column. Cannot generate survival dates without anchor dates.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Variable 'admin_censor_date' is a survival variable (has followup_min/max/event_prop), but df_mock does not contain 'anchor_date' column. Cannot generate survival dates without anchor dates.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Skipped variables during mock data generation: primary_event_date, death_date, ltfu_date, admin_censor_date</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="va">mock_data</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 'data.frame':	100 obs. of  6 variables:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  $ age           : int  42 47 73 51 52 76 57 31 40 43 ...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  $ smoking       : Factor w/ 4 levels "1","2","3","7": 1 1 3 2 3 1 1 2 1 2 ...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  $ BMI           : num  996 996 996 999 999 999 997 996 996 999 ...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  $ height        : num  0.331 0.646 0.973 0.363 0.801 ...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  $ weight        : num  80.7 79.5 59.9 75.3 58.8 ...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  $ interview_date: Date, format: "2005-07-01" "2005-09-11" ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 'data.frame':	100 obs. of  10 variables:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  $ age               : int  35 999 72 997 55 998 52 19 43 50 ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  $ smoking           : Factor w/ 4 levels "1","2","3","7": 3 1 1 2 1 3 1 2 3 3 ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  $ BMI               : num  996 31.5 21 28.4 29.5 ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  $ height            : num  1.69 1.67 2.39 1.51 1.96 ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  $ weight            : num  54.5 89.1 78.8 73.6 65.4 ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  $ interview_date    : Date, format: "2004-10-20" "2004-01-11" ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  $ death_date        : Date, format: NA NA ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  $ ltfu_date         : Date, format: NA NA ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  $ admin_censor_date : Date, format: "2006-06-15" "2017-08-27" ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  $ primary_event_date: Date, format: NA NA ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  - attr(*, "mockdata_diagnostics")=List of 2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   ..$ spec_version: chr "0.4.0"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   ..$ variables   :List of 10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. ..$ age               :List of 6</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n                               : int 100</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ preexisting_missing_code_indices: int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_indices        : int [1:10] 83 38 68 73 4 6 49 40 75 2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_codes          : chr [1:10] "997" "997" "997" "997" ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_indices        : Named list()</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_values         : Named list()</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. ..$ smoking           :List of 6</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n                               : int 100</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ preexisting_missing_code_indices: int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_indices        : int [1:3] 31 45 50</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_codes          : chr [1:3] "7" "7" "7"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_indices        : Named list()</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_values         : Named list()</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. ..$ BMI               :List of 6</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n                               : int 100</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ preexisting_missing_code_indices: int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_indices        : int [1:39] 50 16 100 85 70 81 72 86 44 58 ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_codes          : chr [1:39] "996" "996" "996" "996" ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_indices        :List of 2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ low : int 49</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ high: int 80</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_values         :List of 2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ low : num -10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ high: num 136</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. ..$ height            :List of 6</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n                               : int 100</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ preexisting_missing_code_indices: int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_indices        : int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_codes          : chr(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_indices        :List of 2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ low : int 20</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ high: int 3</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_values         :List of 2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ low : num 0.166</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ high: num 2.39</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. ..$ weight            :List of 6</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n                               : int 100</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ preexisting_missing_code_indices: int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_indices        : int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_codes          : chr(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_indices        : Named list()</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_values         : Named list()</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. ..$ interview_date    :List of 6</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n                               : int 100</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ preexisting_missing_code_indices: int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_indices        : int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_codes          : chr(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_indices        : Named list()</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_values         : Named list()</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. ..$ primary_event_date:List of 11</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n                               : int 100</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ preexisting_missing_code_indices: int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_indices        : int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_codes          : chr(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_indices        :List of 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ high: int 97</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_values         :List of 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ high: Date[1:1], format: "2039-11-19"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ derived                         : logi TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ anchor                          : chr "interview_date"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ censored_by                     : chr "death_date"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ depends_on                      : chr [1:2] "interview_date" "death_date"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n_events                        : int 30</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. ..$ death_date        :List of 10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n                               : int 100</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ preexisting_missing_code_indices: int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_indices        : int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_codes          : chr(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_indices        :List of 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ high: int 28</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_values         :List of 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ high: Date[1:1], format: "2053-05-01"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ derived                         : logi TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ anchor                          : chr "interview_date"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ depends_on                      : chr "interview_date"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n_events                        : int 20</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. ..$ ltfu_date         :List of 10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n                               : int 100</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ preexisting_missing_code_indices: int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_indices        : int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_codes          : chr(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_indices        :List of 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ high: int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_values         :List of 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. .. ..$ high: chr(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ derived                         : logi TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ anchor                          : chr "interview_date"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ depends_on                      : chr "interview_date"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n_events                        : int 10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. ..$ admin_censor_date :List of 10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n                               : int 100</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ preexisting_missing_code_indices: int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_indices        : int(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_missing_codes          : chr(0) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_indices        : Named list()</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ assigned_garbage_values         : Named list()</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ derived                         : logi TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ anchor                          : chr "interview_date"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ depends_on                      : chr "interview_date"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   .. .. ..$ n_events                        : int 100</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Columns with straightforward metadata generate cleanly:</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">mock_data</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"smoking"</span>, <span class="st">"interview_date"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   age smoking interview_date</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1  42       1     2005-07-01</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2  47       1     2005-09-11</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3  73       3     2003-09-25</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4  51       2     2005-08-09</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5  52       3     2004-07-13</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6  76       1     2002-12-14</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1  35       3     2004-10-20</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2 999       1     2004-01-11</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3  72       1     2002-01-21</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4 997       2     2004-06-25</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5  55       1     2001-02-22</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6 998       3     2004-01-12</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Fallback mode: no variable_details, simple default generators</span></span></span>
+<span class="r-in"><span><span class="co"># Fallback mode: no variable_details, simple default generators. Survival</span></span></span>
+<span class="r-in"><span><span class="co"># dates need the v0.4 pipeline, so drop the rows that set an anchor first.</span></span></span>
+<span class="r-in"><span><span class="va">fallback_variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata/minimal-example/variables.csv"</span>, package <span class="op">=</span> <span class="st">"MockData"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span>,</span></span>
+<span class="r-in"><span>  check.names <span class="op">=</span> <span class="cn">FALSE</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">mock_data</span> <span class="op">&lt;-</span> <span class="fu">create_mock_data</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  databaseStart <span class="op">=</span> <span class="st">"minimal-example"</span>,</span></span>
-<span class="r-in"><span>  variables <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata/minimal-example/variables.csv"</span>,</span></span>
-<span class="r-in"><span>    package <span class="op">=</span> <span class="st">"MockData"</span></span></span>
-<span class="r-in"><span>  <span class="op">)</span>,</span></span>
+<span class="r-in"><span>  variables <span class="op">=</span> <span class="va">fallback_variables</span><span class="op">[</span><span class="va">fallback_variables</span><span class="op">$</span><span class="va">anchor</span> <span class="op">==</span> <span class="st">""</span>, <span class="op">]</span>,</span></span>
 <span class="r-in"><span>  variable_details <span class="op">=</span> <span class="cn">NULL</span>,</span></span>
 <span class="r-in"><span>  n <span class="op">=</span> <span class="fl">500</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
@@ -249,10 +363,6 @@ see <code><a href="../articles/reference-config.html">vignette("reference-config
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>No variable_details rows found for variable 'weight' and databaseStart 'minimal-example'. Using fallback uniform range [0, 100].</span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>No variable_details rows found for variable 'BMI_derived' and databaseStart 'minimal-example'. Using fallback uniform range [0, 100].</span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>No variable_details rows found for variable 'interview_date' and databaseStart 'minimal-example'. Using fallback date range [2000-01-01, 2025-12-31].</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>No variable_details rows found for variable 'primary_event_date' and databaseStart 'minimal-example'. Using fallback date range [2000-01-01, 2025-12-31].</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>No variable_details rows found for variable 'death_date' and databaseStart 'minimal-example'. Using fallback date range [2000-01-01, 2025-12-31].</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>No variable_details rows found for variable 'ltfu_date' and databaseStart 'minimal-example'. Using fallback date range [2000-01-01, 2025-12-31].</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>No variable_details rows found for variable 'admin_censor_date' and databaseStart 'minimal-example'. Using fallback date range [2000-01-01, 2025-12-31].</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
@@ -267,7 +377,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

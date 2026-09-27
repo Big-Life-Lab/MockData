@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,6 +49,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -56,6 +57,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -93,473 +95,166 @@
 
 
     <div class="vignette-about">
-<p><strong>About this vignette:</strong> This tutorial teaches survival data generation for cohort studies. You’ll learn how to create time-to-event data with competing risks (death, disease incidence, loss-to-follow-up), apply temporal ordering constraints, and generate survival indicators for analysis. All code examples run during vignette build to ensure accuracy.</p>
+<p><strong>About this vignette:</strong> A first walk through survival data for cohort studies: an entry date, event dates, a competing risk (death) and censoring. You will see how survival dates are described in <code>variables.csv</code>, generate them with <code><a href="../reference/create_mock_data.html">create_mock_data()</a></code>, and check the rules MockData applies. All code runs during the vignette build, and hidden checks stop the build if MockData stops behaving as this page describes.</p>
 </div>
 <section class="level2"><h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>Survival analysis requires careful coordination of multiple date variables with strict temporal ordering:</p>
+<p>Survival analysis needs several date variables that respect each other:</p>
 <ul>
 <li>
 <strong>Cohort entry date</strong> (baseline, index date)</li>
 <li>
 <strong>Event dates</strong> (disease incidence, outcomes of interest)</li>
 <li>
-<strong>Competing risks</strong> (death prevents observation of primary event)</li>
+<strong>Competing risks</strong> (death prevents observation of the primary event)</li>
 <li>
-<strong>Censoring events</strong> (loss to follow-up, administrative censoring)</li>
+<strong>Censoring</strong> (loss to follow-up, administrative censoring)</li>
 </ul>
-<p>MockData’s <code><a href="../reference/create_wide_survival_data.html">create_wide_survival_data()</a></code> generates these dates with proper temporal constraints and realistic distributions.</p>
-<div>
-<blockquote>
-<p><strong>About this tutorial: Clean survival data with correct temporal ordering</strong></p>
-<p>This tutorial teaches how to create <strong>meaningful, analysis-ready survival data</strong> with correct temporal ordering. All dates follow proper survival analysis constraints (entry ≤ event, death as competing risk, etc.).</p>
-<p><strong>For data quality testing:</strong> If you need to generate <strong>raw data with temporal violations</strong> (e.g., death before entry, impossible dates) for testing data cleaning pipelines, see the <a href="tutorial-garbage-data.html#survival-data-garbage">Garbage data tutorial</a> which covers survival-specific garbage patterns.</p>
-</blockquote>
-</div>
-</section><section class="level2"><h2 id="basic-survival-data-generation">Basic survival data generation<a class="anchor" aria-label="anchor" href="#basic-survival-data-generation"></a>
+<p><code><a href="../reference/create_mock_data.html">create_mock_data()</a></code> generates all of these from metadata. A survival date is a date variable whose row in <code>variables.csv</code> names, in the <code>anchor</code> column, the entry date it is generated from.</p>
+</section><section class="level2"><h2 id="survival-dates-in-the-metadata">Survival dates in the metadata<a class="anchor" aria-label="anchor" href="#survival-dates-in-the-metadata"></a>
 </h2>
-<section class="level3"><h3 id="minimal-example-entry-event">Minimal example: entry + event<a class="anchor" aria-label="anchor" href="#minimal-example-entry-event"></a>
-</h3>
-<p>The simplest survival data has two dates: cohort entry and a single event.</p>
+<p>The packaged minimal example has an entry date and four survival dates:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Load minimal-example metadata</span></span>
-<span><span class="va">variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata/minimal-example/variables.csv"</span>, package <span class="op">=</span> <span class="st">"MockData"</span><span class="op">)</span>,</span>
 <span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  check.names <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
-<span></span>
 <span><span class="va">variable_details</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata/minimal-example/variable_details.csv"</span>, package <span class="op">=</span> <span class="st">"MockData"</span><span class="op">)</span>,</span>
 <span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  check.names <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Generate entry + event dates</span></span>
-<span><span class="va">surv_basic</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_wide_survival_data.html">create_wide_survival_data</a></span><span class="op">(</span></span>
-<span>  var_entry_date <span class="op">=</span> <span class="st">"interview_date"</span>,</span>
-<span>  var_event_date <span class="op">=</span> <span class="st">"primary_event_date"</span>, <span class="co"># disease incidence or similar</span></span>
-<span>  var_death_date <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  var_ltfu <span class="op">=</span> <span class="cn">NULL</span>,  <span class="co"># Loss to follow-up</span></span>
-<span>  var_admin_censor <span class="op">=</span> <span class="cn">NULL</span>, <span class="co"># i.e. End of study follow-up</span></span>
+<span><span class="va">survival_columns</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"variable"</span>, <span class="st">"anchor"</span>, <span class="st">"censored_by"</span>, <span class="st">"distribution"</span>,</span>
+<span>                      <span class="st">"followup_min"</span>, <span class="st">"followup_max"</span>, <span class="st">"event_prop"</span><span class="op">)</span></span>
+<span><span class="va">date_rows</span> <span class="op">&lt;-</span> <span class="va">variables</span><span class="op">$</span><span class="va">rType</span> <span class="op">==</span> <span class="st">"date"</span></span>
+<span><span class="va">variables</span><span class="op">[</span><span class="va">date_rows</span>, <span class="va">survival_columns</span><span class="op">]</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>             variable         anchor censored_by distribution followup_min
+7      interview_date                                 uniform           NA
+8  primary_event_date interview_date  death_date     gompertz            0
+9          death_date interview_date                 gompertz          365
+10          ltfu_date interview_date                  uniform          365
+11  admin_censor_date interview_date                                   365
+   followup_max event_prop
+7            NA         NA
+8          5475        0.3
+9          7300        0.2
+10         7300        0.1
+11         7300        1.0</code></pre>
+</div>
+</div>
+<p>Each survival date has:</p>
+<ul>
+<li>
+<code>anchor</code>: the entry-date variable it is generated from (<code>interview_date</code>)</li>
+<li>
+<code>followup_min</code>, <code>followup_max</code>: the follow-up window, in days after the anchor</li>
+<li>
+<code>event_prop</code>: the share of people who have the event; the rest are <code>NA</code> (censored)</li>
+<li>
+<code>distribution</code>: how follow-up times spread across the window (<code>uniform</code>, <code>exponential</code> or <code>gompertz</code>)</li>
+<li>
+<code>censored_by</code> (optional): a competing survival date. Where it comes first, this date is set to <code>NA</code>. Here <code>death_date</code> censors <code>primary_event_date</code>.</li>
+</ul></section><section class="level2"><h2 id="generating-survival-data">Generating survival data<a class="anchor" aria-label="anchor" href="#generating-survival-data"></a>
+</h2>
+<p>The minimal example also adds future-date garbage to its survival dates, for data-quality testing. This section removes it to show clean data; the last section puts it back.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">clean_variables</span> <span class="op">&lt;-</span> <span class="va">variables</span></span>
+<span><span class="va">clean_variables</span><span class="op">$</span><span class="va">garbage_high_prop</span><span class="op">[</span><span class="va">date_rows</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">0</span></span>
+<span></span>
+<span><span class="va">mock</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_mock_data.html">create_mock_data</a></span><span class="op">(</span></span>
 <span>  databaseStart <span class="op">=</span> <span class="st">"minimal-example"</span>,</span>
-<span>  variables <span class="op">=</span> <span class="va">variables</span>,</span>
+<span>  variables <span class="op">=</span> <span class="va">clean_variables</span>,</span>
 <span>  variable_details <span class="op">=</span> <span class="va">variable_details</span>,</span>
-<span>  n <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  n <span class="op">=</span> <span class="fl">2000</span>,</span>
 <span>  seed <span class="op">=</span> <span class="fl">123</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># View first few rows</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">surv_basic</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">surv</span> <span class="op">&lt;-</span> <span class="va">mock</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"interview_date"</span>, <span class="st">"primary_event_date"</span>, <span class="st">"death_date"</span>,</span>
+<span>                 <span class="st">"ltfu_date"</span>, <span class="st">"admin_censor_date"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">surv</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>  interview_date primary_event_date
-1     2002-02-19               &lt;NA&gt;
-2     2002-04-08         2002-05-23
-3     2001-06-28               &lt;NA&gt;
-4     2002-06-10               &lt;NA&gt;
-5     2001-07-14               &lt;NA&gt;
-6     2003-07-27               &lt;NA&gt;</code></pre>
+<pre><code>  interview_date primary_event_date death_date ltfu_date admin_censor_date
+1     2004-10-23         2004-12-24       &lt;NA&gt;      &lt;NA&gt;        2020-12-03
+2     2004-01-10         2004-03-20 2005-01-09      &lt;NA&gt;        2011-05-25
+3     2004-01-15         2004-04-02       &lt;NA&gt;      &lt;NA&gt;        2020-06-02
+4     2005-06-02         2005-08-07       &lt;NA&gt;      &lt;NA&gt;        2022-11-28
+5     2003-10-19         2003-12-30       &lt;NA&gt;      &lt;NA&gt;        2008-06-14
+6     2005-03-24               &lt;NA&gt;       &lt;NA&gt;      &lt;NA&gt;        2008-08-26</code></pre>
 </div>
 </div>
-<p><strong>Result:</strong> Each row has an interview date (cohort entry) and primary event date. Some event dates are <code>NA</code> (censored - event did not occur during follow-up).</p>
-</section><section class="level3"><h3 id="event-proportions">Event proportions<a class="anchor" aria-label="anchor" href="#event-proportions"></a>
-</h3>
-<p>Not all individuals experience the primary event. The <code>event_prop</code> parameter in variables.csv controls event occurrence rate:</p>
-<p><strong>Configuration:</strong> The primary_event_date variable has <code>event_prop = 0.3</code> in variables.csv, meaning 30% of individuals experience the event.</p>
-<p><strong>Observed:</strong> 300 out of 1000 individuals (30%) experienced the primary event.</p>
-</section></section><section class="level2"><h2 id="competing-risks-adding-death">Competing risks: adding death<a class="anchor" aria-label="anchor" href="#competing-risks-adding-death"></a>
+<p>Each row has an interview date (cohort entry). Survival dates that did not occur are <code>NA</code>. <code>death_date</code> has <code>event_prop = 0.2</code>, and 400 of 2000 people have a death date: exactly <code>floor(n * event_prop)</code>, because MockData assigns a fixed number of events and shuffles who receives them.</p>
+</section><section class="level2"><h2 id="competing-risks-and-temporal-rules">Competing risks and temporal rules<a class="anchor" aria-label="anchor" href="#competing-risks-and-temporal-rules"></a>
 </h2>
-<p>Death is a competing risk - individuals who die cannot experience the primary event. MockData handles this temporal logic automatically.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Generate entry + event + death</span></span>
-<span><span class="va">surv_compete</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_wide_survival_data.html">create_wide_survival_data</a></span><span class="op">(</span></span>
-<span>  var_entry_date <span class="op">=</span> <span class="st">"interview_date"</span>,</span>
-<span>  var_event_date <span class="op">=</span> <span class="st">"primary_event_date"</span>,</span>
-<span>  var_death_date <span class="op">=</span> <span class="st">"death_date"</span>,</span>
-<span>  var_ltfu <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  var_admin_censor <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  databaseStart <span class="op">=</span> <span class="st">"minimal-example"</span>,</span>
-<span>  variables <span class="op">=</span> <span class="va">variables</span>,</span>
-<span>  variable_details <span class="op">=</span> <span class="va">variable_details</span>,</span>
-<span>  n <span class="op">=</span> <span class="fl">1000</span>,</span>
-<span>  seed <span class="op">=</span> <span class="fl">456</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Check temporal ordering</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">surv_compete</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"interview_date"</span>, <span class="st">"primary_event_date"</span>, <span class="st">"death_date"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>  interview_date primary_event_date death_date
-1     2005-11-08         2006-01-17       &lt;NA&gt;
-2     2005-02-17               &lt;NA&gt;       &lt;NA&gt;
-3     2003-07-20               &lt;NA&gt;       &lt;NA&gt;
-4     2002-07-04               &lt;NA&gt;       &lt;NA&gt;
-5     2002-04-14         2002-06-07       &lt;NA&gt;
-6     2004-06-29         2004-09-13       &lt;NA&gt;</code></pre>
-</div>
-</div>
-<section class="level3"><h3 id="competing-risk-logic">Competing risk logic<a class="anchor" aria-label="anchor" href="#competing-risk-logic"></a>
-</h3>
-<p>MockData applies these rules:</p>
+<p>MockData applies two rules to each survival date:</p>
 <ol type="1">
 <li>
-<strong>Entry date is baseline</strong>: All other dates occur after entry</li>
+<strong>Entry is the baseline.</strong> A date earlier than its anchor is set to <code>NA</code>.</li>
 <li>
-<strong>Death prevents events</strong>: If death &lt; event, set event to NA (cannot observe event after death)</li>
-<li>
-<strong>Temporal ordering</strong>: interview_date ≤ event_date, interview_date ≤ death_date</li>
+<strong>Competing risks.</strong> If a date has <code>censored_by</code>, it is set to <code>NA</code> wherever the censoring date is earlier: death before a primary event means the event cannot be observed.</li>
 </ol>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Verify temporal ordering</span></span>
-<span><span class="co"># Note: Dates are already R Date objects (sourceFormat = "analysis" in variables.csv)</span></span>
-<span><span class="va">interview_dates</span> <span class="op">&lt;-</span> <span class="va">surv_compete</span><span class="op">$</span><span class="va">interview_date</span></span>
-<span><span class="va">event_dates</span> <span class="op">&lt;-</span> <span class="va">surv_compete</span><span class="op">$</span><span class="va">primary_event_date</span></span>
-<span><span class="va">death_dates</span> <span class="op">&lt;-</span> <span class="va">surv_compete</span><span class="op">$</span><span class="va">death_date</span></span>
-<span></span>
-<span><span class="co"># Check: All events occur after entry</span></span>
-<span><span class="va">all_events_after_entry</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span></span>
-<span>  <span class="va">event_dates</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">event_dates</span><span class="op">)</span><span class="op">]</span> <span class="op">&gt;=</span> <span class="va">interview_dates</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">event_dates</span><span class="op">)</span><span class="op">]</span>,</span>
-<span>  na.rm <span class="op">=</span> <span class="cn">TRUE</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Check: All deaths occur after entry</span></span>
-<span><span class="va">all_deaths_after_entry</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span></span>
-<span>  <span class="va">death_dates</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">death_dates</span><span class="op">)</span><span class="op">]</span> <span class="op">&gt;=</span> <span class="va">interview_dates</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">death_dates</span><span class="op">)</span><span class="op">]</span>,</span>
-<span>  na.rm <span class="op">=</span> <span class="cn">TRUE</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">events_after_entry</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">surv</span><span class="op">$</span><span class="va">primary_event_date</span> <span class="op">&gt;=</span> <span class="va">surv</span><span class="op">$</span><span class="va">interview_date</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">deaths_after_entry</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">surv</span><span class="op">$</span><span class="va">death_date</span> <span class="op">&gt;=</span> <span class="va">surv</span><span class="op">$</span><span class="va">interview_date</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">events_after_death</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">surv</span><span class="op">$</span><span class="va">death_date</span> <span class="op">&lt;</span> <span class="va">surv</span><span class="op">$</span><span class="va">primary_event_date</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 </div>
-<p><strong>Temporal ordering validation:</strong></p>
 <ul>
-<li>All events occur after entry: TRUE</li>
-<li>All deaths occur after entry: TRUE</li>
+<li>All events on or after entry: TRUE</li>
+<li>All deaths on or after entry: TRUE</li>
+<li>Events recorded after a death: 0</li>
 </ul>
-<p>This confirms MockData correctly enforces temporal constraints.</p>
-</section></section><section class="level2"><h2 id="complete-survival-data-entry-event-death-censoring">Complete survival data: entry + event + death + censoring<a class="anchor" aria-label="anchor" href="#complete-survival-data-entry-event-death-censoring"></a>
-</h2>
-<p>Real cohort studies have multiple censoring mechanisms:</p>
-<ul>
-<li>
-<strong>Loss to follow-up</strong>: Participants drop out</li>
-<li>
-<strong>Administrative censoring</strong>: Study ends on specific date</li>
-</ul>
+<p>In the minimal example no death comes before an event, so the competing-risk rule never applies. Its Gompertz parameters put every death exactly 365 days after entry and every primary event within 88 days (<a href="https://github.com/Big-Life-Lab/MockData/issues/54" class="external-link">#54</a>). This small specification shows the rule at work, with follow-up times that overlap:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Generate complete survival data (all 5 date variables)</span></span>
-<span><span class="va">surv_complete</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_wide_survival_data.html">create_wide_survival_data</a></span><span class="op">(</span></span>
-<span>  var_entry_date <span class="op">=</span> <span class="st">"interview_date"</span>,</span>
-<span>  var_event_date <span class="op">=</span> <span class="st">"primary_event_date"</span>,</span>
-<span>  var_death_date <span class="op">=</span> <span class="st">"death_date"</span>,</span>
-<span>  var_ltfu <span class="op">=</span> <span class="st">"ltfu_date"</span>,</span>
-<span>  var_admin_censor <span class="op">=</span> <span class="st">"admin_censor_date"</span>,</span>
-<span>  databaseStart <span class="op">=</span> <span class="st">"minimal-example"</span>,</span>
-<span>  variables <span class="op">=</span> <span class="va">variables</span>,</span>
-<span>  variable_details <span class="op">=</span> <span class="va">variable_details</span>,</span>
-<span>  n <span class="op">=</span> <span class="fl">2000</span>,</span>
-<span>  seed <span class="op">=</span> <span class="fl">789</span></span>
+<code class="sourceCode R"><span><span class="va">spec</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mock_spec.html">mock_spec</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="../reference/mock_spec_date.html">mock_spec_date</a></span><span class="op">(</span><span class="st">"entry"</span>, range <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2001-01-01"</span>, <span class="st">"2005-12-31"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="../reference/mock_spec_survival.html">mock_spec_survival</a></span><span class="op">(</span><span class="st">"death"</span>, anchor <span class="op">=</span> <span class="st">"entry"</span>,</span>
+<span>    followup_min <span class="op">=</span> <span class="fl">0</span>, followup_max <span class="op">=</span> <span class="fl">3650</span>, event_prop <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="../reference/mock_spec_survival.html">mock_spec_survival</a></span><span class="op">(</span><span class="st">"event"</span>, anchor <span class="op">=</span> <span class="st">"entry"</span>,</span>
+<span>    followup_min <span class="op">=</span> <span class="fl">1825</span>, followup_max <span class="op">=</span> <span class="fl">1825</span>, event_prop <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>    censored_by <span class="op">=</span> <span class="st">"death"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View structure</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">surv_complete</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>  interview_date primary_event_date death_date  ltfu_date admin_censor_date
-1     2003-03-24               &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;        2020-04-12
-2     2003-02-19               &lt;NA&gt;       &lt;NA&gt; 2020-02-15        2010-05-26
-3     2005-03-14         2005-05-16 2006-03-14       &lt;NA&gt;        2024-11-15
-4     2004-08-14               &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;        2018-07-07
-5     2002-10-28         2003-01-16       &lt;NA&gt;       &lt;NA&gt;        2017-10-07
-6     2002-09-16               &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;        2017-10-29</code></pre>
+<span><span class="va">baseline</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/generate_mock_data_native.html">generate_mock_data_native</a></span><span class="op">(</span><span class="va">spec</span>, n <span class="op">=</span> <span class="fl">1000</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">demo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/generate_survival_dates.html">generate_survival_dates</a></span><span class="op">(</span><span class="va">baseline</span>, <span class="va">spec</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">n_censored</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">demo</span><span class="op">$</span><span class="va">event</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
-</div>
-</section><section class="level2"><h2 id="creating-survival-indicators">Creating survival indicators<a class="anchor" aria-label="anchor" href="#creating-survival-indicators"></a>
-</h2>
-<p>Survival analysis requires deriving time-to-event and event indicators from the date variables.</p>
-<section class="level3"><h3 id="calculate-observation-end-date">Calculate observation end date<a class="anchor" aria-label="anchor" href="#calculate-observation-end-date"></a>
-</h3>
-<p>Observation ends at the earliest of: primary event, death, loss to follow-up, or administrative censoring.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Dates are already R Date objects (sourceFormat = "analysis")</span></span>
-<span><span class="co"># Calculate end date (earliest of all outcomes)</span></span>
-<span><span class="co"># Build list of existing date columns</span></span>
-<span><span class="va">date_cols</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"primary_event_date"</span>, <span class="st">"death_date"</span>, <span class="st">"ltfu_date"</span>, <span class="st">"admin_censor_date"</span><span class="op">)</span></span>
-<span><span class="va">existing_cols</span> <span class="op">&lt;-</span> <span class="va">date_cols</span><span class="op">[</span><span class="va">date_cols</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">surv_complete</span><span class="op">)</span><span class="op">]</span></span>
-<span></span>
-<span><span class="co"># Calculate minimum date across existing columns</span></span>
-<span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">existing_cols</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="co"># Use row-wise minimum to avoid pmin Inf issues with all-NA rows</span></span>
-<span>  <span class="va">surv_complete</span><span class="op">$</span><span class="va">t_end</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">surv_complete</span><span class="op">[</span>, <span class="va">existing_cols</span>, drop <span class="op">=</span> <span class="cn">FALSE</span><span class="op">]</span>, <span class="fl">1</span>, <span class="kw">function</span><span class="op">(</span><span class="va">row_dates</span><span class="op">)</span> <span class="op">{</span></span>
-<span>      <span class="va">valid_dates</span> <span class="op">&lt;-</span> <span class="va">row_dates</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">row_dates</span><span class="op">)</span><span class="op">]</span></span>
-<span>      <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">valid_dates</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="kw"><a href="https://rdrr.io/r/base/function.html" class="external-link">return</a></span><span class="op">(</span><span class="cn">NA_real_</span><span class="op">)</span></span>
-<span>      <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">valid_dates</span><span class="op">)</span></span>
-<span>    <span class="op">}</span><span class="op">)</span>,</span>
-<span>    origin <span class="op">=</span> <span class="st">"1970-01-01"</span></span>
-<span>  <span class="op">)</span></span>
-<span><span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
-<span>  <span class="va">surv_complete</span><span class="op">$</span><span class="va">t_end</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="cn">NA</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span></span>
-<span><span class="co"># Calculate follow-up time in days</span></span>
-<span><span class="co"># Date subtraction returns difftime object; convert to numeric days</span></span>
-<span><span class="va">surv_complete</span><span class="op">$</span><span class="va">followup_days</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/difftime.html" class="external-link">difftime</a></span><span class="op">(</span><span class="va">surv_complete</span><span class="op">$</span><span class="va">t_end</span>, <span class="va">surv_complete</span><span class="op">$</span><span class="va">interview_date</span>, units <span class="op">=</span> <span class="st">"days"</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">surv_complete</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"interview_date"</span>, <span class="st">"t_end"</span>, <span class="st">"followup_days"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>  interview_date      t_end followup_days
-1     2003-03-24 2020-04-12          6229
-2     2003-02-19 2010-05-26          2653
-3     2005-03-14 2005-05-16            63
-4     2004-08-14 2018-07-07          5075
-5     2002-10-28 2003-01-16            80
-6     2002-09-16 2017-10-29          5522</code></pre>
-</div>
-</div>
-</section><section class="level3"><h3 id="create-event-indicator">Create event indicator<a class="anchor" aria-label="anchor" href="#create-event-indicator"></a>
-</h3>
-<p>Event indicator identifies why observation ended:</p>
-<ul>
-<li>
-<strong>0</strong>: Censored (loss to follow-up or administrative censoring)</li>
-<li>
-<strong>1</strong>: Primary event occurred</li>
-<li>
-<strong>2</strong>: Death occurred (competing risk)</li>
-</ul>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Create event indicator</span></span>
-<span><span class="va">surv_complete</span><span class="op">$</span><span class="va">event_indicator</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span></span>
-<span>  <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">surv_complete</span><span class="op">$</span><span class="va">primary_event_date</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">surv_complete</span><span class="op">$</span><span class="va">primary_event_date</span> <span class="op">==</span> <span class="va">surv_complete</span><span class="op">$</span><span class="va">t_end</span>, <span class="fl">1</span>,  <span class="co"># Event</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">surv_complete</span><span class="op">$</span><span class="va">death_date</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">surv_complete</span><span class="op">$</span><span class="va">death_date</span> <span class="op">==</span> <span class="va">surv_complete</span><span class="op">$</span><span class="va">t_end</span>, <span class="fl">2</span>,  <span class="co"># Death</span></span>
-<span>  <span class="fl">0</span><span class="op">)</span>  <span class="co"># Censored</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Tabulate outcomes</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">surv_complete</span><span class="op">$</span><span class="va">event_indicator</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>
-   0    1    2
-1132  582  286 </code></pre>
-</div>
-</div>
-<p><strong>Result:</strong></p>
-<ul>
-<li>
-<strong>Censored (0)</strong>: 1132 (56.6%) - lost to follow-up or administratively censored</li>
-<li>
-<strong>Primary event (1)</strong>: 582 (29.1%) - experienced primary event</li>
-<li>
-<strong>Death (2)</strong>: 286 (14.3%) - died before primary event</li>
-</ul></section></section><section class="level2"><h2 id="distributions-for-survival-data">Distributions for survival data<a class="anchor" aria-label="anchor" href="#distributions-for-survival-data"></a>
-</h2>
-<p>Survival dates use realistic distributions to match real-world patterns:</p>
-<p><strong>Uniform</strong>: Constant hazard (administrative censoring, loss to follow-up)</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">distribution</span> <span class="op">=</span> <span class="st">"uniform"</span></span></code></pre></div>
-<p><strong>Gompertz</strong>: Age-dependent hazard (death, chronic disease)</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">distribution</span> <span class="op">=</span> <span class="st">"gompertz"</span></span>
-<span><span class="va">rate</span> <span class="op">=</span> <span class="fl">0.0001</span></span>
-<span><span class="va">shape</span> <span class="op">=</span> <span class="fl">0.1</span></span></code></pre></div>
-<p><strong>Exponential</strong>: Constant hazard with early concentration</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">distribution</span> <span class="op">=</span> <span class="st">"exponential"</span></span>
-<span><span class="va">rate</span> <span class="op">=</span> <span class="fl">0.001</span></span></code></pre></div>
-<p>Distribution parameters are specified in variables.csv and used automatically by <code><a href="../reference/create_wide_survival_data.html">create_wide_survival_data()</a></code>.</p>
-</section><section class="level2"><h2 id="date-output-formats-sourceformat-column">Date output formats: sourceFormat column<a class="anchor" aria-label="anchor" href="#date-output-formats-sourceformat-column"></a>
-</h2>
-<p>By default, survival dates are generated as R Date objects (<code>sourceFormat = "analysis"</code>). However, you can simulate different raw data formats using the <code>sourceFormat</code> column in variables.csv:</p>
-<p><strong>Available sourceFormat values:</strong></p>
-<ul>
-<li>
-<strong>analysis</strong> (default): R Date objects ready for analysis</li>
-<li>
-<strong>csv</strong>: Character strings in ISO format (YYYY-MM-DD), simulating CSV file imports</li>
-<li>
-<strong>sas</strong>: Numeric values (days since 1960-01-01), simulating SAS date format</li>
-</ul>
-<p><strong>Why this matters:</strong></p>
-<p>Real cohort data doesn’t arrive as clean R Date objects:</p>
-<ul>
-<li>CSV files from survey instruments contain character dates requiring parsing</li>
-<li>SAS files may have numeric dates that need conversion</li>
-<li>Different data sources require different harmonization approaches</li>
-</ul>
-<p><strong>Example: Testing different source formats</strong></p>
-<p>The <code>sourceFormat</code> value in variables.csv controls the output format. Let’s generate interview_date in SAS numeric format while keeping other dates in analysis format:</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Modify only interview_date to use SAS format</span></span>
-<span><span class="va">vars_sas</span> <span class="op">&lt;-</span> <span class="va">variables</span></span>
-<span><span class="va">vars_sas</span><span class="op">$</span><span class="va">sourceFormat</span><span class="op">[</span><span class="va">vars_sas</span><span class="op">$</span><span class="va">variable</span> <span class="op">==</span> <span class="st">"interview_date"</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="st">"sas"</span></span>
-<span></span>
-<span><span class="va">surv_sas</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_wide_survival_data.html">create_wide_survival_data</a></span><span class="op">(</span></span>
-<span>  var_entry_date <span class="op">=</span> <span class="st">"interview_date"</span>,</span>
-<span>  var_event_date <span class="op">=</span> <span class="st">"primary_event_date"</span>,</span>
-<span>  var_death_date <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  var_ltfu <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  var_admin_censor <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  databaseStart <span class="op">=</span> <span class="st">"minimal-example"</span>,</span>
-<span>  variables <span class="op">=</span> <span class="va">vars_sas</span>,  <span class="co"># Modified to use SAS format for interview_date</span></span>
-<span>  variable_details <span class="op">=</span> <span class="va">variable_details</span>,</span>
-<span>  n <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  seed <span class="op">=</span> <span class="fl">123</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Check the format: interview_date is numeric (SAS), others are Date</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">surv_sas</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>  interview_date primary_event_date
-1          15390         2012-05-06
-2          15438               &lt;NA&gt;
-3          15154         2011-09-15
-4          15501               &lt;NA&gt;
-5          15170               &lt;NA&gt;
-6          15913               &lt;NA&gt;</code></pre>
-</div>
-</div>
-<p><strong>Result:</strong> The <code>interview_date</code> column is numeric (days since 1960-01-01), while <code>primary_event_date</code> remains a Date object. This simulates mixed-format raw data that requires harmonization.</p>
-<p>To convert SAS dates to R Date format:</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Convert SAS numeric dates to R Date</span></span>
-<span><span class="va">interview_converted</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="va">surv_sas</span><span class="op">$</span><span class="va">interview_date</span>, origin <span class="op">=</span> <span class="st">"1960-01-01"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">interview_converted</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "2002-02-19" "2002-04-08" "2001-06-28" "2002-06-10" "2001-07-14"
-[6] "2003-07-27"</code></pre>
-</div>
-</div>
+<p>Everyone would have the event (<code>event_prop = 1</code>) exactly five years after entry, but 246 of 1,000 events are removed because death came first.</p>
+<p>One caveat about the example: <code>admin_censor_date</code> is a survival date with <code>event_prop = 1</code>, so each person gets a random date, 1751 distinct dates in all, rather than one study end date (<a href="https://github.com/Big-Life-Lab/MockData/issues/55" class="external-link">#55</a>).</p>
 </section><section class="level2"><h2 id="temporal-violations-for-qa-testing">Temporal violations for QA testing<a class="anchor" aria-label="anchor" href="#temporal-violations-for-qa-testing"></a>
 </h2>
-<p>The minimal-example metadata includes temporal violations through the <code>garbage_high_prop</code> and <code>garbage_high_range</code> parameters. These generate future dates that violate temporal constraints for testing validation pipelines:</p>
+<p>With its garbage settings back, the minimal example adds future dates to its survival dates. MockData applies garbage after the temporal rules, so the violations stay in the output for your validation pipeline to find:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Generate survival data with configured garbage dates</span></span>
-<span><span class="va">surv_qa</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_wide_survival_data.html">create_wide_survival_data</a></span><span class="op">(</span></span>
-<span>  var_entry_date <span class="op">=</span> <span class="st">"interview_date"</span>,</span>
-<span>  var_event_date <span class="op">=</span> <span class="st">"primary_event_date"</span>,</span>
-<span>  var_death_date <span class="op">=</span> <span class="st">"death_date"</span>,</span>
-<span>  var_ltfu <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  var_admin_censor <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">mock_qa</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_mock_data.html">create_mock_data</a></span><span class="op">(</span></span>
 <span>  databaseStart <span class="op">=</span> <span class="st">"minimal-example"</span>,</span>
 <span>  variables <span class="op">=</span> <span class="va">variables</span>,</span>
 <span>  variable_details <span class="op">=</span> <span class="va">variable_details</span>,</span>
 <span>  n <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  seed <span class="op">=</span> <span class="fl">999</span></span>
 <span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Check for temporal violations</span></span>
-<span><span class="co"># Look for events that occur after impossibly far in the future (2025+)</span></span>
 <span><span class="va">future_threshold</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">"2025-01-01"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Count future dates in primary_event_date</span></span>
-<span><span class="va">n_future_events</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">surv_qa</span><span class="op">$</span><span class="va">primary_event_date</span> <span class="op">&gt;</span> <span class="va">future_threshold</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Count future dates in death_date</span></span>
-<span><span class="va">n_future_deaths</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">surv_qa</span><span class="op">$</span><span class="va">death_date</span> <span class="op">&gt;</span> <span class="va">future_threshold</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Total violations</span></span>
-<span><span class="va">n_violations</span> <span class="op">&lt;-</span> <span class="va">n_future_events</span> <span class="op">+</span> <span class="va">n_future_deaths</span></span>
-<span><span class="va">prop_violations</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span> <span class="op">*</span> <span class="va">n_violations</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">surv_qa</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">n_future_events</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">mock_qa</span><span class="op">$</span><span class="va">primary_event_date</span> <span class="op">&gt;</span> <span class="va">future_threshold</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">n_future_deaths</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">mock_qa</span><span class="op">$</span><span class="va">death_date</span> <span class="op">&gt;</span> <span class="va">future_threshold</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 </div>
-<p><strong>Validation detects:</strong> 14 temporal violations out of 1000 observations (1.4%). These future dates (&gt; 2025-01-01) represent data quality issues that your validation pipeline should flag.</p>
-<p><strong>Breakdown:</strong></p>
 <ul>
 <li>Future primary events: 8</li>
 <li>Future deaths: 6</li>
 </ul>
-<p>This demonstrates how MockData’s garbage parameters help test validation logic by generating realistic data quality issues.</p>
-</section><section class="level2"><h2 id="key-concepts-summary">Key concepts summary<a class="anchor" aria-label="anchor" href="#key-concepts-summary"></a>
+<p>The <a href="tutorial-garbage-data.html#survival-data-garbage">Garbage data tutorial</a> covers survival garbage in more detail.</p>
+</section><section class="level2"><h2 id="next-steps">Next steps<a class="anchor" aria-label="anchor" href="#next-steps"></a>
 </h2>
-<table class="table caption-top">
-<colgroup>
-<col style="width: 26%">
-<col style="width: 47%">
-<col style="width: 26%">
-</colgroup>
-<thead><tr class="header">
-<th>Concept</th>
-<th>Implementation</th>
-<th>Details</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td><strong>Competing risks</strong></td>
-<td>Death prevents primary event</td>
-<td>If death &lt; event, set event to NA</td>
-</tr>
-<tr class="even">
-<td><strong>Event proportions</strong></td>
-<td>
-<code>event_prop</code> in variables.csv</td>
-<td>Controls % experiencing each outcome</td>
-</tr>
-<tr class="odd">
-<td><strong>Temporal ordering</strong></td>
-<td>Automatic constraint enforcement</td>
-<td>All dates ≥ entry date</td>
-</tr>
-<tr class="even">
-<td><strong>Distributions</strong></td>
-<td>Gompertz, uniform, exponential</td>
-<td>Specified in variables.csv</td>
-</tr>
-<tr class="odd">
-<td><strong>End date</strong></td>
-<td><code>pmin(event, death, ltfu, admin)</code></td>
-<td>Earliest outcome defines observation end</td>
-</tr>
-<tr class="even">
-<td><strong>Event indicator</strong></td>
-<td>Derived from date comparison</td>
-<td>0=censored, 1=event, 2=death</td>
-</tr>
-<tr class="odd">
-<td><strong>QA testing</strong></td>
-<td>
-<code>prop_garbage</code> parameter</td>
-<td>Generates temporal violations for validation testing</td>
-</tr>
-</tbody>
-</table></section><section class="level2"><h2 id="what-you-learned">What you learned<a class="anchor" aria-label="anchor" href="#what-you-learned"></a>
-</h2>
-<p>In this tutorial, you learned:</p>
 <ul>
 <li>
-<strong>Basic survival generation</strong>: Entry date + event date with event proportions</li>
+<code><a href="../articles/survival-dates-v05.html">vignette("survival-dates-v05")</a></code>: add survival dates to your own metadata, move from <code><a href="../reference/create_wide_survival_data.html">create_wide_survival_data()</a></code>, and derive observed status and follow-up time</li>
 <li>
-<strong>Competing risks</strong>: Death as a competing event that prevents primary event observation</li>
+<code><a href="../articles/survival-design-v05.html">vignette("survival-design-v05")</a></code>: how the survival stage works, the three layers of data, and what version 0.5 does not yet do</li>
 <li>
-<strong>Temporal constraints</strong>: How MockData enforces proper date ordering</li>
-<li>
-<strong>Complete cohort data</strong>: Entry + event + death + loss-to-follow-up + administrative censoring</li>
-<li>
-<strong>Derived variables</strong>: Creating follow-up time and event indicators from raw dates</li>
-<li>
-<strong>Distributions</strong>: Using Gompertz, uniform, and exponential for realistic temporal patterns</li>
-<li>
-<strong>QA testing</strong>: Generating temporal violations to validate data quality pipelines</li>
-</ul></section><section class="level2"><h2 id="next-steps">Next steps<a class="anchor" aria-label="anchor" href="#next-steps"></a>
-</h2>
-<p><strong>Tutorials:</strong></p>
-<ul>
-<li>
-<a href="tutorial-dates.html">Date variables</a> - Learn interval notation and date distributions</li>
-<li>
-<a href="tutorial-garbage-data.html">Garbage data</a> - Testing validation pipelines</li>
-<li>
-<a href="getting-started.html">Getting started</a> - Review MockData fundamentals</li>
-</ul>
-<p><strong>Reference:</strong></p>
-<ul>
-<li>
-<a href="reference-config.html">Configuration reference</a> - Complete metadata schema</li>
-<li>
-<a href="advanced-topics.html">Advanced topics</a> - Technical implementation details</li>
+<code><a href="../articles/reference-config.html">vignette("reference-config")</a></code>: every survival column</li>
 </ul></section><script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
@@ -655,7 +350,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

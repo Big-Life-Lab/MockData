@@ -25,12 +25,16 @@ generate_mock_data_simstudy(spec, n, seed = NULL)
 
 - seed:
 
-  Optional whole-number random seed. The previous R random state is
-  restored after generation.
+  Optional whole-number seed. Generation uses an isolated L'Ecuyer-CMRG
+  sub-stream and restores the caller's RNG state and kind on exit, so
+  output is reproducible for a given seed and package version without
+  perturbing the caller's RNG.
 
 ## Value
 
-A data frame with one column per `mock_spec` variable and `n` rows.
+A data frame with `n` rows and one column per non-formula `mock_spec`
+variable (`type = "formula"` variables are appended afterwards by
+[`evaluate_mock_formulas()`](https://big-life-lab.github.io/MockData/reference/evaluate_mock_formulas.md)).
 
 ## Details
 
@@ -52,15 +56,24 @@ Missing-code assignment, garbage values, and diagnostics are not
 delegated to `simstudy`. They remain MockData-owned post-processing so
 both backends share the same auditability contract.
 
+Like
+[`generate_mock_data_native()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_native.md),
+this backend skips `type = "formula"` variables — they carry no
+distribution to sample from. They are computed post-baseline by
+[`evaluate_mock_formulas()`](https://big-life-lab.github.io/MockData/reference/evaluate_mock_formulas.md),
+which works over either backend's output.
+
 ## See also
 
 [`generate_mock_data_native()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_native.md),
 [`postprocess_mock_data()`](https://big-life-lab.github.io/MockData/reference/postprocess_mock_data.md),
-[`mock_spec()`](https://big-life-lab.github.io/MockData/reference/mock_spec.md)
+[`mock_spec()`](https://big-life-lab.github.io/MockData/reference/mock_spec.md),
+[`evaluate_mock_formulas()`](https://big-life-lab.github.io/MockData/reference/evaluate_mock_formulas.md)
 
 Other mock generation APIs:
 [`create_mock_data()`](https://big-life-lab.github.io/MockData/reference/create_mock_data.md),
 [`generate_mock_data_native()`](https://big-life-lab.github.io/MockData/reference/generate_mock_data_native.md),
+[`generate_survival_dates()`](https://big-life-lab.github.io/MockData/reference/generate_survival_dates.md),
 [`postprocess_mock_data()`](https://big-life-lab.github.io/MockData/reference/postprocess_mock_data.md)
 
 ## Examples
@@ -72,10 +85,10 @@ if (requireNamespace("simstudy", quietly = TRUE)) {
   head(data)
 }
 #>   age
-#> 1  36
-#> 2  43
-#> 3  56
-#> 4  79
-#> 5  32
-#> 6  78
+#> 1  63
+#> 2  47
+#> 3  79
+#> 4  82
+#> 5  74
+#> 6  41
 ```

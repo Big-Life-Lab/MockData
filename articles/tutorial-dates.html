@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,6 +49,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="../articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="../articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="../articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -56,6 +57,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="../articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="../articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -190,14 +192,14 @@
 <span><span class="co"># View interview date distribution</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">interview_data</span><span class="op">$</span><span class="va">interview_date</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] "2005-07-01" "2005-09-11" "2003-09-25" "2005-08-09" "2004-07-13"
-[6] "2002-12-14"</code></pre>
+<pre><code>[1] "2004-10-20" "2004-01-11" "2002-01-21" "2004-06-25" "2001-02-22"
+[6] "2004-01-12"</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="va">interview_data</span><span class="op">$</span><span class="va">interview_date</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>        Min.      1st Qu.       Median         Mean      3rd Qu.         Max.
-"2001-01-09" "2002-01-16" "2003-03-01" "2003-04-25" "2004-07-16" "2005-10-24" </code></pre>
+"2001-01-09" "2002-04-16" "2003-09-14" "2003-08-31" "2005-03-12" "2005-12-22" </code></pre>
 </div>
 </div>
 <p><strong>Result:</strong> 100 interview dates uniformly distributed between 2001-01-01 and 2005-12-31 (matching the minimal-example metadata).</p>
@@ -635,7 +637,7 @@
 <span><span class="va">prop_future</span> <span class="op">&lt;-</span> <span class="va">n_future</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">birth_data</span><span class="op">)</span></span>
 <span><span class="va">future_dates_sample</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">birth_data</span><span class="op">$</span><span class="va">birth_date</span><span class="op">[</span><span class="va">birth_data</span><span class="op">$</span><span class="va">birth_date</span> <span class="op">&gt;</span> <span class="va">future_threshold</span><span class="op">]</span><span class="op">)</span>, <span class="fl">5</span><span class="op">)</span></span></code></pre></div>
 </div>
-<p><strong>Result:</strong> 20 birth dates (2%) are in the future (after 2025-12-31), which is impossible for current data. Sample of future dates: 2026-01-12, 2026-04-06, 2026-05-14, 2026-05-14, 2026-06-01.</p>
+<p><strong>Result:</strong> 20 birth dates (2%) are in the future (after 2025-12-31), which is impossible for current data. Sample of future dates: 2026-03-13, 2026-08-06, 2026-11-01, 2026-11-19, 2026-12-10.</p>
 <p><strong>Key insight:</strong> Garbage data is now specified at the <strong>variable level</strong> in variables.csv, not in variable_details.csv.</p>
 </section><section class="level3"><h3 id="past-dates-temporal-violations">Past dates (temporal violations)<a class="anchor" aria-label="anchor" href="#past-dates-temporal-violations"></a>
 </h3>
@@ -686,7 +688,7 @@
 <span><span class="va">prop_old</span> <span class="op">&lt;-</span> <span class="va">n_old</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">diag_data</span><span class="op">)</span></span>
 <span><span class="va">old_dates_sample</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">diag_data</span><span class="op">$</span><span class="va">diagnosis_date</span><span class="op">[</span><span class="va">diag_data</span><span class="op">$</span><span class="va">diagnosis_date</span> <span class="op">&lt;</span> <span class="va">old_threshold</span><span class="op">]</span><span class="op">)</span>, <span class="fl">5</span><span class="op">)</span></span></code></pre></div>
 </div>
-<p><strong>Result:</strong> 30 diagnosis dates (3%) are from before 1950-01-01 (1850-1900 range), which is unrealistic for modern medical data. Sample of old dates: 1850-05-18, 1853-03-07, 1854-09-07, 1855-05-01, 1860-06-13.</p>
+<p><strong>Result:</strong> 30 diagnosis dates (3%) are from before 1950-01-01 (1850-1900 range), which is unrealistic for modern medical data. Sample of old dates: 1850-06-16, 1851-06-18, 1853-11-10, 1855-09-11, 1855-11-15.</p>
 </section><section class="level3"><h3 id="use-cases-for-garbage-dates">Use cases for garbage dates<a class="anchor" aria-label="anchor" href="#use-cases-for-garbage-dates"></a>
 </h3>
 <ul>
@@ -697,7 +699,7 @@
 <li>
 <strong>Data cleaning scripts:</strong> Test date range checks and filtering logic</li>
 </ul>
-<p><strong>Note:</strong> For complete examples of garbage date generation integrated into metadata files, see the <a href="https://github.com/Big-Life-Lab/mockData/tree/main/inst/extdata/minimal-example" class="external-link">minimal-example configuration files</a>.</p>
+<p><strong>Note:</strong> For complete examples of garbage date generation integrated into metadata files, see the <a href="https://github.com/Big-Life-Lab/MockData/tree/main/inst/extdata/minimal-example" class="external-link">minimal-example configuration files</a>.</p>
 </section></section><section class="level2"><h2 id="checking-generated-dates">Checking generated dates<a class="anchor" aria-label="anchor" href="#checking-generated-dates"></a>
 </h2>
 <p>After generating dates, validate the results:</p>
@@ -720,7 +722,7 @@
 </div>
 <p><strong>Validation results:</strong></p>
 <ul>
-<li>Date range: 2001-01-09 to 2005-10-24</li>
+<li>Date range: 2001-01-09 to 2005-12-22</li>
 <li>Missing dates: 0</li>
 <li>All dates within expected range (2001-01-01 to 2005-12-31): TRUE</li>
 </ul>
@@ -910,7 +912,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

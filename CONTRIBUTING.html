@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">MockData</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -30,6 +30,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to guides</h6></li>
     <li><a class="dropdown-item" href="articles/recodeflow-metadata-v04.html">Use recodeflow metadata with MockData v0.4</a></li>
+    <li><a class="dropdown-item" href="articles/survival-dates-v05.html">Add survival dates to your metadata</a></li>
     <li><a class="dropdown-item" href="articles/diagnostics-and-garbage-v04.html">Inspect diagnostics and garbage rules in MockData v0.4</a></li>
     <li><a class="dropdown-item" href="articles/migrating-from-v03-v04.html">Migrate from MockData v0.3 to v0.4</a></li>
     <li><a class="dropdown-item" href="articles/choosing-a-backend-v04.html">Choose a MockData v0.4 backend</a></li>
@@ -37,6 +38,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Explanation</h6></li>
     <li><a class="dropdown-item" href="articles/design-philosophy-v04.html">MockData v0.4 design philosophy</a></li>
+    <li><a class="dropdown-item" href="articles/survival-design-v05.html">How survival dates are generated</a></li>
     <li><a class="dropdown-item" href="articles/advanced-topics.html">Advanced topics</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Reference</h6></li>
@@ -178,6 +180,25 @@ test: add tests for parse_range_notation edge cases</code></pre>
 <li>If adding new test data, document its purpose</li>
 <li>Keep test data small and focused</li>
 </ul></div>
+<div class="section level4">
+<h4 id="vignettes-are-integration-tests">Vignettes are integration tests<a class="anchor" aria-label="anchor" href="#vignettes-are-integration-tests"></a></h4>
+<p>The vignettes run MockData’s own code on realistic metadata, and <code>R CMD check</code> rebuilds every one of them in CI. That makes them integration tests, but only if a vignette fails when the code stops doing what its prose says. A vignette that prints a number without checking it renders happily after a regression, and a number typed into the prose goes stale without anyone noticing.</p>
+<p>When you write or change a vignette:</p>
+<ul><li><p>Compute every factual claim with inline R (<code>`r n_deaths`</code>) instead of typing the number into the prose.</p></li>
+<li>
+<p>Guard the claims with a hidden chunk of named <code><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot()</a></code> conditions, so the render, and therefore <code>R CMD check</code> and CI, fails with a message naming the broken claim:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="in">#| include: false</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="in">stopifnot(</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="in">  "deaths are exactly floor(n * event_prop)" = n_deaths == floor(n * 0.3),</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="in">  "no event is recorded after a death" = events_after_death == 0</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="in">)</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
+</li>
+<li><p>State known issues as claims too, with the issue number in the message. When the issue is fixed, the render fails until the documentation is updated.</p></li>
+<li><p>For a new feature, check that the assertions can fail: break the behaviour in a scratch copy and check that the render stops.</p></li>
+</ul><p>The survival vignettes (<code>tutorial-survival-data</code>, <code>survival-dates-v05</code>, <code>survival-design-v05</code>) follow this pattern.</p>
+</div>
 </div>
 <div class="section level3">
 <h3 id="building-documentation">Building Documentation<a class="anchor" aria-label="anchor" href="#building-documentation"></a></h3>
@@ -185,10 +206,10 @@ test: add tests for parse_range_notation edge cases</code></pre>
 <h4 id="prerequisites-for-documentation-builds">Prerequisites for documentation builds<a class="anchor" aria-label="anchor" href="#prerequisites-for-documentation-builds"></a></h4>
 <ol style="list-style-type: decimal"><li>
 <strong>Install Quarto</strong>: Download from <a href="https://quarto.org/docs/get-started/" class="external-link uri">https://quarto.org/docs/get-started/</a> or use Homebrew:</li>
-</ol><div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="ex">brew</span> install quarto</span></code></pre></div>
+</ol><div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="ex">brew</span> install quarto</span></code></pre></div>
 <ol start="2" style="list-style-type: decimal"><li>
 <strong>Ensure pkgdown and roxygen2 are available</strong>:</li>
-</ol><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+</ol><div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># These are in Suggests, install if needed</span></span>
 <span><span class="fu">renv</span><span class="fu">::</span><span class="fu"><a href="https://rstudio.github.io/renv/reference/install.html" class="external-link">install</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"pkgdown"</span>, <span class="st">"roxygen2"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <ol start="3" style="list-style-type: decimal"><li>
@@ -199,7 +220,7 @@ test: add tests for parse_range_notation edge cases</code></pre>
 </div>
 <div class="section level4">
 <h4 id="building-the-pkgdown-site">Building the pkgdown site<a class="anchor" aria-label="anchor" href="#building-the-pkgdown-site"></a></h4>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># 1. Regenerate .Rd files from roxygen comments (after editing R documentation)</span></span>
 <span><span class="fu">roxygen2</span><span class="fu">::</span><span class="fu"><a href="https://roxygen2.r-lib.org/reference/roxygenize.html" class="external-link">roxygenize</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
@@ -212,18 +233,18 @@ test: add tests for parse_range_notation edge cases</code></pre>
 </div>
 <div class="section level4">
 <h4 id="rendering-individual-vignettes">Rendering individual vignettes<a class="anchor" aria-label="anchor" href="#rendering-individual-vignettes"></a></h4>
-<div class="sourceCode" id="cb12"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co"># From project root</span></span>
-<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="ex">quarto</span> render vignettes/getting-started.qmd <span class="at">--to</span> html</span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># From project root</span></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="ex">quarto</span> render vignettes/getting-started.qmd <span class="at">--to</span> html</span></code></pre></div>
 </div>
 </div>
 <div class="section level3">
 <h3 id="validation-tools">Validation Tools<a class="anchor" aria-label="anchor" href="#validation-tools"></a></h3>
 <p>Before submitting, run the validation tools:</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># Validate metadata quality</span></span>
-<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="ex">Rscript</span> mockdata-tools/validate-metadata.R</span>
-<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a></span>
-<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a><span class="co"># Test coverage across cycles</span></span>
-<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a><span class="ex">Rscript</span> mockdata-tools/test-all-cycles.R</span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="co"># Validate metadata quality</span></span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="ex">Rscript</span> mockdata-tools/validate-metadata.R</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="co"># Test coverage across cycles</span></span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a><span class="ex">Rscript</span> mockdata-tools/test-all-cycles.R</span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -315,7 +336,7 @@ Developed by Juan Li, Douglas Manuel, and recodeflow contributors.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>
